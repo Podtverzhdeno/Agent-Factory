@@ -21,5 +21,10 @@ All values below are PLANNED, not implemented.
 | AF-REQ-021 | T15 | SDD and CI enforcement |
 | AF-REQ-022 | T16 | legal data scope and escalation |
 | AF-REQ-023 | T17 | LiteLLM gateway: tenant/provider isolation, budgets, failure-handling |
+| AF-REQ-024, AF-REQ-025 | T18 | typed business package, attachment manifests, rights, tenant access |
+| AF-REQ-026, AF-REQ-027 | T19 | secure document ingestion, traceable extracted rules, generated output templates |
+| AF-REQ-028 | T20 | independent holdout access isolation and contamination tests |
+| AF-REQ-029 | T21 | minimal tool mapping, explained selection, missing capability blockers |
+| AF-REQ-030 | T22 | readiness, immutable task revision, change-triggered regression |
 
 Fill exact CI/evaluation evidence in implementation PR. Do not invent links.
