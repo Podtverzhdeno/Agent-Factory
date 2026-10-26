@@ -37,7 +37,7 @@ def main() -> int:
             found[req] = str(file)
             if "#### Scenario:" not in b or "- **WHEN**" not in b or "- **THEN**" not in b:
                 errors.append(f"missing scenario WHEN/THEN: {req}")
-    expected = {f"AF-REQ-{i:03d}" for i in range(1, 23)}
+    expected = {f"AF-REQ-{i:03d}" for i in range(1, 24)}
     if set(found) != expected:
         errors.append(f"requirement mismatch: missing={sorted(expected-set(found))}, extra={sorted(set(found)-expected)}")
     task = CHANGE / "tasks.md"
