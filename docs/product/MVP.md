@@ -7,6 +7,10 @@ Status: PROPOSED. No customer-ready feature exists yet.
 ## Actors
 Factory Operator (inputs business task and acceptance); Domain Expert (gold examples, business approvals); Integration Owner (credentials, tool manifests, access); Authorized A2A client (invocation).
 
+## Task package and file readiness (required for P0)
+
+The user must be able to create a **Business Task Package** with typed business inputs and expected outputs, approved workflow/rules, file-based examples and templates, connector requirements, safety bounds and testable acceptance. Upload support must include XLSX, PDF, DOCX, CSV, JSON/API contracts; formats are implementation acceptance requirements, not a claim of current support. Parsing must be safe, provenance-aware and asynchronous when expensive. Examples for Builder/GEPARD and sealed independent holdouts for Evaluation remain isolated. The factory must ask for missing rules, permissions or gold results instead of fabricating instructions or pass metrics.
+
 ## P0 — core MVP
 BusinessTask schema; verified Tool/MCP Registry; minimal-capability planner; immutable AgentSpec compiler; isolated runner; independent business evaluators; failure diagnosis; bounded repair controller; evidence/audit; explicit BLOCKED/FAILED/VERIFIED status. Only synthetic or authorized datasets.
 
