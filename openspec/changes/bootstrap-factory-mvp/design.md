@@ -1,3 +1,7 @@
+# DRAFT — logical design only; owner microservice topology is pending
+
+Owner choice: microservices. Functions described below are NOT a deployment map or approved service boundaries. Ask questions in docs/architecture/OWNER_QUESTIONNAIRE.md; follow owner-approved ADR-0002 before implementing services.
+
 # Design — initial verified agent factory
 
 ## Logical architecture
