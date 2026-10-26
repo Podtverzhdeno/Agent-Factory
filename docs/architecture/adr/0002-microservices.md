@@ -41,6 +41,10 @@ Specific endpoints and the complete topology remain PENDING owner ratification.
 
 A new OpenSpec change `a2a-bilateral-evaluation` proposes dialogue simulation and joint business-outcome evaluation using an authorized organization A agent and organization B agent. Candidate implementation: Evaluation Python workers under explicit Orchestrator commands, GEPARD per tenant, frozen-partner cross-play and independent tenant release gates. The owner must determine the milestone priority, consent rules, trace visibility and service boundaries; nothing here ratifies the architecture. See docs/architecture/A2A_BILATERAL_EVALUATION_RFC.md.
 
+## New requested capabilities — not owner topology ratification
+
+The owner described independent A and B business packages and Builder jobs converging into a shared A2A test/optimization loop, with durable execution, short/long memory, tools/MCP and ReAct present in the initial harness, plus versioned AgentStore for ongoing operation. Owner requested separate price/quality model-routing experiments through LiteLLM that preserve both firms' business results. New architecture RFC: docs/architecture/TWIN_AGENT_HARNESS_RFC.md. New requirements AF-REQ-038..048, proposed AgentStore release responsibility not yet decided as own microservice.
+
 ## Required architectural evidence
 Owner-authored C4 container diagram, communication/data ownership map, representative request/async sequence, failure and security model, alternatives considered and rationale. Refer to ../OWNER_QUESTIONNAIRE.md.
 
