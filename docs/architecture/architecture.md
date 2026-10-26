@@ -1,3 +1,7 @@
+# Microservices: owner-selected architectural style
+
+Actual service topology, communication patterns, data ownership and deployment remain **UNAPPROVED** until the project owner personally completes docs/architecture/OWNER_QUESTIONNAIRE.md and ratifies docs/architecture/adr/0002-microservices.md. Logical steps below must NOT be interpreted as one service per step.
+
 # Architecture: verified, minimal, self-optimizing agent factory
 
 Status: PROPOSED.
