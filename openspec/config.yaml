@@ -3,6 +3,8 @@ schema: spec-driven
 context: |
   Product: Verified Self-Optimizing B2B Agent Factory.
   Status: greenfield, specification-only until the MVP implementation starts.
+  Architecture style: MICROSERVICES required by owner. Service topology and protocols PENDING owner ADR-0002;
+    AI must ask owner architectural questions and cannot approve choices on the owner's behalf.
   Runtime target: Python 3.12+, FastAPI, Pydantic, PostgreSQL; adapters for A2A, MCP,
     LLM gateways, evaluations, GEPARD and swappable durable execution.
   Scope: minimal trusted agent creation -> sandbox run -> independent evaluation ->
