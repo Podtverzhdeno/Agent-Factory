@@ -10,6 +10,9 @@ Factory Operator (inputs business task and acceptance); Domain Expert (gold exam
 ## P0 — core MVP
 BusinessTask schema; verified Tool/MCP Registry; minimal-capability planner; immutable AgentSpec compiler; isolated runner; independent business evaluators; failure diagnosis; bounded repair controller; evidence/audit; explicit BLOCKED/FAILED/VERIFIED status. Only synthetic or authorized datasets.
 
+## Owner-selected common inference gateway
+LiteLLM Proxy is included in the MVP as the centralized, tenant-scoped model gateway for Agent Runtime and GEPARD. Provider keys remain centralized; independent budget/credential/rate-limit tests are part of pilot quality criteria. A gateway with missing budget persistence is not considered ready.
+
 ## P1 — essential demo
 GEPARD prompt/harness optimizer (isolated, baseline + held-out tests); swappable durable runtime (crash/resume and idempotency tests); independent A2A client/server exchange; human release gate; operator-facing API/CLI.
 
