@@ -20,8 +20,15 @@ The factory assembles minimal B2B agents, verifies their outcomes, applies bound
 8. MCP trust boundary and secrets policy: TBD
 9. A2A gateway and tenant authorization: TBD
 10. Hosting/deployment, observability, SLO: TBD
+11. LLM routing: owner chose **LiteLLM Gateway** for MVP. Agent Runtime and GEPARD route inference through it; specific service topology, budgets, credential ownership and deployment are still to be approved in GitHub.
 
-## Decision log (not ADR ratification)\n\n- Owner confirmed in chat: **variant A**, Python-native LangGraph/PostgreSQL runtime.\n- LiteLLM is not mandated; it remains optional unless multiple providers, routing, or central budget/credential controls justify a separate gateway.\n- Formal ratification of the full ADR must still come from the owner's own traceable GitHub review/commit.\n\n## Required architectural evidence
+## Decision log (not ADR ratification)
+
+- Owner confirmed in chat: **variant A**, Python-native LangGraph/PostgreSQL runtime.
+- Owner's latest decision: **include LiteLLM as the centralized LLM Gateway from MVP**, with provider key isolation, quotas, usage tracking and a separate service-owned database.
+- Formal ratification of the full ADR must still come from the owner's own traceable GitHub review/commit.
+
+## Required architectural evidence
 Owner-authored C4 container diagram, communication/data ownership map, representative request/async sequence, failure and security model, alternatives considered and rationale. Refer to ../OWNER_QUESTIONNAIRE.md.
 
 ## Guard
