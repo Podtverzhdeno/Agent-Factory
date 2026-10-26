@@ -3,7 +3,8 @@
 | Gate | Required verification | Status now |
 | --- | --- | --- |
 | S0 Specification | proposal + delta specs + design + tasks, strict OpenSpec validation, traceability | Pending CLI |
-| S1 Design/security | domain ports, failure states, threat model, tenancy, side effects and ADR | Proposed |
+| S1 Owner architectural sign-off | owner-authored or owner-ratified microservice ADR-0002, clear service map, data ownership and GitHub evidence | BLOCKED: awaiting owner |
+| S1b Design/security | domain ports, failure states, threat model, tenancy, side effects and ADR | Proposed |
 | S2 Code | Ruff + Pyright + pytest + contract/API/migration/security checks | Not implemented |
 | S3 Domain | 2 independently evaluated tasks, zero false PASS, negative safety cases, artifact hashes | Not implemented |
 | S4 Interoperability | separate A2A client, durable fault injection and no repeated business effect | Not implemented |
