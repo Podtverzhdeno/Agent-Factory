@@ -22,6 +22,10 @@
 - [ ] T09 (AF-REQ-014, AF-REQ-015) Implement approval workflow, versioned release, audit and rollback; tests: approval required and safety veto overrides score.
 - [ ] T10 (AF-REQ-016) Build two distinct B2B task fixtures and automate no-code factory reconfiguration test; record comparative evidence.
 
+## MVP gateway — owner requested
+
+- [ ] T17 (AF-REQ-023) Integrate LiteLLM Proxy through ModelGateway port; configure its dedicated database, central provider credentials, model allowlists, per-tenant/agent budget tracking, rate limits, trace correlation and tests for unauthorized model access, exceeded budget, missing DB and provider failure. Do not expose provider credentials to agents or prompts.
+
 ## P2 — experiments (not release dependencies)
 
 - [ ] T11 (AF-REQ-017) Benchmark Soup/LoRA against prompt-only and model-router baselines on a separate held-out dataset; assess cost per correct task including training and ops.
