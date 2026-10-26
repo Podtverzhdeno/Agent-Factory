@@ -4,6 +4,14 @@ Status: PROPOSED. No customer-ready feature exists yet.
 
 **Customer outcome:** take a constrained B2B task, assemble minimum sufficient agent from pre-approved tools/MCP/skills, execute it in sandbox, independently evaluate, repair in bounds, and produce verified release or explicit BLOCKED reason.
 
+## Product priority — explicitly clarified by owner (2026-10-27)
+
+**Primary product:** produce, test, optimize and reliably operate ONE specialized B2B agent per approved business process, with tools/MCP, versioned AgentSpec, memory/recovery, GEPARD, LiteLLM cost-quality comparison, independent quality gates and A2A interoperability as a runtime capability.
+
+**OPTIONAL ADD-ON:** jointly create and optimize TWO agents from different organizations. Bilateral A2A eval/simulation is a subsequent product scenario and NOT a prerequisite for selling or validating the single-agent MVP. Do not make two-enterprise procurement or a paired business process a hard go-to-market dependency.
+
+**Competitive uncertainty:** SAP withdrew ordinary Russia cloud/sales service; Relevance AI has strong global feature overlap but official Russia corporate sales/support were not confirmed in public sources. Russia still has domestic Yandex AI Studio, Just AI Agent Platform, GigaChat Enterprise and MWS AI Agents Platform. Differentiation must be demonstrated, not inferred from being first.
+
 ## Actors
 Factory Operator (inputs business task and acceptance); Domain Expert (gold examples, business approvals); Integration Owner (credentials, tool manifests, access); Authorized A2A client (invocation).
 
