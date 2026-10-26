@@ -6,6 +6,14 @@
 
 - [ ] T00 — Owner @Podtverzhdeno personally specifies microservice boundaries and approves ADR-0002 with GitHub-verifiable evidence. Keep topology-dependent implementation BLOCKED until then.
 
+## Business Task Package and files — prerequisite to usable Builder
+
+- [ ] T18 (AF-REQ-024, AF-REQ-025) Implement versioned typed BusinessTaskPackage, artifact roles, ACL, immutable hashes and tenant-scoped S3-compatible upload references; tests: schema errors, rights, cross-tenant, corruption and version pinning.
+- [ ] T19 (AF-REQ-026, AF-REQ-027) Implement safe async PDF/DOCX/XLSX/CSV and API-schema ingestion workers; preserve sheet/page/row provenance, pair examples and extract candidate instructions/output templates; tests: macros, malicious documents, corrupted files, ambiguity, output file structure.
+- [ ] T20 (AF-REQ-028) Implement train/validation/hidden-holdout partitioning with Evaluation-owned vault and explicit access-control enforcement; tests: deny Builder/GEPARD, near-duplicate cases, holdout answer leakage.
+- [ ] T21 (AF-REQ-029) Implement grounded capability mapping from approved workflow and files to Tool/MCP Registry, explain tool selection and block on missing permissions/capability; tests: minimum tool coverage, unused payment tools denied and missing integration blocker.
+- [ ] T22 (AF-REQ-030) Implement intake READY readiness, owner-validated clarifications, immutable build snapshot, change invalidation and affected-agent re-evaluation; tests: changed SOP/template revision and stale build rejection.
+
 ## P0 — specifications and contracts
 
 - [ ] T01 (AF-REQ-001, AF-REQ-002) Implement validated BusinessTask and success-criteria models; tests: valid/invalid objectives, missing benchmarks and forbidden actions.
