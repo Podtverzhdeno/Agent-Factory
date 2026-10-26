@@ -76,3 +76,18 @@ The platform SHALL obtain authorization for proprietary data use and escalate un
 #### Scenario: Unknown product substitution
 - **WHEN** candidate chemical substitutions have no verified equivalence or approval
 - **THEN** the agent requests an authorized domain review rather than treating them as interchangeable
+
+### Requirement: AF-REQ-023 — Centralized LLM Gateway
+The factory SHALL route Agent Runtime and GEPARD inference through a tenant-scoped LiteLLM Gateway with approved model access, provider credential isolation, usage logging, per-tenant/agent budgets and rate limits. The gateway SHALL use the persistence required for enforceable budget controls.
+
+#### Scenario: Allowed model call
+- **WHEN** a released agent invokes a permitted model within configured budget
+- **THEN** LiteLLM forwards the request without disclosing provider credentials and records attributable usage
+
+#### Scenario: Forbidden model or budget exhausted
+- **WHEN** an agent requests an unauthorized model or exceeds its configured spend limit
+- **THEN** the gateway denies the request and records a policy audit event
+
+#### Scenario: Gateway persistence unavailable
+- **WHEN** the LiteLLM budget storage is unavailable or cannot enforce a mandatory spend cap
+- **THEN** the system fails closed for requests requiring that cap instead of silently bypassing policy
