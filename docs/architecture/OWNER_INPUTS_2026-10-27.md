@@ -28,3 +28,7 @@ The owner explicitly corrected three interactions:
 3. Soup is invoked directly by Factory Orchestrator, NOT by GEPARD. The orchestrator can initiate specialized fine-tuning based on evidence of a model limitation or an explicit request to specialize.
 
 **Implementation safety interpretation (assistant proposal awaiting topology ratification):** Read production AgentSpec/config through an authorized versioned agent API and/or artifact repository. Write candidate revisions into isolated evaluation runtime; only Orchestrator promotes a candidate after independent evaluation, safety checks and any mandatory approval. Default safe automatic promotion for low-risk changes is allowed by policy; no unsafe direct mutable production edit.
+
+## Product priority clarified by owner — 2026-10-27
+
+**PRIMARY: one specialized B2B agent** built and independently evaluated for one organization's Business Task Package. A2A endpoint support remains useful for future interoperable invocation. **OPTIONAL: bilateral A2A agent building/optimization between two firms**; this must not be a mandatory MVP condition, require two paying customers or become the main commercial sales funnel. Global competitors already cover many GEPARD-like improvement, evaluation, model routing and durable functions, so competitive uniqueness is not assumed.
