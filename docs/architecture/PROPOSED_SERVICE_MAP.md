@@ -16,6 +16,7 @@ Control plane manages creation, policy, contracts, optimization and release. Dat
 | evaluation | Python | independent test datasets, business outcome validators, regression reports and failure taxonomy | independently scalable async workers |
 | gepard-optimizer | Python | prompt/harness/tool-config optimization and experiment management; NEVER bypasses release gate | independent async service |
 | soup-trainer | Python/GPU | optional approved dataset fine-tuning and model artifact production | separate optional service, not MVP critical path |
+| llm-gateway | LiteLLM Proxy | centralized model/provider access, tenant budgets, model allowlists, quotas and usage reporting | **owner-selected component**, proposed independent shared gateway with its own database |
 
 A2A ingress can initially use a standard reverse proxy/API gateway routing authorized endpoints to Python A2A SDK served by each agent container. No bespoke A2A microservice required at MVP.
 
@@ -41,7 +42,7 @@ Owner chose A for MVP. The complete service topology and ADR still require GitHu
 
 ## Complementary stack proposals
 
-PostgreSQL; Java Spring Security or managed identity provider; OpenTelemetry Collector for Java/Python end-to-end traces; Langfuse for LLM-specific traces/experiments; Prometheus/Grafana for platform metrics; S3-compatible object storage; managed secrets vault; **no LiteLLM proxy required for the single-provider MVP**: use a typed Python ModelGateway adapter first. Consider LiteLLM Python SDK or gateway only after multiple providers, centralized spend caps, virtual keys or automated routing justify its cost and operational complexity; optional Redis/vector index only on evidence of need.
+PostgreSQL; Java Spring Security or managed identity provider; OpenTelemetry Collector for Java/Python end-to-end traces; Langfuse for LLM-specific traces/experiments; Prometheus/Grafana for platform metrics; S3-compatible object storage; managed secrets vault; **LiteLLM Proxy is required in MVP by owner's latest decision**. Both Agent Runtime and GEPARD call a typed ModelGateway interface backed by LiteLLM, with approved model IDs, tenant quotas, usage records, rate limits, encrypted provider secrets and its own service-owned persistence; do not assume that proxy budget controls work without a configured database; optional Redis/vector index only on evidence of need.
 
 ## Environment
 
