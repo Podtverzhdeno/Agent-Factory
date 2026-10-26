@@ -7,6 +7,8 @@ context: |
     AI must ask owner architectural questions and cannot approve choices on the owner's behalf.
   Runtime target: Python 3.12+, FastAPI, Pydantic, PostgreSQL; adapters for A2A, MCP,
     LLM gateways, evaluations, GEPARD and swappable durable execution.
+  Task intake: typed immutable Business Task Package with classified file artifacts; separate
+    sealed holdout evaluation cases are never accessible to Builder or GEPARD.
   Scope: minimal trusted agent creation -> sandbox run -> independent evaluation ->
     bounded remediation -> approval -> versioned release.
   Spec authority: openspec changes and archived baseline specifications.
