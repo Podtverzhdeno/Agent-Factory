@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CHANGE = ROOT / "openspec/changes/bootstrap-factory-mvp"
 REQUIRED = [
     "README.md", "AGENTS.md", ".specify/memory/constitution.md", "openspec/config.yaml",
-    "docs/product/MVP.md", "docs/architecture/architecture.md", "docs/process/SDD.md",
+    "docs/product/MVP.md", "docs/architecture/architecture.md", "docs/architecture/OWNER_QUESTIONNAIRE.md", "docs/architecture/adr/0002-microservices.md", "docs/process/SDD.md",
     "docs/quality/gates.md", "docs/quality/traceability.md",
     "openspec/changes/bootstrap-factory-mvp/proposal.md",
     "openspec/changes/bootstrap-factory-mvp/design.md",
