@@ -1,0 +1,24 @@
+# MVP requirement traceability
+
+All values below are PLANNED, not implemented.
+
+| Requirements | Tasks | Acceptance evidence |
+| --- | --- | --- |
+| AF-REQ-001, AF-REQ-002 | T01 | typed task validation, gap detection |
+| AF-REQ-003, AF-REQ-004 | T02 | registered tools + denied permissions |
+| AF-REQ-005, AF-REQ-006 | T03 | minimal tools, immutable AgentSpec |
+| AF-REQ-007 | T04 | sandbox and spend bounds |
+| AF-REQ-008, AF-REQ-009 | T05 | independent rubric and hard safety gates |
+| AF-REQ-010, AF-REQ-011 | T06 | bounded repair + GEPARD regression |
+| AF-REQ-012 | T07 | injected crash/resume no duplicate effects |
+| AF-REQ-013 | T08 | independent A2A client invocation |
+| AF-REQ-014, AF-REQ-015 | T09 | approvals, release, rollback |
+| AF-REQ-016 | T10 | two different tasks, zero core code changes |
+| AF-REQ-017 | T11 | optional Soup/LoRA benchmark + data rights |
+| AF-REQ-018 | T12 | optional Pi Durable adapter benchmark |
+| AF-REQ-019 | T13 | redacted trace, tenant isolation |
+| AF-REQ-020 | T14 | adversarial security scenarios |
+| AF-REQ-021 | T15 | SDD and CI enforcement |
+| AF-REQ-022 | T16 | legal data scope and escalation |
+
+Fill exact CI/evaluation evidence in implementation PR. Do not invent links.
