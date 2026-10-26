@@ -24,9 +24,17 @@ A2A ingress can initially use a standard reverse proxy/API gateway routing autho
 
 Each service owns an independent database, user/role and migrations. For initial cost control, multiple logical PostgreSQL databases can share a physical server or managed cluster; other services must use APIs/events, not read each other's tables. Object storage is used for immutable AgentSpec/build artifacts and dataset versions; Langfuse maintains its own supported backing store.
 
+## Owner-corrected orchestration and direct invocation
+
+- **Orchestrator -> Agent Builder**: explicit authenticated REST command `POST /internal/builds` containing task ID, approved policy/registry snapshot and idempotency key; return `202 Accepted` and build ID for long-running build. Builder does not infer work from Kafka on its own. Builder emits versioned `agent.assembled` / `build.failed` completion events to Kafka; Orchestrator consumes them and advances persisted build state.
+- **Orchestrator -> Evaluation**: explicit request/command for the identified immutable AgentSpec and dataset; Evaluation executes in isolated agent candidate runtime, publishes results and findings to Orchestrator.
+- **Orchestrator -> GEPARD**: explicit optimization request with current candidate version, evaluation failure diagnostics and budget; GEPARD directly reads agent prompt/harness/config via authorized Agent Runtime introspection and/or the same immutable AgentSpec source, and can submit candidate revisions for sandbox trials. It MUST NOT directly mutate a serving production instance. The independent Evaluation service tests any candidate; Orchestrator automatically promotes passing low-risk revisions through a versioned deployment operation and rolls back regressions.
+- **Orchestrator -> Soup**: explicit REST/job command initiated by the Orchestrator, either after failures indicate model limitations despite prompt/tool optimization or when authorized specialization is requested. Soup has NO GEPARD trigger/dependency. Soup returns a versioned trained-model artifact; Orchestrator requests evaluation before model rollout.
+- **Kafka** carries intentionally produced lifecycle events, e.g. `agent.assembled`, `evaluation.completed`, `optimization.completed`, `training.completed`, `release.ready`. Subscribers process them by registered handlers with correlation ID, schema version, idempotency and DLQ; Kafka is not a workflow planner.
+
 ## Communication proposal — owner has not finalized REST/Kafka
 
-REST/OpenAPI for commands and query responses (task creation, tool registry lookup, approvals, build status). Kafka for asynchronous stage transitions, long evaluations and optimizer work, e.g. build.requested -> agent.assembled -> evaluation.completed -> optimization.requested -> evaluation.completed -> release.ready.
+REST/OpenAPI for commands and query responses (task creation, tool registry lookup, approvals, build status). Kafka for asynchronous stage transitions, long evaluations and optimizer work, e.g. explicit REST build command -> agent.assembled -> explicit evaluation request -> evaluation.completed -> explicit GEPARD or Soup command -> optimization.completed or training.completed -> explicit retest -> release.ready.
 
 Use correlation IDs, schema versions, backoff/DLQ, persisted orchestration state, transactional outbox and idempotent consumers. Kafka does not replace the durable build state machine or guarantee exactly-once non-Kafka external writes. A2A should expose protocol-compliant HTTP/JSON-RPC independently of internal Kafka.
 
