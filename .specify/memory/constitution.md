@@ -1,6 +1,6 @@
 # Agent Factory engineering constitution
 
-Version: 1.0.0 | Adopted: 2026-10-26 | Scope: all code, plans, tools, evaluations and deployments.
+Version: 1.1.0 DRAFT | Updated: 2026-10-26 | Owner ratification pending | Scope: all code, plans, tools, evaluations and deployments.
 
 ## I. Outcome before automation
 
@@ -30,7 +30,11 @@ Deny-by-default, least privilege, RBAC, strict tenant separation and data minimi
 
 Separate domain contracts, application orchestration, infrastructure adapters, agent runtime and UI. The domain never imports frameworks (LangGraph, Pi, MCP SDK, Langfuse, Soup). Use typed ports and adapters to avoid lock-in. ADR required for strategic changes.
 
-## VIII. Evidence-based releases
+## VIII. Owner-controlled microservice architecture
+
+Microservices are required by project owner @Podtverzhdeno. The owner personally authors or ratifies service boundaries, protocols, data ownership and deployment in ADR-0002, supported by actual GitHub review/commit evidence. AI must elicit, challenge and document alternatives but cannot infer owner decisions or approve for them. No topology-dependent implementation before this approval.
+
+## IX. Evidence-based releases
 
 Every merge requires spec validation, lint/type/unit/contract checks where applicable, e2e of the changed vertical slice, threat review and rollback instructions. Every release records baselines, results, failures and approval. No fabricated E2E claims and no weakening gates to get green CI.
 
