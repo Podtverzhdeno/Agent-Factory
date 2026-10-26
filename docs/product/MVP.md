@@ -11,6 +11,10 @@ Factory Operator (inputs business task and acceptance); Domain Expert (gold exam
 
 The user must be able to create a **Business Task Package** with typed business inputs and expected outputs, approved workflow/rules, file-based examples and templates, connector requirements, safety bounds and testable acceptance. Upload support must include XLSX, PDF, DOCX, CSV, JSON/API contracts; formats are implementation acceptance requirements, not a claim of current support. Parsing must be safe, provenance-aware and asynchronous when expensive. Examples for Builder/GEPARD and sealed independent holdouts for Evaluation remain isolated. The factory must ask for missing rules, permissions or gold results instead of fabricating instructions or pass metrics.
 
+## File-backed task definition
+
+P0 requires a typed Business Task Package: objectives, business rules, input and output file schemas, versioned approved examples, authorized integration needs and measurable acceptance tests. XLSX, PDF, DOCX, CSV and API-contract inputs must be processed with provenance. Builder/GEPARD can see approved examples; sealed gold acceptance cases remain exclusive to Evaluation. Unclear rules or missing permissions prevent build readiness.
+
 ## P0 — core MVP
 BusinessTask schema; verified Tool/MCP Registry; minimal-capability planner; immutable AgentSpec compiler; isolated runner; independent business evaluators; failure diagnosis; bounded repair controller; evidence/audit; explicit BLOCKED/FAILED/VERIFIED status. Only synthetic or authorized datasets.
 
