@@ -24,9 +24,11 @@ jobs:
         run: |
           python scripts/check_sdd.py
           python scripts/check_a2a_sdd.py
+          python scripts/check_twin_agent_sdd.py
       - name: Install OpenSpec CLI
         run: npm install --global @fission-ai/openspec@latest
       - name: Validate change strictly
         run: |
           openspec validate bootstrap-factory-mvp --strict
           openspec validate a2a-bilateral-evaluation --strict
+          openspec validate twin-agent-harness --strict
