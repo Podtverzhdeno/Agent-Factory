@@ -2,6 +2,10 @@
 
 Read in order: README.md → .specify/memory/constitution.md → docs/process/SDD.md → current openspec/changes/*/proposal.md, design.md, tasks.md and delta specs → docs/quality/gates.md.
 
+## Architecture ownership — mandatory
+
+Project owner @Podtverzhdeno selected a **MICROSERVICE** architecture and SHALL personally define and ratify service boundaries, per-service data ownership, communication and deployment architecture. Ask the owner questions from docs/architecture/OWNER_QUESTIONNAIRE.md. AI suggestions are DRAFT; NEVER state owner-approved architecture without real GitHub approval. Service topology implementation is BLOCKED until owner ratifies docs/architecture/adr/0002-microservices.md.
+
 ## Workflow
 
 1. Investigate repository state. This is a greenfield project: do not assume functionality exists.
