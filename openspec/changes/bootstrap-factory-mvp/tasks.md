@@ -2,6 +2,10 @@
 
 **Status: all implementation tasks OPEN.** This PR establishes specifications only. Mark [x] after cited executable proof.
 
+## Owner architecture prerequisite
+
+- [ ] T00 — Owner @Podtverzhdeno personally specifies microservice boundaries and approves ADR-0002 with GitHub-verifiable evidence. Keep topology-dependent implementation BLOCKED until then.
+
 ## P0 — specifications and contracts
 
 - [ ] T01 (AF-REQ-001, AF-REQ-002) Implement validated BusinessTask and success-criteria models; tests: valid/invalid objectives, missing benchmarks and forbidden actions.
