@@ -17,6 +17,7 @@ Business task + measurable acceptance criteria → trusted capability selection 
 - Working agreement: [AGENTS.md](AGENTS.md) and [SDD workflow](docs/process/SDD.md).
 - Product scope: [docs/product/MVP.md](docs/product/MVP.md).
 - File-backed business requirements: [Business Task Package RFC](docs/architecture/BUSINESS_TASK_PACKAGE_RFC.md) (owner review pending).
+- Proposed two-company A2A simulation and optimization: [Bilateral A2A RFC](docs/architecture/A2A_BILATERAL_EVALUATION_RFC.md) and [OpenSpec change](openspec/changes/a2a-bilateral-evaluation/) (P1 research, owner approval pending).
 - Microservices (**style selected by owner; topology not yet approved**): [architectural questions](docs/architecture/OWNER_QUESTIONNAIRE.md), [owner ADR](docs/architecture/adr/0002-microservices.md), [logical architecture](docs/architecture/architecture.md).
 - Current proposed change: [bootstrap-factory-mvp](openspec/changes/bootstrap-factory-mvp/).
 
