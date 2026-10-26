@@ -20,5 +20,6 @@ All values below are PLANNED, not implemented.
 | AF-REQ-020 | T14 | adversarial security scenarios |
 | AF-REQ-021 | T15 | SDD and CI enforcement |
 | AF-REQ-022 | T16 | legal data scope and escalation |
+| AF-REQ-023 | T17 | LiteLLM gateway: tenant/provider isolation, budgets, failure-handling |
 
 Fill exact CI/evaluation evidence in implementation PR. Do not invent links.
