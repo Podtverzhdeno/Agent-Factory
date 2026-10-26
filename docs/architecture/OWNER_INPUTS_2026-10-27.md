@@ -19,3 +19,12 @@ IMPORTANT: The owner still needs to personally accept or change the recommended 
 Latest owner follow-up: explicitly selected option A (Python-native LangGraph/PostgreSQL runtime). LiteLLM was initially questioned. **LATEST OWNER DECISION: ADD LiteLLM to MVP architecture** as shared, centralized LLM Gateway. Route Agent Runtime and GEPARD inference through it; centralize provider credentials, per-agent/tenant limits, usage auditing and model routing. Physical service placement/configuration remains subject to owner approval of full ADR-0002.
 
 Remaining open decisions: (a) exact deployable service boundaries; (b) REST/Kafka final topology; (c) deployment/hosting plan; (d) physical vs logical service databases; (e) agent container scale and security.
+
+## Owner review of C4 Level 2 (2026-10-27)
+
+The owner explicitly corrected three interactions:
+1. Factory Orchestrator directly invokes Agent Builder to create agents. Kafka is a transport for deliberately published messages and events; it does not independently decide to build.
+2. GEPARD is directly connected to the agent: it obtains the actual system prompt/harness/configuration, tests changes and should automatically apply demonstrated improvements.
+3. Soup is invoked directly by Factory Orchestrator, NOT by GEPARD. The orchestrator can initiate specialized fine-tuning based on evidence of a model limitation or an explicit request to specialize.
+
+**Implementation safety interpretation (assistant proposal awaiting topology ratification):** Read production AgentSpec/config through an authorized versioned agent API and/or artifact repository. Write candidate revisions into isolated evaluation runtime; only Orchestrator promotes a candidate after independent evaluation, safety checks and any mandatory approval. Default safe automatic promotion for low-risk changes is allowed by policy; no unsafe direct mutable production edit.
