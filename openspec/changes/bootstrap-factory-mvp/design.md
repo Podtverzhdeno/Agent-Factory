@@ -17,6 +17,15 @@ Owner choice: microservices. Functions described below are NOT a deployment map 
 9. Release Manager: immutable artifacts, independent hidden holdout, human approval for risky effects, signed provenance record, rollback.
 10. Optional Training Port: Soup/LoRA only for licensed, sufficiently sized datasets and demonstrable gain per correctly completed task.
 
+## Corrected service interaction sequence (explicit owner feedback)
+
+1. Orchestrator issues an explicit authenticated REST command to Agent Builder (`POST /internal/builds` with version, idempotency key and budget), persists its running state and awaits an async completion signal. Kafka records completion/failure events; an event itself does not decide the next build.
+2. Builder selects approved capabilities and creates immutable AgentSpec. A candidate Agent Runtime is provisioned using the common Python/LangGraph runtime image.
+3. Orchestrator requests Evaluation on candidate runtime with fixed tests. Evaluation produces outcome, traces, error taxonomy and independent checks; Orchestrator decides next phase.
+4. Orchestrator invokes GEPARD with agent/version ID, current prompt/harness and evaluation evidence. GEPARD directly interacts with Agent Runtime or versioned AgentSpec via read-only authorized interface, proposes optimizations and evaluates trial candidates in sandbox. It does NOT directly overwrite an active production instance. Orchestrator schedules independent re-evaluation and automatically rolls out passing low-risk changes through controlled version promotion.
+5. If a specialization request exists OR evidence indicates model-level limitations after other repairs, Orchestrator directly invokes optional Soup Training, independent of GEPARD. Any model artifact receives a new immutable version and requires re-evaluation before release.
+6. After passing release gates and required approvals, Orchestrator publishes the version and exposes authorized A2A. Kafka carries lifecycle events with correlation IDs; REST invokes operations explicitly.
+
 ## Model Gateway — LiteLLM (owner-selected)
 
 Factory-provisioned agents and GEPARD use a typed ModelGateway backed by a shared LiteLLM Proxy. Registry policy pins allowed models per AgentSpec; the gateway controls provider credentials, tenant/agent budgets, quotas, routing and usage observability. A proxy database must be configured for persistent spend controls. The gateway is not a business evaluator and cannot approve agent releases. The owner has not yet ratified concrete microservice boundaries, credentials and deployment in ADR-0002.
