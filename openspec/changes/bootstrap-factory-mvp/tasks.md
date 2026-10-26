@@ -14,14 +14,6 @@
 - [ ] T21 (AF-REQ-029) Implement grounded capability mapping from approved workflow and files to Tool/MCP Registry, explain tool selection and block on missing permissions/capability; tests: minimum tool coverage, unused payment tools denied and missing integration blocker.
 - [ ] T22 (AF-REQ-030) Implement intake READY readiness, owner-validated clarifications, immutable build snapshot, change invalidation and affected-agent re-evaluation; tests: changed SOP/template revision and stale build rejection.
 
-## Business Task Package and file-based evidence
-
-- [ ] T18 (AF-REQ-024, AF-REQ-025) Implement typed versioned BusinessTaskPackage, purpose-tagged artifact references, uploads, metadata, and tenant-scoped access tests.
-- [ ] T19 (AF-REQ-026, AF-REQ-027) Implement safe PDF/DOCX/XLSX/CSV/OpenAPI parsing, provenance, paired examples, document output contracts, and ingestion tests.
-- [ ] T20 (AF-REQ-028) Implement segregated training/validation/hidden-holdout storage and access tests.
-- [ ] T21 (AF-REQ-029) Implement explainable workflow-to-tool matching and explicit missing-capability blockers.
-- [ ] T22 (AF-REQ-030) Implement task readiness, immutable build snapshots, owner clarification workflow and change-triggered regression tests.
-
 ## P0 — specifications and contracts
 
 - [ ] T01 (AF-REQ-001, AF-REQ-002) Implement validated BusinessTask and success-criteria models; tests: valid/invalid objectives, missing benchmarks and forbidden actions.
