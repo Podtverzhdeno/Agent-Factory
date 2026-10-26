@@ -17,6 +17,10 @@ Owner choice: microservices. Functions described below are NOT a deployment map 
 9. Release Manager: immutable artifacts, independent hidden holdout, human approval for risky effects, signed provenance record, rollback.
 10. Optional Training Port: Soup/LoRA only for licensed, sufficiently sized datasets and demonstrable gain per correctly completed task.
 
+## Model Gateway — LiteLLM (owner-selected)
+
+Factory-provisioned agents and GEPARD use a typed ModelGateway backed by a shared LiteLLM Proxy. Registry policy pins allowed models per AgentSpec; the gateway controls provider credentials, tenant/agent budgets, quotas, routing and usage observability. A proxy database must be configured for persistent spend controls. The gateway is not a business evaluator and cannot approve agent releases. The owner has not yet ratified concrete microservice boundaries, credentials and deployment in ADR-0002.
+
 ## Domain ports (framework-independent)
 
 TaskRepository, RegistryPort, ModelGateway, AgentRunner, EvaluationPort, TraceSink, OptimizerPort, CheckpointStore, ReleaseRepository, CredentialProvider, ApprovalService and A2ATransport. Domain only depends on contract types.
