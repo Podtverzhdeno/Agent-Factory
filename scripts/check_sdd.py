@@ -19,8 +19,8 @@ REQUIRED = [
 def main() -> int:
     errors = [f"missing file: {p}" for p in REQUIRED if not (ROOT / p).is_file()]
     files = sorted((CHANGE / "specs").glob("*/spec.md"))
-    if len(files) < 4:
-        errors.append("expected 4+ delta specs")
+    if len(files) < 5:
+        errors.append("expected 5+ delta specs")
     found: dict[str, str] = {}
     for file in files:
         txt = file.read_text(encoding="utf-8")
@@ -37,7 +37,7 @@ def main() -> int:
             found[req] = str(file)
             if "#### Scenario:" not in b or "- **WHEN**" not in b or "- **THEN**" not in b:
                 errors.append(f"missing scenario WHEN/THEN: {req}")
-    expected = {f"AF-REQ-{i:03d}" for i in range(1, 24)}
+    expected = {f"AF-REQ-{i:03d}" for i in range(1, 31)}
     if set(found) != expected:
         errors.append(f"requirement mismatch: missing={sorted(expected-set(found))}, extra={sorted(set(found)-expected)}")
     task = CHANGE / "tasks.md"
