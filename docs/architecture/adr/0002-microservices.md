@@ -28,6 +28,15 @@ The factory assembles minimal B2B agents, verifies their outcomes, applies bound
 - Owner's latest decision: **include LiteLLM as the centralized LLM Gateway from MVP**, with provider key isolation, quotas, usage tracking and a separate service-owned database.
 - Formal ratification of the full ADR must still come from the owner's own traceable GitHub review/commit.
 
+## Additional explicit owner feedback: C4 Level 2 links
+
+- Orchestrator MUST directly initiate Builder, not merely publish an ambiguous Kafka event.
+- GEPARD MUST interact with a particular agent configuration including the system prompt and harness, and its accepted improvements should automatically reach the running agent after quality-controlled release.
+- Soup MUST be initiated independently by the Orchestrator, never implicitly by GEPARD. The Orchestrator may decide from diagnostic evidence or explicit user desire to specialize.
+- Proposed safe interpretation: authorized read from agent/versioned artifacts; candidate optimization in sandbox; independent evaluation; Orchestrator-controlled automatic low-risk promotion, approvals for sensitive side effects.
+
+Specific endpoints and the complete topology remain PENDING owner ratification.
+
 ## Required architectural evidence
 Owner-authored C4 container diagram, communication/data ownership map, representative request/async sequence, failure and security model, alternatives considered and rationale. Refer to ../OWNER_QUESTIONNAIRE.md.
 
