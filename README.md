@@ -16,7 +16,7 @@ Business task + measurable acceptance criteria → trusted capability selection 
 - Engineering constitution, gates and planning methodology inspired by [Spec Kit](https://github.com/github/spec-kit): [.specify/memory/constitution.md](.specify/memory/constitution.md).
 - Working agreement: [AGENTS.md](AGENTS.md) and [SDD workflow](docs/process/SDD.md).
 - Product scope: [docs/product/MVP.md](docs/product/MVP.md).
-- Architecture: [docs/architecture/architecture.md](docs/architecture/architecture.md).
+- Microservices (**style selected by owner; topology not yet approved**): [architectural questions](docs/architecture/OWNER_QUESTIONNAIRE.md), [owner ADR](docs/architecture/adr/0002-microservices.md), [logical architecture](docs/architecture/architecture.md).
 - Current proposed change: [bootstrap-factory-mvp](openspec/changes/bootstrap-factory-mvp/).
 
 ## Developer setup for specifications
