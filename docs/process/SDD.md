@@ -2,6 +2,10 @@
 
 OpenSpec is the **single canonical source of requirements**, Spec Kit supplies constitution, clarification, planning, checklist, analysis and convergence practices. Do NOT maintain duplicate, divergent specs in both frameworks.
 
+## Mandatory architecture workshop
+
+Microservices are selected by the owner, but service boundaries, protocols, storage ownership, runtime and deployment decisions are NOT yet approved. Before DESIGN/PLAN for service implementation, the assistant SHALL ask the owner the questions in docs/architecture/OWNER_QUESTIONNAIRE.md and await a personally authored or ratified docs/architecture/adr/0002-microservices.md. Owner approval must be a real GitHub action, not bot-written text. Until then the implementation architecture gate is BLOCKED.
+
 ## Cycle
 1. EXPLORE real business task, alternatives, sample permissions and success criteria.
 2. PROPOSE: openspec/changes/<slug>/proposal.md.
