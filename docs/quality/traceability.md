@@ -27,4 +27,9 @@ All values below are PLANNED, not implemented.
 | AF-REQ-029 | T21 | minimal tool mapping, explained selection, missing capability blockers |
 | AF-REQ-030 | T22 | readiness, immutable task revision, change-triggered regression |
 
+| AF-REQ-038..040 | T30..T32 | two independent builds, durable harness and safe optimization surfaces |
+| AF-REQ-041..044 | T33..T36 | GEPARD, ReAct, memory verification and A2A attribution |
+| AF-REQ-045..047 | T37..T39 | AgentStore versions, Orchestrator-led improvement and twin E2E |
+| AF-REQ-048 | T40 | LiteLLM cheaper model non-inferiority and total cost-per-correct-operation |
+
 Fill exact CI/evaluation evidence in implementation PR. Do not invent links.
