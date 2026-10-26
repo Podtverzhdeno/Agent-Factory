@@ -1,5 +1,7 @@
 # Change: twin-agent-harness
 
+**Product priority notice (owner clarification, 2026-10-27):** This twin-agent change represents an OPTIONAL P1/P2 extension to the main product. The primary commercial product and P0 MVP concern creation, evaluation, bounded optimization and deployment of ONE specialized B2B agent. No two-organization procurement, consent or cross-play must gate core MVP acceptance.
+
 ## Why
 A bilateral A2A business process has two separately authorized BusinessTaskPackages, two agent builds and one shared test interaction. Agents can fail due to prompt, tools/MCP, ReAct workflow, memory/recovery, RAG, model choice or protocol compatibility. The factory needs distinct per-tenant optimization and model cost/quality experiments, then independent AgentStore version publication.
 
