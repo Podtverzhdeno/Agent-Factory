@@ -41,3 +41,7 @@ Safety hard gates 100%; zero false PASS on intentionally impossible tasks; two t
 
 ## Business hypothesis
 Client buys independently verified task outcome, reuse and faster rollout. Candidate revenue: onboarding/pilot + recurring runtime, monitoring, optimization + optional private models. Prices and ROI are NOT validated. Pilot interview must confirm actual volume, authorized data, pain, owner, baseline time/cost and willingness to pay.
+
+## Proposed P1 bilateral A2A pilot (not a currently implemented feature)
+
+With each participating organization's permission, create two independently configured buyer/supplier agents and evaluate the end-to-end A2A business task. Report per-tenant quality and privacy constraints, shared operation completion, messages, latency, cost and output Artifacts. Optimize A and B separately using authorized dialogue findings; replay candidate A1 with frozen B0, candidate B1 with frozen A0 and A1/B1 before any release. No sharing of proprietary prompts or sealed holdout answers; production side effects are not enabled. See docs/architecture/A2A_BILATERAL_EVALUATION_RFC.md. This feature is an optional P1 pilot, not part of P0 deliverability.
