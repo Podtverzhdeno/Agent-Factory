@@ -17,6 +17,10 @@ Owner choice: microservices. Functions described below are NOT a deployment map 
 9. Release Manager: immutable artifacts, independent hidden holdout, human approval for risky effects, signed provenance record, rollback.
 10. Optional Training Port: Soup/LoRA only for licensed, sufficiently sized datasets and demonstrable gain per correctly completed task.
 
+## Task contract and attachments feeding Builder
+
+Before Orchestrator directly commands Builder, the operator must prepare a READY immutable **Business Task Package** snapshot. The proposed Task Intake bounded context stores purpose-tagged and tenant-authorized file references, validated business rules, versioned input/output contracts and testable acceptance criteria. Python document ingestion workers normalize PDFs/DOCXs/XLSX/CSV/OpenAPI into evidence-backed assertions, preserving page/sheet/row provenance and conflicts. Builder receives approved artifact IDs and only allowed examples. Hidden gold/holdout files are evaluated under separate Evaluation authority, not accessible from Builder/GEPARD. No direct binary payloads through Kafka; only IDs/versioned events. See docs/architecture/BUSINESS_TASK_PACKAGE_RFC.md; microservice boundary requires owner approval.
+
 ## Corrected service interaction sequence (explicit owner feedback)
 
 1. Orchestrator issues an explicit authenticated REST command to Agent Builder (`POST /internal/builds` with version, idempotency key and budget), persists its running state and awaits an async completion signal. Kafka records completion/failure events; an event itself does not decide the next build.
