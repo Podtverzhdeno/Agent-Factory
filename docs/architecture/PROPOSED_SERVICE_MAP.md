@@ -33,15 +33,15 @@ Use correlation IDs, schema versions, backoff/DLQ, persisted orchestration state
 
 Published Pi Durable is an EXPERIMENTAL TypeScript/Node package, not a Python library. Factory-level inclusion means builder provisions a durable-capable runtime for the generated agent; it does NOT mean running Pi inside the Java control-plane Orchestrator.
 
-PoC option A: Python agent runtime + LangGraph/Postgres checkpointing while Pi Durable is tested as replaceable alternative (simplest Python path, but does not literally execute Pi Durable).
+**MVP RUNTIME CHOICE CONFIRMED IN CHAT (owner): option A — Python Agent Runtime + LangGraph/PostgreSQL checkpoints. Pi Durable is a separate experimental PoC, not in the MVP critical path; it does not actually run within the chosen Python harness.**
 PoC option B: Node/TypeScript Pi Durable harness invokes Python domain tools via authenticated local HTTP/MCP/gRPC and persists workflow state. Aligns with Pi Durable feature but increases language/runtime overhead.
 PoC option C: combined Python+Node agent container with explicit IPC and failure ownership; requires proof that restart semantics and external side-effects are correct.
 
-Owner must choose and ratify after crash/restart, duplicated tool-effect, timeout, cost and operational benchmark. Durable state alone is not a guarantee of exactly-once ERP writes.
+Owner chose A for MVP. The complete service topology and ADR still require GitHub-based owner ratification; durable safety still needs crash/restart, duplicated tool-effect, timeout, cost and operational benchmark. Durable state alone is not a guarantee of exactly-once ERP writes.
 
 ## Complementary stack proposals
 
-PostgreSQL; Java Spring Security or managed identity provider; OpenTelemetry Collector for Java/Python end-to-end traces; Langfuse for LLM-specific traces/experiments; Prometheus/Grafana for platform metrics; S3-compatible object storage; managed secrets vault; LiteLLM gateway only if multi-model routing needed; optional Redis/vector index only on evidence of need.
+PostgreSQL; Java Spring Security or managed identity provider; OpenTelemetry Collector for Java/Python end-to-end traces; Langfuse for LLM-specific traces/experiments; Prometheus/Grafana for platform metrics; S3-compatible object storage; managed secrets vault; **no LiteLLM proxy required for the single-provider MVP**: use a typed Python ModelGateway adapter first. Consider LiteLLM Python SDK or gateway only after multiple providers, centralized spend caps, virtual keys or automated routing justify its cost and operational complexity; optional Redis/vector index only on evidence of need.
 
 ## Environment
 
