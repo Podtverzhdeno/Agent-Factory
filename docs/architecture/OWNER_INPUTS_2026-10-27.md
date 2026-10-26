@@ -16,4 +16,6 @@ Owner: @Podtverzhdeno. Architecture style: MICROSERVICES. Ratification: PENDING.
 
 IMPORTANT: The owner still needs to personally accept or change the recommended service map in ADR-0002. No AI-generated ADR is owner-approved.
 
-Latest owner follow-up: explicitly selected option A (Python-native LangGraph/PostgreSQL runtime). LiteLLM was questioned; it is NOT an approved MVP gateway and should remain optional, behind a ModelGateway contract. An extra proxy is justified only by actual multi-provider routing, centralized budgets/keys or governance needs.\n\nRemaining open decisions: (a) exact deployable service boundaries; (b) REST/Kafka final topology; (c) deployment/hosting plan; (d) physical vs logical service databases; (e) agent container scale and security.
+Latest owner follow-up: explicitly selected option A (Python-native LangGraph/PostgreSQL runtime). LiteLLM was questioned; it is NOT an approved MVP gateway and should remain optional, behind a ModelGateway contract. An extra proxy is justified only by actual multi-provider routing, centralized budgets/keys or governance needs.
+
+Remaining open decisions: (a) exact deployable service boundaries; (b) REST/Kafka final topology; (c) deployment/hosting plan; (d) physical vs logical service databases; (e) agent container scale and security.
