@@ -1,3 +1,7 @@
+# Architecture answers and status
+
+Owner's responses to questions 1–10 are now recorded in [OWNER_INPUTS_2026-10-27.md](OWNER_INPUTS_2026-10-27.md); the [proposed service map](PROPOSED_SERVICE_MAP.md) is an assistant recommendation, not an approved architecture. This worksheet's TBD placeholders refer to pending **final topology ratification**, not an absence of owner answers. Refer to [ADR-0002](adr/0002-microservices.md).
+
 # Architectural workshop — owner decisions
 
 Architecture owner: @Podtverzhdeno.
