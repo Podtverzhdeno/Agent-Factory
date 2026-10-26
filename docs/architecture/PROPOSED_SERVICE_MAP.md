@@ -20,6 +20,14 @@ Control plane manages creation, policy, contracts, optimization and release. Dat
 
 A2A ingress can initially use a standard reverse proxy/API gateway routing authorized endpoints to Python A2A SDK served by each agent container. No bespoke A2A microservice required at MVP.
 
+## File-backed business requirements — owner review needed
+
+Builder does not receive an ambiguous CRUD description. A proposed **Business Task Package** contains an approved objective, process, runtime input/output schemas, rules, purpose-tagged attachments, paired gold examples, requested integrations, explicit permissions and business acceptance criteria. Task Intake & Artifacts can be a Java Spring Boot service or an Orchestrator bounded context; its precise deployment boundary is a decision for the owner. Independently scalable Python document-ingestion workers extract XLSX/PDF/DOCX/CSV and API schemas with source provenance.
+
+Object storage holds files; service-owned metadata databases record versions, rights and parsing status. Orchestrator issues an explicit build command referencing an immutable READY snapshot. Builder reads only approved evidence. Evaluation exclusively controls hidden holdout cases and correct answers. GEPARD never sees sealed holdout solutions. No binary files are sent through Kafka.
+
+Full proposal: BUSINESS_TASK_PACKAGE_RFC.md.
+
 ## Data ownership (owner mandates separate databases)
 
 Each service owns an independent database, user/role and migrations. For initial cost control, multiple logical PostgreSQL databases can share a physical server or managed cluster; other services must use APIs/events, not read each other's tables. Object storage is used for immutable AgentSpec/build artifacts and dataset versions; Langfuse maintains its own supported backing store.
