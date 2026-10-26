@@ -9,11 +9,11 @@ Owner: @Podtverzhdeno. Architecture style: MICROSERVICES. Ratification: PENDING.
 4. REST and Kafka are candidates, and owner requests advice, not an automatic final decision.
 5. Distinct database ownership per service is required; physical Postgres-instance count is not decided.
 6. Python for agent code, Java Spring Boot for reliable backend/control services; Langfuse for traces; other components requested as recommendations.
-7. GEPARD is a separate service; Pi Durable must be included as a factory-provisioned capability; Soup is a standalone optional service.
+7. GEPARD is a separate service; the factory must provide durable execution to generated agents. **Latest owner decision:** choose Python-native Agent Runtime with LangGraph + PostgreSQL checkpointing for MVP; Pi Durable stays as a separate research PoC, not a mandatory implementation dependency. Soup is a standalone optional service.
 8. One central Tool/MCP Registry is required and the factory selects the needed tools automatically.
 9. Infrastructure answer: 'all together'; specific Compose/Kubernetes/hosting decision requires interpretation/confirmation.
 10. Architecture should support horizontal scaling from day one.
 
 IMPORTANT: The owner still needs to personally accept or change the recommended service map in ADR-0002. No AI-generated ADR is owner-approved.
 
-Open decisions for focused follow-up: (a) mandatory TypeScript Pi Durable harness vs Python-native alternative; (b) exact deployable service boundaries; (c) REST/Kafka final topology; (d) meaning of 'all together' for deployment; (e) physical vs logical service databases.
+Latest owner follow-up: explicitly selected option A (Python-native LangGraph/PostgreSQL runtime). LiteLLM was questioned; it is NOT an approved MVP gateway and should remain optional, behind a ModelGateway contract. An extra proxy is justified only by actual multi-provider routing, centralized budgets/keys or governance needs.\n\nRemaining open decisions: (a) exact deployable service boundaries; (b) REST/Kafka final topology; (c) deployment/hosting plan; (d) physical vs logical service databases; (e) agent container scale and security.
