@@ -37,6 +37,10 @@ The factory assembles minimal B2B agents, verifies their outcomes, applies bound
 
 Specific endpoints and the complete topology remain PENDING owner ratification.
 
+## Proposed two-organization A2A evaluation — NOT YET APPROVED
+
+A new OpenSpec change `a2a-bilateral-evaluation` proposes dialogue simulation and joint business-outcome evaluation using an authorized organization A agent and organization B agent. Candidate implementation: Evaluation Python workers under explicit Orchestrator commands, GEPARD per tenant, frozen-partner cross-play and independent tenant release gates. The owner must determine the milestone priority, consent rules, trace visibility and service boundaries; nothing here ratifies the architecture. See docs/architecture/A2A_BILATERAL_EVALUATION_RFC.md.
+
 ## Required architectural evidence
 Owner-authored C4 container diagram, communication/data ownership map, representative request/async sequence, failure and security model, alternatives considered and rationale. Refer to ../OWNER_QUESTIONNAIRE.md.
 
