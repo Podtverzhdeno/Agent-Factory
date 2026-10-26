@@ -73,3 +73,25 @@ flowchart LR
 ## Confirmation pending
 
 Service count and deployability, REST/Kafka contract details, approved release thresholds, training triggers and deployment environment require owner sign-off in ADR-0002.
+
+
+## Proposed extended C4: Business Task Package (owner review pending)
+
+```mermaid
+flowchart LR
+    U["Business operator"] -->|"Create BTP / upload files"| T["Task Intake & Artifacts context (Java)"]
+    T -->|"files & metadata"| OBJ[("Object storage / service-owned metadata")]
+    T -->|"enqueue extraction"| D["Document Ingestion workers (Python)"]
+    D -->|"normalized evidence and provenance"| OBJ
+    T -->|"READY snapshot ID"| O["Factory Orchestrator (Java)"]
+    O -->|"Explicit REST build, snapshot ID"| B["Agent Builder (Python)"]
+    B -->|"approved docs and examples only"| OBJ
+    B <-->|"select permitted tools"| R["Tool & MCP Registry"]
+    O -->|"Test request"| E["Evaluation (Python)"]
+    E <-->|"sealed gold cases"| V[("Evaluation-only vault")]
+    E -->|"independent result"| O
+    O -->|"Optimization task"| G["GEPARD (Python)"]
+    G -.->|"DENIED: sealed holdout answers"| V
+```
+
+This diagram shows **candidate bounded responsibilities**, NOT an owner-approved new microservice count. Runtime inputs are distinct from historic build-time examples. Never route customer file bytes or secret keys through Kafka topics.
