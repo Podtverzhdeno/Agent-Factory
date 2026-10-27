@@ -62,7 +62,8 @@ public final class InMemoryAgentStore implements AgentStore {
         Version candidate = list.get((int)version - 1);
         require(candidate.channel() == Channel.VERIFIED, "VERSION_NOT_VERIFIED");
         require(candidate.evidence().complete(), "QUALITY_GATE_BLOCKED");
-        require(candidate.evidence().risk() == Risk.LOW && auto || approvals.contains("release:approve"),
+        require(auto ? (candidate.evidence().risk() == Risk.LOW && approvals.isEmpty())
+                     : approvals.contains("release:approve"),
             "HUMAN_APPROVAL_REQUIRED");
         String rollbackRef = active(tenant, agent).map(v -> "agentstore://" + tenant + "/" + agent + "/" + v.version()).orElse(null);
         for (int i = 0; i < list.size(); i++) {
