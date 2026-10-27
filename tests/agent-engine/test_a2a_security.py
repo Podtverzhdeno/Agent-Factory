@@ -51,3 +51,16 @@ def test_sdk_factory_rejects_unreleased_spec_before_import():
         create_official_a2a_app(spec=spec, runtime=None,
             boundary=A2ABoundary(released_spec_digests=frozenset(), authorize=lambda *_: True),
             agent_card=None, authenticate=lambda _: None)
+
+@pytest.mark.asyncio
+async def test_a2a_lifespan_delegates_without_authentication():
+    spec = build(task('read', ['read'], ['read'], []),
+                 Registry([manifest('read', ['read'], ['read'], [])]))
+    received = []
+    async def inner(scope, receive, send):
+        received.append(scope['type'])
+    app = AuthenticatedA2AASGI(inner, spec=spec,
+        boundary=A2ABoundary(released_spec_digests=frozenset({spec.artifact_digest}),
+                             authorize=lambda *_: True), authenticate=lambda _: None)
+    await app({'type': 'lifespan'}, None, None)
+    assert received == ['lifespan']

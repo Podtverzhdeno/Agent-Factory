@@ -35,6 +35,9 @@ class AuthenticatedA2AASGI:
         self.authenticate = authenticate
 
     async def __call__(self, scope, receive, send):
+        if scope['type'] == 'lifespan':
+            await self.app(scope, receive, send)
+            return
         if scope['type'] != 'http':
             raise RuntimeDenied('A2A_HTTP_ONLY')
         authorization = [value for key, value in scope.get('headers', [])

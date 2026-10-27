@@ -1,0 +1,7 @@
+-r requirements.txt
+langgraph>=1,<2
+langgraph-checkpoint-postgres>=2,<4
+psycopg[binary,pool]>=3,<4
+a2a-sdk>=1,<2
+ruff>=0.9,<1
+pyright>=1.1,<2
