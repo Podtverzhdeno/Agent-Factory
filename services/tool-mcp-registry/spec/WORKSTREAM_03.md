@@ -13,7 +13,7 @@
 
 - Ports: trusted schema/endpoint resolver provided to the pure Java domain constructor, authenticated `Caller` derived by an HTTP JWT boundary; persistence and reviewer identity are unresolved external ports. The domain MUST not load URLs, mint grants or import Spring/MCP.
 - Domain: `ToolRegistry` orchestrates lifecycle/policy and in-memory audit; `PayloadShapeValidator` validates recursive shapes; `MinimumCapabilityCover` performs bounded exact set cover. REST/OpenAPI/Jackson/Spring Security are strictly adapters.
-- Integrity: length-prefixed, sorted canonical content digest; manifest immutable per `(toolId, version, operation)`. Version state changes APPROVED → REVOKED only; new version required to republish.
+- Integrity: length-prefixed, sorted canonical content digest; manifest immutable per `(tenantId, toolId, version, operation)`; distinct tenants may use the same operation ID and version without collisions. Version state changes APPROVED → REVOKED only; new version required to republish.
 - Security: separate maker/checker, scoped tenant and permission checks, no raw endpoints, deny-by-default HTTP. Rejection codes are stable. Observability/audit would use a future durable per-tenant store, not a shared database chosen without owner approval.
 - Compatibility proposal: lower-case wire representation for `risk_level` and `side_effects` as in frozen v0; temporary uppercase read tolerance for old tests. `revoke` and `audit` are optional additional endpoints; `Selection` preserves the documented v0 fields.
 

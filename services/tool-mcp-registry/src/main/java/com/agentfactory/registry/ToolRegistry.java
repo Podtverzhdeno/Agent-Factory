@@ -18,7 +18,7 @@ public final class ToolRegistry {
     public enum Decision { SELECTED, BLOCKED }
     public enum DenialCode { NO_CAPABILITY, NOT_APPROVED, WRONG_TENANT, MISSING_PERMISSION,
         EFFECT_NOT_ALLOWED, RISK_NOT_ALLOWED, SCHEMA_INCOMPATIBLE, VERSION_INCOMPATIBLE,
-        ENDPOINT_UNVERIFIED, UNHEALTHY, SEARCH_LIMIT, INCOMPATIBLE_VERSIONS }
+        ENDPOINT_UNVERIFIED, UNHEALTHY, SEARCH_LIMIT, INCOMPATIBLE_VERSIONS, REVOKED }
 
     private static final Pattern IDENTIFIER = Pattern.compile("[a-zA-Z][a-zA-Z0-9_.:-]{0,127}");
     private static final Pattern SEMVER = Pattern.compile("(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?");
@@ -57,7 +57,8 @@ public final class ToolRegistry {
     }
     public record Caller(String subject, String tenantId, Set<String> scopes) {
         public Caller {
-            if (blank(subject) || blank(tenantId)) throw failure("UNAUTHENTICATED", "Caller identity required");
+            if (blank(subject) || blank(tenantId) || !valid(tenantId) || subject.length() > 200)
+                throw failure("UNAUTHENTICATED", "Valid bounded caller identity required");
             scopes = Set.copyOf(Objects.requireNonNull(scopes));
         }
         public boolean has(String scope) { return scopes.contains(scope); }
@@ -105,13 +106,21 @@ public final class ToolRegistry {
         public RegistryFailure(String code, String detail) { super(detail); this.code = code; }
     }
     private static RegistryFailure failure(String code, String detail) { return new RegistryFailure(code, detail); }
-    private record Key(String id, String version, String operation) implements Comparable<Key> {
-        public int compareTo(Key other) { return (id + "\u0000" + version + "\u0000" + operation)
-            .compareTo(other.id + "\u0000" + other.version + "\u0000" + other.operation); }
+    /** Tenant identity is part of the immutable catalog key; tenants may reuse public tool IDs safely. */
+    private record Key(String tenantId, String id, String version, String operation) implements Comparable<Key> {
+        @Override public int compareTo(Key other) {
+            int result = tenantId.compareTo(other.tenantId);
+            if (result != 0) return result;
+            result = id.compareTo(other.id);
+            if (result != 0) return result;
+            result = version.compareTo(other.version);
+            return result != 0 ? result : operation.compareTo(other.operation);
+        }
     }
     private record Entry(Manifest manifest, String creator, Status status, String approver) {}
     private final SortedMap<Key, Entry> records = new TreeMap<>();
     private final List<AuditEvent> audit = new ArrayList<>();
+    private final Map<String, Long> auditSequences = new HashMap<>();
     private final Map<String, Shape> approvedSchemas;
     private final Set<String> verifiedEndpointRefs;
 
@@ -122,19 +131,22 @@ public final class ToolRegistry {
         for (String ref : verifiedEndpointRefs) if (!ENDPOINT.matcher(ref).matches()) throw failure("INVALID_ENDPOINT", "Endpoint reference must be approved artifact URI");
     }
     public synchronized void registerDraft(Caller caller, Manifest manifest) {
-        require(caller, "registry:register"); validate(manifest);
-        // No issuer is permitted to expand tool availability to another tenant through this API.
+        require(caller, "registry:register");
+        Objects.requireNonNull(manifest, "manifest");
+        // Authorization precedes validation: avoid cross-tenant schema/endpoint side channels.
         if (!manifest.tenantAvailability().equals(Set.of(caller.tenantId())))
             throw failure("FORBIDDEN", "Only own-tenant registration is permitted");
-        if (records.size() >= MAX_MANIFESTS) throw failure("CAPACITY_EXCEEDED", "Registry capacity reached");
-        Key key = key(manifest);
+        validate(manifest);
+        long count = records.keySet().stream().filter(key -> key.tenantId().equals(caller.tenantId())).count();
+        if (count >= MAX_MANIFESTS) throw failure("CAPACITY_EXCEEDED", "Tenant registry capacity reached");
+        Key key = key(caller.tenantId(), manifest);
         if (records.containsKey(key)) throw failure("VERSION_EXISTS", "Tool operation version is immutable");
         records.put(key, new Entry(manifest, caller.subject(), Status.DRAFT, null));
         audit(caller, "REGISTERED", manifest);
     }
     public synchronized void approve(Caller caller, String toolId, String version, String operation) {
         require(caller, "registry:approve");
-        Key key = new Key(toolId, version, operation); Entry entry = records.get(key);
+        Key key = new Key(caller.tenantId(), toolId, version, operation); Entry entry = records.get(key);
         if (entry == null) throw failure("NOT_FOUND", "Unknown manifest version");
         if (!entry.manifest().tenantAvailability().contains(caller.tenantId())) throw failure("FORBIDDEN", "Approver is not in manifest tenant allowlist");
         if (entry.status() != Status.DRAFT) throw failure("IMMUTABLE", "Approved or revoked version cannot be re-approved");
@@ -148,12 +160,12 @@ public final class ToolRegistry {
     /** Revoke eligibility without mutating the historical approved manifest. */
     public synchronized void revoke(Caller caller, String toolId, String version, String operation) {
         require(caller, "registry:approve");
-        Entry entry = records.get(new Key(toolId, version, operation));
+        Entry entry = records.get(new Key(caller.tenantId(), toolId, version, operation));
         if (entry == null) throw failure("NOT_FOUND", "Unknown manifest version");
         if (!entry.manifest().tenantAvailability().contains(caller.tenantId()))
             throw failure("FORBIDDEN", "Wrong tenant");
         if (entry.status() != Status.APPROVED) throw failure("INVALID_STATE", "Only approved versions may be revoked");
-        records.put(key(entry.manifest()), new Entry(entry.manifest(), entry.creator(), Status.REVOKED, caller.subject()));
+        records.put(key(caller.tenantId(), entry.manifest()), new Entry(entry.manifest(), entry.creator(), Status.REVOKED, caller.subject()));
         audit(caller, "REVOKED", entry.manifest());
     }
     /** Audit records contain only manifest identity and digest, never raw tool arguments or credentials. */
@@ -162,14 +174,15 @@ public final class ToolRegistry {
         return audit.stream().filter(e -> e.tenantId().equals(caller.tenantId())).toList();
     }
     private void audit(Caller caller, String action, Manifest m) {
-        audit.add(new AuditEvent(audit.size() + 1L, caller.tenantId(), action,
+        long sequence = auditSequences.merge(caller.tenantId(), 1L, Long::sum);
+        audit.add(new AuditEvent(sequence, caller.tenantId(), action,
             m.toolId(), m.version(), m.operation(), caller.subject(), m.manifestDigest()));
     }
     /** Validate a tool payload against the immutable, approved schema (the registry never executes the tool). */
     public synchronized void validatePayload(Caller caller, String toolId, String version, String operation,
                                              boolean input, Map<String, ?> payload) {
         require(caller, "registry:lookup");
-        Entry entry = records.get(new Key(toolId, version, operation));
+        Entry entry = records.get(new Key(caller.tenantId(), toolId, version, operation));
         if (entry == null || entry.status() != Status.APPROVED) throw failure("NOT_APPROVED", "Approved version required");
         Manifest m = entry.manifest();
         if (!m.tenantAvailability().contains(caller.tenantId()) || !caller.scopes().containsAll(m.requiredScopes()))
@@ -179,8 +192,9 @@ public final class ToolRegistry {
     }
     public synchronized List<Manifest> listApproved(Caller caller) {
         require(caller, "registry:lookup");
-        return records.values().stream().filter(e -> e.status() == Status.APPROVED)
-            .map(Entry::manifest).filter(m -> m.tenantAvailability().contains(caller.tenantId()))
+        return records.entrySet().stream().filter(e -> e.getKey().tenantId().equals(caller.tenantId()))
+            .map(Map.Entry::getValue).filter(e -> e.status() == Status.APPROVED)
+            .map(Entry::manifest)
             .filter(m -> caller.scopes().containsAll(m.requiredScopes()))
             .filter(m -> m.health() == Health.HEALTHY && verifiedEndpointRefs.contains(m.endpointRef()))
             .toList();
@@ -199,12 +213,15 @@ public final class ToolRegistry {
             throw failure("INVALID_TASK", "Null schema requirement");
         List<Denial> denials = new ArrayList<>();
         List<Manifest> candidates = new ArrayList<>();
-        for (Entry entry : records.values()) {
+        for (var record : records.entrySet()) {
+            // Never reveal whether another tenant registered a tool, even via a denial code.
+            if (!record.getKey().tenantId().equals(caller.tenantId())) continue;
+            Entry entry = record.getValue();
             Manifest m = entry.manifest();
             Set<String> overlap = intersection(m.capabilities(), request.requiredCapabilities());
             if (overlap.isEmpty()) continue;
             DenialCode reason = null;
-            if (!m.tenantAvailability().contains(caller.tenantId())) reason = DenialCode.WRONG_TENANT;
+            if (entry.status() == Status.REVOKED) reason = DenialCode.REVOKED;
             else if (entry.status() != Status.APPROVED) reason = DenialCode.NOT_APPROVED;
             else if (!caller.scopes().containsAll(m.requiredScopes())) reason = DenialCode.MISSING_PERMISSION;
             else if (!request.allowedEffects().containsAll(m.sideEffects())) reason = DenialCode.EFFECT_NOT_ALLOWED;
@@ -215,7 +232,11 @@ public final class ToolRegistry {
                 !m.version().equals(request.pinnedVersions().get(m.toolId()))) reason = DenialCode.VERSION_INCOMPATIBLE;
             else if (overlap.stream().anyMatch(c -> !schemaCompatible(request.expectedSchemas().get(c), m))) reason = DenialCode.SCHEMA_INCOMPATIBLE;
             if (reason != null) for (String capability : overlap)
-                denials.add(new Denial(capability, reason == DenialCode.WRONG_TENANT ? "" : m.toolId(), reason, message(reason)));
+                denials.add(new Denial(capability,
+                    (reason == DenialCode.WRONG_TENANT || reason == DenialCode.MISSING_PERMISSION ||
+                     reason == DenialCode.NOT_APPROVED || reason == DenialCode.REVOKED ||
+                     reason == DenialCode.ENDPOINT_UNVERIFIED) ? "" : m.toolId(),
+                    reason, message(reason)));
             else candidates.add(m);
         }
         candidates.sort(Comparator.comparing(Manifest::toolId).thenComparing(Manifest::version).thenComparing(Manifest::operation));
@@ -249,7 +270,7 @@ public final class ToolRegistry {
         for (Manifest m : best) {
             Set<String> matched = intersection(m.capabilities(), request.requiredCapabilities());
             selected.add(new Binding(m.toolId(), m.version(), m.operation(), m.manifestDigest(),
-                m.requiredScopes(), matched, "Approved, tenant-available, schema-compatible; explicit scopes: "
+                Collections.unmodifiableSet(new TreeSet<>(m.requiredScopes())), matched, "Approved, tenant-available, schema-compatible; explicit scopes: "
                     + String.join(",", new TreeSet<>(m.requiredScopes()))));
         }
         return new Selection(Decision.SELECTED, revision, List.copyOf(selected), List.copyOf(denials),
@@ -274,11 +295,12 @@ public final class ToolRegistry {
         case UNHEALTHY -> "Operation health is not verified healthy";
         case SEARCH_LIMIT -> "Candidate limit exceeded";
         case INCOMPATIBLE_VERSIONS -> "Conflicting tool versions or operations";
+        case REVOKED -> "Approved version revoked; new review and version required";
     }; }
     private synchronized String revision(String tenant) {
-        String x = records.values().stream().filter(e -> e.status() == Status.APPROVED)
-            .filter(e -> e.manifest().tenantAvailability().contains(tenant))
-            .map(e -> e.manifest().manifestDigest()).sorted().collect(Collectors.joining("|"));
+        String x = records.entrySet().stream()
+            .filter(e -> e.getKey().tenantId().equals(tenant) && e.getValue().status() == Status.APPROVED)
+            .map(e -> e.getValue().manifest().manifestDigest()).sorted().collect(Collectors.joining("|"));
         return "sha256:" + sha256(x);
     }
     private void validate(Manifest m) {
@@ -327,8 +349,12 @@ public final class ToolRegistry {
     }
     private static String sorted(Collection<?> xs) { return xs.stream().map(String::valueOf).sorted()
         .map(s -> s.length() + ":" + s).collect(Collectors.joining()); }
-    private static Set<String> intersection(Set<String> a, Set<String> b) { Set<String> x = new TreeSet<>(a); x.retainAll(b); return Set.copyOf(x); }
-    private static Key key(Manifest m) { return new Key(m.toolId(), m.version(), m.operation()); }
+    private static Set<String> intersection(Set<String> a, Set<String> b) {
+        Set<String> ordered = new TreeSet<>(a);
+        ordered.retainAll(b);
+        return Collections.unmodifiableSet(ordered);
+    }
+    private static Key key(String tenant, Manifest m) { return new Key(tenant, m.toolId(), m.version(), m.operation()); }
     private static boolean valid(String s) { return s != null && IDENTIFIER.matcher(s).matches(); }
     private static boolean blank(String s) { return s == null || s.isBlank(); }
     private static String nonNull(String s) { return s == null ? "" : s; }

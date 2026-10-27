@@ -14,7 +14,7 @@
 
 ## Invariants
 
-1. **Tenant never comes from request body for authorization.** Only the externally validated JWT's `tenant_id` is used. A registrar can register a tool **only for exactly their own tenant**; no cross-tenant self-service publication. Other tenant's tool IDs are removed from denial responses; audit/revision are tenant-scoped.
+1. **Tenant never comes from request body for authorization.** Only the externally validated JWT's `tenant_id` is used. A registrar can register a tool **only for exactly their own tenant**; no cross-tenant self-service publication. Registry keys include tenant_id; different tenants may register identical (tool_id, version, operation) independently. Cross-tenant manifests do not appear in selection candidates or typed denial reasons at all; audit/revision are tenant-scoped.
 2. **No automatic grants.** JWT `scope` must independently contain `registry:*` and every tool's required scope. Even if allowed, a tool is not executed here; Builder receives a version/digest/scopes *binding proposal*, not credentials or runtime authority.
 3. **Approval requires two distinct subjects** (`registry:register` creator and `registry:approve` reviewer); immutable manifest version cannot be replaced. Revocation is irreversible; publish another version to restore eligibility.
 4. **No unverified endpoints.** `endpoint_ref` must be one of the *preconfigured* synthetic `artifact://approved/endpoints/...` refs, never a caller-provided URL. No MCP server installation, health probe or raw secret access.
@@ -34,7 +34,7 @@ Executed with OpenJDK 21 and `javac -Xlint:all -Werror`:
 
 ```text
 PASS: 40 registry assertions across lifecycle, deterministic cover, tenant/scopes, risk/effects, schema, SSRF, versioning and injection
-PASS: 31 additional registry security and lifecycle assertions
+PASS: 41 additional registry security and lifecycle assertions
 ```
 
 HTTP test command (**not run locally**):

@@ -55,8 +55,10 @@ public final class RegistryRegressionTest {
         reject("FORBIDDEN", () -> registry.auditTrail(user));
         String before = registry.select(user, task("read_xlsx")).registryRevision();
         registry.revoke(reviewer, "xlsx.read", "1.0.0", "execute");
-        check(registry.select(user, task("read_xlsx")).decision() == Decision.BLOCKED,
-            "Revoked operation not returned to Builder");
+        Selection revoked = registry.select(user, task("read_xlsx"));
+        check(revoked.decision() == Decision.BLOCKED, "Revoked operation not returned to Builder");
+        check(revoked.denials().stream().anyMatch(d -> d.code() == DenialCode.REVOKED && d.toolId().isEmpty()),
+            "Revocation exposes typed denial without catalog metadata");
         check(registry.listApproved(user).stream().noneMatch(m -> m.toolId().equals("xlsx.read")),
             "Revoked operation removed from listing");
         check(!before.equals(registry.select(user, task("catalog_lookup")).registryRevision()),
@@ -66,7 +68,7 @@ public final class RegistryRegressionTest {
         reject("IMMUTABLE", () -> registry.approve(reviewer, "xlsx.read", "1.0.0", "execute"));
         reject("NOT_APPROVED", () -> registry.validatePayload(user, "xlsx.read", "1.0.0", "execute", true,
             Map.of("file", "artifact://input")));
-        reject("FORBIDDEN", () -> registry.revoke(new Caller("outsider", "tenant-b", Set.of("registry:approve")),
+        reject("NOT_FOUND", () -> registry.revoke(new Caller("outsider", "tenant-b", Set.of("registry:approve")),
             "catalog.lookup", "1.0.0", "execute"));
         reject("NOT_FOUND", () -> registry.revoke(reviewer, "no-such", "1.0.0", "execute"));
 
@@ -137,6 +139,35 @@ public final class RegistryRegressionTest {
             "Registry revision must be tenant-isolated");
         check(isolated.select(user, task("catalog_lookup")).denials().stream()
             .noneMatch(d -> d.toolId().equals("other.tool")), "Other tenant metadata stays private");
+        check(isolated.auditTrail(new Caller("auditor-b", "tenant-b", Set.of("registry:audit")))
+            .getFirst().sequence() == 1L, "Tenant-local audit sequence does not leak other tenants' history");
+        // Two tenants may independently register identical tool/version/operation coordinates.
+        Manifest sameIdentityB = new Manifest("0.1", read.toolId(), read.version(), read.operation(),
+            read.transport(), read.capabilities(), read.inputSchemaRef(), read.outputSchemaRef(),
+            read.sideEffects(), read.requiredScopes(), read.riskLevel(), Set.of("tenant-b"),
+            read.endpointRef(), read.health(), "trusted:fixture", "Tenant B independent workbook reader", "")
+            .withComputedDigest();
+        isolated.registerDraft(authorB, sameIdentityB);
+        isolated.approve(reviewerB, sameIdentityB.toolId(), sameIdentityB.version(), sameIdentityB.operation());
+        Caller builderB = new Caller("builder-b", "tenant-b", user.scopes());
+        check(isolated.select(builderB, task("read_xlsx")).decision() == Decision.SELECTED,
+            "Same operation coordinates must work independently in tenant B");
+        check(isolated.select(user, task("read_xlsx")).selectedTools().getFirst().manifestDigest()
+                .equals(read.manifestDigest()), "Tenant B cannot overwrite tenant A manifest");
+        isolated.revoke(reviewerB, read.toolId(), read.version(), read.operation());
+        check(isolated.select(user, task("read_xlsx")).decision() == Decision.SELECTED,
+            "Tenant B revocation cannot disable tenant A operation");
+        check(isolated.select(builderB, task("read_xlsx")).decision() == Decision.BLOCKED,
+            "Tenant-local revocation takes effect");
+        reject("NOT_FOUND", () -> isolated.approve(reviewerB, "catalog.lookup", "1.0.0", "execute"));
+        reject("UNAUTHENTICATED", () -> new Caller("builder", "tenant\nspoof", Set.of("registry:lookup")));
+        check(isolated.select(builderB, task("catalog_lookup")).decision() == Decision.SELECTED,
+            "Tenant B should retain its own catalogue implementation after a reader revocation");
+        // Use a fresh tenant with no catalog to prove no cross-tenant capability-existence oracle.
+        Caller builderC = new Caller("builder-c", "tenant-c", user.scopes());
+        check(isolated.select(builderC, task("catalog_lookup")).denials().stream()
+            .allMatch(d -> d.code() == DenialCode.NO_CAPABILITY),
+            "Foreign tenant catalog contents must not be exposed through denial types");
         System.out.println("PASS: " + assertions + " additional registry security and lifecycle assertions");
     }
 }

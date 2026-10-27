@@ -82,7 +82,7 @@ components:
       properties:
         capability: {type: string}
         tool_id: {type: string, description: Redacted for other tenants}
-        code: {type: string, enum: [NO_CAPABILITY, NOT_APPROVED, WRONG_TENANT, MISSING_PERMISSION, EFFECT_NOT_ALLOWED, RISK_NOT_ALLOWED, SCHEMA_INCOMPATIBLE, VERSION_INCOMPATIBLE, ENDPOINT_UNVERIFIED, UNHEALTHY, SEARCH_LIMIT, INCOMPATIBLE_VERSIONS]}
+        code: {type: string, enum: [NO_CAPABILITY, NOT_APPROVED, WRONG_TENANT, MISSING_PERMISSION, EFFECT_NOT_ALLOWED, RISK_NOT_ALLOWED, SCHEMA_INCOMPATIBLE, VERSION_INCOMPATIBLE, ENDPOINT_UNVERIFIED, UNHEALTHY, SEARCH_LIMIT, INCOMPATIBLE_VERSIONS, REVOKED]}
         reason: {type: string}
     Selection:
       type: object

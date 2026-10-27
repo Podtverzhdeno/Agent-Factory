@@ -62,7 +62,7 @@ public final class RegistrySelfTest {
         Selection noScopes = r.select(noCatalog,task("catalog_lookup"));
         check(noScopes.decision()==Decision.BLOCKED && noScopes.denials().stream().anyMatch(d->d.code()==DenialCode.MISSING_PERMISSION),"Missing permission denial");
         Caller otherTenant = new Caller("builder","tenant-b",user.scopes());
-        check(r.select(otherTenant,task("catalog_lookup")).denials().stream().anyMatch(d->d.code()==DenialCode.WRONG_TENANT),"Tenant isolation");
+        check(r.select(otherTenant,task("catalog_lookup")).denials().stream().anyMatch(d->d.code()==DenialCode.NO_CAPABILITY),"Tenant isolation without capability disclosure");
         check(r.listApproved(otherTenant).isEmpty(),"No cross-tenant enumeration");
         check(r.select(user,task("charge_card")).decision()==Decision.BLOCKED,"Payments cannot be auto-selected");
         check(r.select(user,task("charge_card")).denials().stream().anyMatch(d->d.code()==DenialCode.MISSING_PERMISSION),"Payment scope absent");
@@ -102,7 +102,7 @@ public final class RegistrySelfTest {
         fail("PAYLOAD_SCHEMA_MISMATCH",()->r.validatePayload(user,"xlsx.read","1.0.0","execute",true,Map.of("file",34)));
         fail("PAYLOAD_SCHEMA_MISMATCH",()->r.validatePayload(user,"xlsx.read","1.0.0","execute",true,Map.of("file","sample","danger",true)));
         fail("PAYLOAD_SCHEMA_MISMATCH",()->r.validatePayload(user,"xlsx.read","1.0.0","execute",false,Map.of("rows","not-array")));
-        fail("FORBIDDEN",()->r.validatePayload(otherTenant,"xlsx.read","1.0.0","execute",true,Map.of("file","ok")));
+        fail("NOT_APPROVED",()->r.validatePayload(otherTenant,"xlsx.read","1.0.0","execute",true,Map.of("file","ok")));
         check(r.select(user,task("read_xlsx","catalog_lookup","write_xlsx")).selectedTools().size()==3,"Repeated deterministic selection");
         Manifest misclassified = manifest("bad.pay-risk","1.0.0","charge_card",PAY_IN,PAY_OUT,PAY_ENDPOINT,
             Set.of(Effect.PAYMENT),Set.of("payments:charge"),Risk.LOW);
@@ -129,7 +129,7 @@ public final class RegistrySelfTest {
             "Explicit privilege escalation denial");
         fail("FORBIDDEN",()->cover.registerDraft(new Caller("outsider","tenant-b",Set.of("registry:register")),
             manifest("bad.tenant","1.0.0","read_xlsx",FILE_IN,ROWS,XLSX_ENDPOINT,Set.of(Effect.READ),Set.of("xlsx:read"),Risk.LOW)));
-        fail("FORBIDDEN",()->cover.approve(new Caller("outsider","tenant-b",Set.of("registry:approve")),
+        fail("NOT_FOUND",()->cover.approve(new Caller("outsider","tenant-b",Set.of("registry:approve")),
             "combined.read","1.0.0","execute"));
         System.out.println("PASS: " + assertions + " registry assertions across lifecycle, deterministic cover, tenant/scopes, risk/effects, schema, SSRF, versioning and injection");
     }
