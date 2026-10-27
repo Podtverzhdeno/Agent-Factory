@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 from typing import Any, TypedDict
-from .core import RunResult, RuntimeDenied
+from .core import RunResult, RuntimeDenied, authorize_spec_for_runtime
 from agent_builder import digest
 
 class GraphState(TypedDict, total=False):
@@ -39,6 +39,12 @@ def build_graph(runtime, spec, checkpointer=None):
             return {'terminal_error': 'SPEC_NOT_PINNED'}
         if not getattr(runtime.gateway, 'verified', False):
             return {'terminal_error': 'UNVERIFIED_TOOL_GATEWAY'}
+        try:
+            authorize_spec_for_runtime(spec)
+        except RuntimeDenied as exc:
+            return {'terminal_error': exc.code}
+        if getattr(runtime.model, 'tenant_id', spec.tenant_id) != spec.tenant_id:
+            return {'terminal_error': 'MODEL_TENANT_DENIED'}
         step = state.get('steps', 0) + 1
         if step > spec.limits.max_steps:
             return {'steps': step, 'terminal_error': 'MAX_STEPS_EXCEEDED'}
@@ -135,6 +141,9 @@ async def invoke_graph(graph, runtime, spec, *, tenant_id: str, thread_id: str,
         raise RuntimeDenied('SPEC_NOT_PINNED')
     if not getattr(runtime.gateway, 'verified', False):
         raise RuntimeDenied('UNVERIFIED_TOOL_GATEWAY')
+    authorize_spec_for_runtime(spec)
+    if getattr(runtime.model, 'tenant_id', tenant_id) != tenant_id:
+        raise RuntimeDenied('MODEL_TENANT_DENIED')
     if (not run_id or not thread_id or not trace_id or len(trace_id) > 128
             or not request or len(request) > 20000):
         raise RuntimeDenied('INVALID_RUN_INPUT')

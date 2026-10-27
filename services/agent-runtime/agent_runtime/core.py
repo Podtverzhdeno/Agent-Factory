@@ -86,6 +86,14 @@ class EffectLedger:
     def status(self, key: str) -> str | None:
         return self._effects.get(key, (None, None))[0]
 
+def authorize_spec_for_runtime(spec: AgentSpec) -> None:
+    """Runtime must enforce effect ceilings even if a trusted spec port is wrong."""
+    for binding in spec.selected_tools:
+        declared = set(binding.side_effects)
+        if not declared or not declared <= {'read', 'draft_file'}:
+            raise RuntimeDenied('EFFECT_POLICY_DENIED')
+
+
 class ToolGateway:
     verified = False  # unverified fake port, denied by Runtime
 
@@ -97,6 +105,7 @@ class ToolGateway:
 
     async def execute(self, spec: AgentSpec, binding: ToolBinding, *, args: dict,
                       run_id: str, step: int) -> tuple[dict, str]:
+        authorize_spec_for_runtime(spec)
         if binding not in spec.selected_tools:
             raise RuntimeDenied('TOOL_DENIED')
         if not isinstance(args, dict) or len(json.dumps(args)) > 16000:
@@ -164,6 +173,9 @@ class Runtime:
             raise RuntimeDenied('SPEC_NOT_PINNED')
         if not getattr(self.gateway, 'verified', False):
             raise RuntimeDenied('UNVERIFIED_TOOL_GATEWAY')
+        authorize_spec_for_runtime(spec)
+        if getattr(self.model, 'tenant_id', tenant_id) != tenant_id:
+            raise RuntimeDenied('MODEL_TENANT_DENIED')
         request_hash = digest({'agent': spec.artifact_digest, 'thread': thread_id, 'request': request})
         ident = (tenant_id, run_id)
         async with self._lock:
