@@ -5,7 +5,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
 cd "$ROOT"
 
-for command in java javac mvn docker; do
+for command in java javac mvn docker python3; do
   if ! command -v "$command" >/dev/null 2>&1; then
     echo "ACCEPTANCE BLOCKED: missing $command" >&2
     exit 3
@@ -16,20 +16,20 @@ if ! docker info >/dev/null 2>&1; then
   exit 4
 fi
 
+if [[ -n "${EXPECTED_HEAD_SHA:-}" ]]; then
+  actual_sha="$(git rev-parse HEAD)"
+  if [[ "$actual_sha" != "$EXPECTED_HEAD_SHA" ]]; then
+    echo "ACCEPTANCE FAILED: expected commit $EXPECTED_HEAD_SHA, found $actual_sha" >&2
+    exit 7
+  fi
+fi
 echo "Checking pure JDK domain/control-plane tests"
 bash "$HERE/run-core-tests.sh"
 
 echo "Running Maven/Spring/JWT/PostgreSQL Testcontainers tests"
 mvn -B -ntp -f "$ROOT/services/factory-orchestrator/pom.xml" clean verify
 
-# A green run must not consist of skipped PostgreSQL integration tests.
+# Validate every required JUnit class and reject skipped, missing or failed tests.
 REPORTS="$ROOT/services/factory-orchestrator/target/surefire-reports"
-if ! find "$REPORTS" -maxdepth 1 -name '*JdbcPersistenceIntegrationTest*.xml' | grep -q .; then
-  echo "ACCEPTANCE FAILED: PostgreSQL integration report missing" >&2
-  exit 5
-fi
-if grep -E '<testsuite[^>]+skipped="[1-9][0-9]*"' "$REPORTS"/*JdbcPersistenceIntegrationTest*.xml; then
-  echo "ACCEPTANCE FAILED: PostgreSQL test was skipped" >&2
-  exit 6
-fi
+python3 "$HERE/verify-surefire.py" "$REPORTS"
 echo "CONTROL PLANE ACCEPTANCE PASSED"
