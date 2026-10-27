@@ -197,7 +197,7 @@ class RuntimeAuditReadAPI:
             await self._respond(send, 400, {"error": "invalid_query"})
             return
         value = self._audit.lookup(tenant_id, run_id)
-        if value is None:
+        if not isinstance(value, dict):
             await self._respond(send, 404, {"error": "not_found"})
             return
         envelope = value["envelope"]
