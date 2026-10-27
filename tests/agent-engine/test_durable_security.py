@@ -147,3 +147,16 @@ async def test_nonfinite_tool_output_remains_uncertain():
         await gateway.execute(s,b,args={},run_id='r',step=1)
     with pytest.raises(RuntimeDenied,match='EFFECT_REPLAY_REQUIRES_RECONCILIATION'):
         await gateway.execute(s,b,args={},run_id='r',step=1)
+
+@pytest.mark.asyncio
+async def test_changed_arguments_cannot_reapply_uncertain_effect():
+    s = spec()
+    b = s.selected_tools[0]
+    tools = FakeTools(crash_after_commit=True)
+    ledger = EffectLedger()
+    gateway = VerifiedToolGateway(tools, ledger, policies={'render':policy(b)})
+    with pytest.raises(OSError, match='synthetic crash'):
+        await gateway.execute(s, b, args={'quantity': 1}, run_id='run', step=1)
+    with pytest.raises(RuntimeDenied, match='EFFECT_REPLAY_REQUIRES_RECONCILIATION'):
+        await gateway.execute(s, b, args={'quantity': 999}, run_id='run', step=1)
+    assert len(tools.called) == 1

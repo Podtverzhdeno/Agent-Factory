@@ -113,8 +113,10 @@ class ToolGateway:
         if any(k.lower() in ('auth', 'secret', 'api_key', 'password') for k in args):
             raise RuntimeDenied('CREDENTIAL_IN_TOOL_ARGS')
         effect = any(e not in ('read',) for e in binding.side_effects)
+        # Reserve one stable effect slot per ReAct step. Never key by model-supplied
+        # args or tool choice: both may drift on resume after an uncertain commit.
         key = digest({'tenant': spec.tenant_id, 'agent': spec.agent_id,
-                      'run': run_id, 'step': step, 'tool': binding.tool_id, 'args': args})
+                      'run': run_id, 'step': step})
         if effect:
             await self.ledger.reserve(key)
         try:
