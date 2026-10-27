@@ -94,3 +94,24 @@ Railway project environment was re-inspected during ongoing parallel work.
 The Railway project URL identifies **the intended hosting provider/project**
 selected by the owner; it is **not** evidence that service topology,
 database ownership, public access and ADR-0002 have been ratified.
+
+## Updated evidence: Railway Maven/Spring smoke on 6e4f0ef0
+
+The non-production Railway smoke deployment
+`d77d2bca-038b-45c1-ad3d-8de84178113a` (commit `6e4f0ef0`)
+ended in **FAILED**:
+
+- Actual `ControlPlaneSecurityTest`: **7 tests, 0 failures, 0 errors**.
+  This confirms the duplicate `GET /healthz` registration and Spring
+  `ApplicationContext` startup error from the previous deployment were resolved
+  for this commit.
+- Actual `ControlPlaneComponentSuiteTest`: **1 failing JUnit method**
+  (`componentScenariosMustPassBeforeMavenBuildSucceeds`), which internally
+  delegates to the dependency-free domain scenarios. The build log's summary
+  reported `assertion failed` without identifying a stable individual scenario.
+  Do not infer full domain-suite PASS from its older results.
+- Actual total Maven smoke: **20 JUnit tests, 1 failure, 0 errors, 0 skipped**.
+  The build aborted before a verified runnable image existed.
+- This historical result does **not** attest the current GitHub branch,
+  which has advanced since this Railway build. Fresh immutable-SHA smoke plus
+  independent PostgreSQL Testcontainers are mandatory.
