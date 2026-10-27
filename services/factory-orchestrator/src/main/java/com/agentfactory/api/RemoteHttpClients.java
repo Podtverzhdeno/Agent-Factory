@@ -72,12 +72,19 @@ public final class RemoteHttpClients {
                 .body(json).exchange((request,response)-> {
                     int status=response.getStatusCode().value();
                     if(status!=202) {
-                        // No raw remote response body or credentials in error messages.
-                        if(status==401 || status==403) throw new Protocol.RemoteCommandFailure("REMOTE_UNAUTHORIZED",false);
-                        if(status==409 || status==400 || status==422)
+                        // A non-202 success or redirect violates the command receipt
+                        // contract. Retrying it could execute a side effect twice.
+                        // Never log remote bodies, tokens, or redirect locations.
+                        if(status==401 || status==403)
+                            throw new Protocol.RemoteCommandFailure("REMOTE_UNAUTHORIZED",false);
+                        if((status>=200 && status<400) || status==400 || status==409 || status==422)
                             throw new Protocol.RemoteCommandFailure("REMOTE_COMMAND_REJECTED",false);
                         throw new Protocol.RemoteCommandFailure("REMOTE_UNAVAILABLE",true);
                     }
+                    var responseType=response.getHeaders().getContentType();
+                    if(responseType==null ||
+                       !MediaType.APPLICATION_JSON.isCompatibleWith(responseType))
+                        throw new Protocol.RemoteCommandFailure("REMOTE_RECEIPT_INVALID",false);
                     JsonNode body;
                     try {
                         // Command receipts are small metadata documents. Reject oversized
