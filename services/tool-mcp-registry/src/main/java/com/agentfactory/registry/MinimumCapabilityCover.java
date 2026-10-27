@@ -64,13 +64,14 @@ final class MinimumCapabilityCover {
         int v = Integer.compare(a.size(), b.size()); if (v != 0) return v;
         v = Integer.compare(a.stream().mapToInt(m -> m.riskLevel().ordinal()).sum(), b.stream().mapToInt(m -> m.riskLevel().ordinal()).sum());
         if (v != 0) return v;
+        // Least authority means minimizing the *distinct* permissions needed by the
+        // complete binding set, not counting repeated scopes as separate grants.
         v = Integer.compare(uniqueScopes(a).size(), uniqueScopes(b).size());
         if (v != 0) return v;
         v = Integer.compare(a.stream().mapToInt(m -> m.sideEffects().size()).sum(), b.stream().mapToInt(m -> m.sideEffects().size()).sum());
         if (v != 0) return v;
         return signature(a).compareTo(signature(b));
     }
-    /** Compare the actual effective grants, rather than double-counting shared scopes. */
     private static Set<String> uniqueScopes(List<Manifest> selected) {
         Set<String> scopes = new HashSet<>();
         for (Manifest manifest : selected) scopes.addAll(manifest.requiredScopes());
