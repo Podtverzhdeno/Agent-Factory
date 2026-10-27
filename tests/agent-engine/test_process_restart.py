@@ -1,4 +1,5 @@
 """AF-REQ-012: real OS process exit after synthetic effect, then denied retry."""
+
 import os
 import subprocess
 import sys

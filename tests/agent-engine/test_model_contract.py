@@ -1,4 +1,5 @@
 """Explicit model action contract and pinned tool identifier security."""
+
 import json
 
 import httpx

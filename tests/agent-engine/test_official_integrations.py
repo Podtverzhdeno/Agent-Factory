@@ -1,4 +1,5 @@
 """SDK and PostgreSQL integration contracts: SKIP unless real dependencies are present."""
+
 import os
 
 import pytest
