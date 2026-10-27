@@ -147,6 +147,37 @@ final class JdbcPersistenceIntegrationTest {
         assertTrue(after.versions("tenant-b","agent-01").isEmpty());
     }
 
+    @Test void mismatchedStoredWorkflowTenantFailsClosed() throws Exception {
+        var ledger=new JdbcWorkflowLedger(tx(),codec());
+        orchestrator(ledger,new JdbcAgentStore(tx(),codec())).start(principal(),start());
+        try(Connection c=dataSource.getConnection();var statement=c.prepareStatement(
+            "UPDATE cp_workflow SET tenant_id=? WHERE tenant_id=? AND workflow_id=?")) {
+            statement.setString(1,"tenant-b");statement.setString(2,TENANT);
+            statement.setString(3,"wf-01");
+            assertEquals(1,statement.executeUpdate());
+        }
+        var error=assertThrows(IllegalStateException.class,()->
+            ledger.get("tenant-b","wf-01"));
+        assertEquals("STORED_WORKFLOW_IDENTITY_MISMATCH",error.getMessage());
+    }
+
+    @Test void mismatchedStoredAgentVersionTenantFailsClosed() throws Exception {
+        var store=new JdbcAgentStore(tx(),codec());
+        var valid=store.registerCandidate(metadata(),"candidate-01");
+        var forged=new AgentStore.Version("tenant-b",valid.agentId(),valid.version(),
+            valid.specRef(),valid.specDigest(),valid.toolDigests(),valid.modelRouteDigest(),
+            valid.a2aCardRef(),valid.rollbackRef(),valid.evidence(),valid.channel());
+        try(Connection c=dataSource.getConnection();var statement=c.prepareStatement(
+            "UPDATE cp_agent_version SET payload=? WHERE tenant_id=? AND agent_id=? AND version=?")) {
+            statement.setString(1,codec().write(forged));statement.setString(2,TENANT);
+            statement.setString(3,"agent-01");statement.setLong(4,valid.version());
+            assertEquals(1,statement.executeUpdate());
+        }
+        var error=assertThrows(IllegalStateException.class,()->
+            store.versions(TENANT,"agent-01"));
+        assertEquals("STORED_AGENT_VERSION_IDENTITY_MISMATCH",error.getMessage());
+    }
+
     @Test void idempotentCandidateIgnoresMapInsertionOrderAcrossRestart() {
         var firstTools=new java.util.LinkedHashMap<String,String>();
         firstTools.put("lookup.v1",TOOL);
