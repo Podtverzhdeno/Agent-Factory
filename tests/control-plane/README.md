@@ -183,3 +183,28 @@ requires `evaluation_run_id` on submission and has seven mandatory JSON keys.
 The full Spring Boot/JWT/Maven and PostgreSQL Testcontainers acceptance gates
 remain open. Local Maven and Docker binaries are unavailable; the GitHub workflow
 currently covers SDD only. ADR-0002 remains `PENDING OWNER DECISION`.
+
+## Verifiable unattended acceptance gate
+
+`bash tests/control-plane/run-acceptance.sh` refuses to return PASS if Maven,
+Docker, Java, Python or a live Docker daemon is unavailable. Set
+`EXPECTED_HEAD_SHA=<40-character Git SHA>` to require execution on a specific
+checkout commit.
+
+After Maven `clean verify`, the gate parses Surefire XML with
+`verify-surefire.py` and requires exactly one report for each of
+`ControlPlaneComponentSuiteTest` (at least 4 JUnit methods),
+`ControlPlaneSecurityTest` (at least 6),
+`JdbcPersistenceIntegrationTest` (at least 15) and
+`RemoteHttpIntegrationTest` (at least 8), with zero errors, failures and
+skips. Missing/corrupt/duplicate reports are failures, not a green result.
+The standalone `ControlPlaneComponentTests.main` also guards its 48
+executed scenarios; a JUnit wrapper alone cannot substitute for those checks.
+
+The gate itself has seven automated self-tests in
+`tests/control-plane/test_verify_surefire.py` for successful and deliberately
+invalid reports. **These 7 Python self-tests were executed and passed on JDK 21
+container's Python environment**; their Git blob SHA values were independently
+compared with GitHub. Together with 7 separately executed Java/JDBC/hash
+assertions, there are **14 confirmed passing isolated checks**. This does
+**not** imply the unexecuted Maven/PostgreSQL/JWT/HTTP integration suites pass.
