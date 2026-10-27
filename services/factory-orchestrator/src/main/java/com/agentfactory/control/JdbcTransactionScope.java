@@ -6,43 +6,83 @@ import java.util.Objects;
 import javax.sql.DataSource;
 
 /**
- * One physical JDBC transaction for a workflow transition and local AgentStore write.
- * Experimental adapter, intentionally not enabled before ADR-0002 ratification.
+ * Optional candidate implementation. All participating repositories must share this
+ * instance to enlist in the same physical transaction. Not activated until ADR-0002.
  */
 public final class JdbcTransactionScope {
-    @FunctionalInterface public interface Work<T> { T apply(Connection connection) throws SQLException; }
-    private final DataSource dataSource;
-    private final ThreadLocal<Connection> current = new ThreadLocal<>();
+    @FunctionalInterface
+    public interface Work<T> {
+        T apply(Connection connection) throws SQLException;
+    }
 
-    public JdbcTransactionScope(DataSource dataSource) { this.dataSource=Objects.requireNonNull(dataSource); }
+    private static final class Context {
+        final Connection connection;
+        boolean rollbackOnly;
+
+        Context(Connection connection) {
+            this.connection = connection;
+        }
+    }
+
+    private final DataSource dataSource;
+    private final ThreadLocal<Context> context = new ThreadLocal<>();
+
+    public JdbcTransactionScope(DataSource dataSource) {
+        this.dataSource = Objects.requireNonNull(dataSource, "dataSource");
+    }
 
     public <T> T transaction(Work<T> work) {
-        Connection nested=current.get();
-        if(nested!=null) {
-            try { return work.apply(nested); }
-            catch(SQLException ex) { throw new PersistenceFailure(ex); }
-        }
-        try(Connection connection=dataSource.getConnection()) {
-            connection.setAutoCommit(false);
-            current.set(connection);
+        Objects.requireNonNull(work, "work");
+        Context nested = context.get();
+        if (nested != null) {
             try {
-                T result=work.apply(connection);
+                return work.apply(nested.connection);
+            } catch (SQLException error) {
+                nested.rollbackOnly = true;
+                throw new PersistenceFailure(error);
+            } catch (RuntimeException | Error error) {
+                nested.rollbackOnly = true;
+                throw error;
+            }
+        }
+
+        try (Connection connection = dataSource.getConnection()) {
+            connection.setAutoCommit(false);
+            Context current = new Context(connection);
+            context.set(current);
+            try {
+                T result = work.apply(connection);
+                if (current.rollbackOnly) {
+                    throw new IllegalStateException("TRANSACTION_MARKED_ROLLBACK_ONLY");
+                }
                 connection.commit();
                 return result;
-            } catch(Throwable failure) {
-                try { connection.rollback(); }
-                catch(SQLException rollbackFailure) { failure.addSuppressed(rollbackFailure); }
-                if(failure instanceof RuntimeException runtime) throw runtime;
-                if(failure instanceof Error error) throw error;
-                throw new PersistenceFailure((SQLException)failure);
+            } catch (SQLException error) {
+                rollback(connection, error);
+                throw new PersistenceFailure(error);
+            } catch (RuntimeException | Error error) {
+                rollback(connection, error);
+                throw error;
             } finally {
-                current.remove();
+                context.remove();
             }
-        } catch(SQLException ex) { throw new PersistenceFailure(ex); }
+        } catch (SQLException error) {
+            throw new PersistenceFailure(error);
+        }
+    }
+
+    private static void rollback(Connection connection, Throwable original) {
+        try {
+            connection.rollback();
+        } catch (SQLException rollbackError) {
+            original.addSuppressed(rollbackError);
+        }
     }
 
     public static final class PersistenceFailure extends RuntimeException {
-        private static final long serialVersionUID=1L;
-        public PersistenceFailure(SQLException cause) { super("PERSISTENCE_OPERATION_FAILED",cause); }
+        private static final long serialVersionUID = 1L;
+        public PersistenceFailure(SQLException cause) {
+            super("PERSISTENCE_OPERATION_FAILED", cause);
+        }
     }
 }
