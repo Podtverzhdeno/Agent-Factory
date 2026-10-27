@@ -19,6 +19,7 @@ REQUIRED = {
     "JdbcSpringWiringIntegrationTest": 3,
     "RemoteHttpIntegrationTest": 11,
     "RemoteProofOfConceptConfigurationTest": 4,
+    "RemoteSpringStartupRefusalTest": 1,
     "PersistenceProbeControllerTest": 3,
 }
 
