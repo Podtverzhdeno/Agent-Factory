@@ -7,3 +7,6 @@ dependencies = []
 
 [project.optional-dependencies]
 test = ["pytest>=8.0"]
+
+[project.optional-dependencies]
+gepa = ["dspy>=3.1,<4"]
