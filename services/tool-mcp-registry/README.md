@@ -122,3 +122,16 @@ The remaining `operation` pinning and runtime revalidation gap is documented in 
 The POM now targets a supported stable Spring Boot version. The migration updates MVC starters, the resource-server starter, security/MVC test starters, Jackson 3 naming and strict unknown-property handling, and relocated MVC test imports. The dependency change has been independently checked against official Spring documentation.
 
 **NOT VERIFIED:** Maven dependency resolution, compiler against the Spring Boot classpath, MockMvc/JWT/JSON behavior, dependency SBOM, or signed OIDC integration. These require an online Maven/CI runner; `SDD validation` is NOT a Java CI job. No deployment or promotion permitted until those tests pass on the exact commit. See `DEPENDENCY_REVIEW.md`.
+
+## Structured operational logging
+
+See [OBSERVABILITY.md](OBSERVABILITY.md) for the privacy-safe event contract and Railway investigation runbook.
+Each HTTP request gets a **server-generated** `X-Request-Id` (never a client-supplied one).
+`RegistryRequestLoggingFilter` writes method, *finite route name*, HTTP status and elapsed time;
+the API logs typed lifecycle actions, selection outcomes and bounded rejection categories.
+No request body, tenant, JWT, tool ID, raw route or exception detail is logged.
+
+The standalone Java 21 runner now includes 1060 telemetry redaction/fuzz assertions and
+2400 concurrent unique-ID checks, in addition to previous domain/RFQ/property tests.
+Authorized and default-deny MockMvc/Logback integration tests are present but **not yet Maven-executed**.
+Logs do not replace the currently in-memory domain audit; durable approval/audit persistence is still a release gate.
