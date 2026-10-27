@@ -153,3 +153,39 @@ Builder/Evaluation/GEPARD or production JWT verifier was demonstrated.
 `0f960966`. Its latest head is **not** proven by this previous smoke build,
 and owner ADR-0002, external live E2E, and production database persistence
 remain open.
+
+## Latest exact-head Railway acceptance smoke: 04e7f5e (2026-10-27)
+
+At the time of inspection the current PR head was
+`04e7f5e65ecb729d42522709546d97d0af5d66c0`, and Railway service
+`Agent-Factory` deployment `f5093189-eeeb-4965-ab4b-8ef43544b6d5`
+ended in **SUCCESS** on that exact commit.
+
+Railway Docker build logs show **Maven BUILD SUCCESS** and **40/40 JUnit
+tests passed, 0 failures, 0 errors, 0 skipped**:
+
+- `RemoteHttpIntegrationTest`: 11/11, including new non-202 responses
+  (200, 302, 404) and invalid 202 content type.
+- `ControlPlaneComponentSuiteTest`: 4/4, wrapping 48 domain business scenarios,
+  7 outbox races, 3 JDBC transaction cases and 4 event identity cases.
+- `ControlPlaneSecurityTest`: 7/7.
+- `JdbcSpringWiringIntegrationTest`: 2/2.
+- `JdbcPersistenceIntegrationTest`: 16/16 with disposable localhost PostgreSQL
+  created in Docker build.
+
+The build also ran **9/9 Python Surefire validator tests**, followed by
+`SUREFIRE ACCEPTANCE PASSED`. The smoke runtime started with
+`railway-smoke`, whose decoder deliberately rejects **all** bearer JWTs.
+That profile is **not suitable for a real client/API integration test**.
+
+The **Railway-managed PostgreSQL service and its mounted volume are now live**,
+but the `Agent-Factory` smoke service has **no database connection
+variables** and does not run with `jdbc-poc`: durable state on Railway's
+persistent PostgreSQL and restart/replay behavior remain **unverified**.
+No public domain was configured when inspected. Do not connect or mutate the
+shared database without the owner-ratified data migration and tenancy plan.
+
+Remaining non-smoke gates: true independently authenticated Builder/Evaluation/
+GEPARD integration, production issuer and evidence attestation, live PostgreSQL
+ownership/migrations/recovery, exact final merged SHA, and ADR-0002 ratification.
+No claim of production readiness.
