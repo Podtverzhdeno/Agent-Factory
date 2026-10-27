@@ -1,7 +1,7 @@
 """Quality non-inferiority and cost-per-correct-task benchmark."""
 from __future__ import annotations
 from dataclasses import dataclass
-from math import exp, lgamma, log, log1p, sqrt
+from math import exp, isfinite, lgamma, log, log1p, sqrt
 from typing import Literal
 from .primitives import InvalidEvidence
 
@@ -117,7 +117,8 @@ class BenchmarkEngine:
             reasons.append("SAFETY_HARD_VETO")
         if any(r.hard_veto for r in baseline):
             reasons.append("UNSAFE_BASELINE")
-        if any(r.total_cost < 0 or r.latency_ms < 0 for r in baseline + candidate):
+        if any(not isfinite(r.total_cost) or r.total_cost < 0 or r.latency_ms < 0
+               for r in baseline + candidate):
             raise InvalidEvidence("negative cost or latency")
         b_success = sum(r.success and not r.hard_veto for r in baseline)
         c_success = sum(r.success and not r.hard_veto for r in candidate)
