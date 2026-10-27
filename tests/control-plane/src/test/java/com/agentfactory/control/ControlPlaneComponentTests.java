@@ -490,6 +490,14 @@ public final class ControlPlaneComponentTests {
             check(f.store.promote(TENANT,"agent-01",v,"approved-manual",
                 Set.of("release:approve"),false).channel()==AgentStore.Channel.RELEASED);
         });
+        test("AF-REQ-020 null event payloads return typed domain errors",()->{
+            Fixture f=new Fixture();f.start();
+            error("INVALID_EVENT",()->f.cp.onBuild(EVENTS,null));
+            error("INVALID_EVENT",()->f.cp.onEvaluation(EVENTS,null));
+            error("INVALID_EVENT",()->f.cp.onOptimization(EVENTS,null));
+            error("INVALID_EVENT",()->f.cp.onSoup(EVENTS,null));
+            check(f.get().state()==Workflow.State.BUILDING);
+        });
         System.out.println("COMPONENT TESTS PASSED: "+run.get());
     }
 }
