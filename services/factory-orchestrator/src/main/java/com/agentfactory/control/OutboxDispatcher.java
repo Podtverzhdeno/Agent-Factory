@@ -36,32 +36,54 @@ public final class OutboxDispatcher {
                             .forEach(a->{ a.delivered=true; a.lastError=null; });
                         return true;
                     });
-                    if (acknowledged) delivered.incrementAndGet();
+                    if (acknowledged) {
+                        delivered.incrementAndGet();
+                        ControlPlaneTelemetry.outbox(ControlPlaneTelemetry.Outcome.ACKNOWLEDGED,
+                            w,action,action.attempts,null);
+                    } else {
+                        ControlPlaneTelemetry.outbox(ControlPlaneTelemetry.Outcome.SUPERSEDED,
+                            w,action,action.attempts,null);
+                    }
                 } catch (RuntimeException exception) {
-                    ledger.transact(w.tenantId,w.workflowId,active -> {
-                        // A stale failed request must never poison a newer or terminal state.
-                        if (!stillPending(active,action)) return null;
-                        active.actions.stream().filter(a->a.operationId.equals(action.operationId))
-                            .forEach(a->{
-                                boolean permanent = exception instanceof Protocol.RemoteCommandFailure remote &&
-                                    !remote.retryable();
-                                a.attempts = permanent ? 5 : a.attempts + 1;
-                                a.lastError=exception.getClass().getSimpleName();
-                                if(a.attempts>=5) {
-                                    active.state=Workflow.State.BLOCKED;
-                                    active.errorCode=permanent ? exception.getMessage() : "OUTBOX_DELIVERY_EXHAUSTED";
-                                    active.requiredAction=permanent ? "resolve remote authorization or contract rejection" :
-                                        "reconcile external operation before retry";
-                                    active.pendingOperationId=null;
-                                }
-                            });
-                        return null;
+                    // Keep exception messages and bearer-token-bearing stack traces out of logs.
+                    boolean permanent = exception instanceof Protocol.RemoteCommandFailure remote &&
+                        !remote.retryable();
+                    String safeCode = exception instanceof Protocol.RemoteCommandFailure remote
+                        ? remote.getMessage() : "REMOTE_DISPATCH_EXCEPTION";
+                    DispatchOutcome result=ledger.transact(w.tenantId,w.workflowId,active -> {
+                        // A late failure must not poison a new/terminal workflow.
+                        if (!stillPending(active,action))
+                            return new DispatchOutcome(ControlPlaneTelemetry.Outcome.SUPERSEDED,
+                                action.attempts,null);
+                        int attempts=action.attempts;
+                        for (Workflow.Action pending : active.actions) {
+                            if (!pending.operationId.equals(action.operationId)) continue;
+                            pending.attempts=permanent ? 5 : pending.attempts+1;
+                            attempts=pending.attempts;
+                            pending.lastError=exception.getClass().getSimpleName();
+                            if (pending.attempts>=5) {
+                                active.state=Workflow.State.BLOCKED;
+                                active.errorCode=permanent ? safeCode : "OUTBOX_DELIVERY_EXHAUSTED";
+                                active.requiredAction=permanent
+                                    ? "resolve remote authorization or contract rejection"
+                                    : "reconcile external operation before retry";
+                                active.pendingOperationId=null;
+                            }
+                        }
+                        return new DispatchOutcome(attempts>=5
+                            ? ControlPlaneTelemetry.Outcome.BLOCKED
+                            : ControlPlaneTelemetry.Outcome.RETRY_SCHEDULED,
+                            attempts,attempts>=5 ? active.errorCode : safeCode);
                     });
+                    ControlPlaneTelemetry.outbox(result.outcome(),w,action,
+                        result.attempts(),result.errorCode());
                 }
             }
         }
         return delivered.get();
     }
+    private record DispatchOutcome(ControlPlaneTelemetry.Outcome outcome, int attempts, String errorCode) { }
+
     private static boolean stillPending(Workflow active, Workflow.Action sent) {
         return Objects.equals(active.pendingOperationId,sent.operationId) &&
             matchesPhase(active.state,sent.type) && active.actions.stream().anyMatch(a ->
