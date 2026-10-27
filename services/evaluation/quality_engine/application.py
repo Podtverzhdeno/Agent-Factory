@@ -8,42 +8,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from threading import RLock
-from typing import Protocol, Any
 
+from .execution_evidence import (
+    PublicRunCase, EvidenceEnvelope, EvidenceCollector, EvidenceVerifier, collect_observations,
+)
 from .core import (
     AccessDenied, Case, DatasetVault, EvaluationEngine, EvaluationPolicy,
     EvaluationRequest, EvaluationResult, InvalidEvidence, ObservedRun, Principal,
 )
-
-
-@dataclass(frozen=True)
-class PublicRunCase:
-    """Public test input only; must not include gold or oracle answers."""
-    case_id: str
-    input_ref: str
-
-
-@dataclass(frozen=True)
-class EvidenceEnvelope:
-    """Collector observation bound to tenant, candidate, dataset and case.
-
-    Production collectors must authenticate runtime audit records. This typed
-    envelope is not itself a cryptographic signature.
-    """
-    tenant_id: str
-    agent_spec_digest: str
-    dataset_version_ref: str
-    case_id: str
-    trace_ref: str
-    observation: ObservedRun
-
-
-class EvidenceCollector(Protocol):
-    def collect(self, request: EvaluationRequest, case: PublicRunCase) -> Any: ...
-
-
-class EvidenceVerifier(Protocol):
-    def verify(self, attested: Any) -> EvidenceEnvelope: ...
 
 
 @dataclass(frozen=True)
@@ -129,24 +101,9 @@ class EvaluationWorkflow:
         request = self._requests[key]
         try:
             dataset = self._vault.read(principal, request.dataset_version_ref)
-            collected = tuple(self._collector.collect(request, PublicRunCase(case.case_id, case.input_ref))
-                              for case in dataset.cases)
-            if self._require_attestation:
-                assert self._verifier is not None
-                evidence = tuple(self._verifier.verify(item) for item in collected)
-            else:
-                evidence = collected
-            for case, envelope in zip(dataset.cases, evidence):
-                if not isinstance(envelope, EvidenceEnvelope) or (
-                    envelope.tenant_id != request.tenant_id
-                    or envelope.agent_spec_digest != request.agent_spec_digest
-                    or envelope.dataset_version_ref != request.dataset_version_ref
-                    or envelope.case_id != case.case_id
-                    or envelope.observation.case_id != case.case_id
-                    or not envelope.trace_ref
-                ):
-                    raise InvalidEvidence("collector evidence does not match pinned evaluation")
-            observations = tuple(item.observation for item in evidence)
+            observations = collect_observations(
+                self._collector, request, dataset.cases, self._verifier, self._require_attestation
+            )
             result = self._engine.evaluate(principal, request, observations, self._policy)
             completed = replace(job, status=result.status, result=result)
         except (InvalidEvidence, AccessDenied):
