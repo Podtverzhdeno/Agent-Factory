@@ -63,3 +63,16 @@ in-memory catalogue as durable production storage.
 No Railway settings, domains, services, databases or environment variables were mutated in
 preparing this inventory. The supplied project location is a deployment destination only,
 not evidence that the Tool Registry is production-ready.
+
+## Module-owned build recipe prepared (not deployed)
+
+Files in this PR:
+- `services/tool-mcp-registry/Dockerfile`: isolated Java 21 multi-stage build; `mvn -B -ntp -Dstyle.color=never clean verify` MUST pass before an artifact is produced; no bypass of tests; non-root runtime.
+- `services/tool-mcp-registry/.dockerignore`: excludes environment secrets, private keys and build artifacts from the container context.
+- `services/tool-mcp-registry/src/main/resources/application.properties`: `PORT` support and graceful shutdown.
+- `services/tool-mcp-registry/pom.xml`: Surefire `failIfNoTests=true`; no successful zero-test Maven build.
+- `tests/tool-registry/verify_container_recipe.py`: 16 offline static checks of the recipe and required test/dependency settings. **This is not an actual Docker build.**
+
+When the owner has approved this registry deployment boundary and an integrator has merged the verified code, configure the Railway service source root to `/services/tool-mcp-registry` and Dockerfile path to `Dockerfile` in an isolated test environment. Do not deploy a Draft PR to the existing `production` service and do not auto-install or execute real MCP tools.
+
+A successful image build is only a CI gate; it does not certify tenant authorization, durable persistence, readiness, real JWT verification, or a live service. No readiness/healthcheck is declared yet because trust roots and persistent state are not provisioned. Enable production health only after a true, authenticated readiness check has been implemented and verified.
