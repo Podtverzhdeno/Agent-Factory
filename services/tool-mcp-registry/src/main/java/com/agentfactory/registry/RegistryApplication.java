@@ -20,6 +20,6 @@ public class RegistryApplication {
 
     @Bean
     ToolRegistry registry() {
-        return new ToolRegistry(Map.of(), Set.of());
+        return new ToolRegistry(Map.of(), Set.of(), Set.of());
     }
 }
