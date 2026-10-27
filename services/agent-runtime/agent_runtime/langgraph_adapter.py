@@ -1,5 +1,6 @@
 """LangGraph ReAct-style candidate harness; Postgres saver is a swappable adapter."""
 from __future__ import annotations
+import asyncio
 import json
 from typing import Any, TypedDict
 from .core import RunResult, RuntimeDenied
@@ -46,9 +47,10 @@ def build_graph(runtime, spec, checkpointer=None):
             history = runtime.memory.get(spec.tenant_id, spec.agent_id, state['thread_id'])
             history.append({'role': 'user', 'content': state['request']})
         try:
-            d = await runtime.model.decide(route=spec.model_route, prompt=spec.system_prompt,
-                history=list(history), tool_ids=tuple(b.tool_id for b in spec.selected_tools),
-                trace_id=state['trace_id'])
+            d = await asyncio.wait_for(runtime.model.decide(
+                route=spec.model_route, prompt=spec.system_prompt, history=list(history),
+                tool_ids=tuple(b.tool_id for b in spec.selected_tools),
+                trace_id=state['trace_id']), timeout=runtime.model_timeout_seconds)
             cost = state.get('cost_usd', 0) + d.estimated_usd
             if cost > spec.limits.max_usd_per_run:
                 raise RuntimeDenied('BUDGET_EXCEEDED')
@@ -62,6 +64,9 @@ def build_graph(runtime, spec, checkpointer=None):
             return {'steps': step, 'cost_usd': cost, 'history': history,
                     'pending_tool': d.tool_id, 'pending_args': d.args,
                     'terminal_error': None}
+        except TimeoutError:
+            return {'steps': step, 'history': history, 'terminal_error': 'MODEL_TIMEOUT',
+                    'pending_tool': ''}
         except RuntimeDenied as exc:
             return {'steps': step, 'history': history, 'terminal_error': exc.code, 'pending_tool': ''}
         except Exception:

@@ -133,3 +133,17 @@ async def test_tool_timeout_keeps_effect_uncertain():
     with pytest.raises(RuntimeDenied, match='EFFECT_REPLAY_REQUIRES_RECONCILIATION'):
         await gateway.execute(s,b,args={},run_id='r',step=1)
     assert tools.calls == 1
+
+@pytest.mark.asyncio
+async def test_nonfinite_tool_output_remains_uncertain():
+    s = spec()
+    b = s.selected_tools[0]
+    class BadTool:
+        async def call(self, **kwargs):
+            return {'value':float('nan')}
+    ledger=EffectLedger()
+    gateway=VerifiedToolGateway(BadTool(),ledger,policies={'render':policy(b)})
+    with pytest.raises(RuntimeDenied,match='INVALID_TOOL_OUTPUT'):
+        await gateway.execute(s,b,args={},run_id='r',step=1)
+    with pytest.raises(RuntimeDenied,match='EFFECT_REPLAY_REQUIRES_RECONCILIATION'):
+        await gateway.execute(s,b,args={},run_id='r',step=1)

@@ -38,3 +38,29 @@ def test_bounded_thread_memory_and_durable_expiry_cleanup(tmp_path):
     clock[0]=13
     assert durable.purge_expired()==1
     assert durable.get_long('buyer','agent','temp') is None
+
+@pytest.mark.asyncio
+async def test_slow_model_blocked_without_tool_effect():
+    import asyncio
+    spec, _ = make_runtime()
+    class HangingModel:
+        async def decide(self, **kwargs):
+            await asyncio.sleep(0.3)
+            return Decision(kind='final', text='late')
+    b=spec.selected_tools[0]
+    tools=FakeTools()
+    runtime=Runtime(HangingModel(),VerifiedToolGateway(tools,EffectLedger(),policies={'r':ToolPolicy(
+        tenant_id='buyer',tool_id=b.tool_id,version=b.version,manifest_digest=b.digest,
+        scopes=frozenset(b.granted_scopes),input_schema={'type':'object'},
+        output_schema={'type':'object'},effect_mode='read')}),
+        approved_spec_digests=frozenset({spec.artifact_digest}),model_timeout_seconds=0.01)
+    result=await runtime.run(spec,tenant_id='buyer',run_id='r',thread_id='t',
+                             request='Hello',trace_id='trace')
+    assert result.status=='BLOCKED' and result.error_code=='MODEL_TIMEOUT'
+    assert not tools.called
+
+@pytest.mark.parametrize('bad_cost', [float('nan'),float('inf'),float('-inf')])
+def test_decision_rejects_nonfinite_cost(bad_cost):
+    from pydantic import ValidationError
+    with pytest.raises(ValidationError):
+        Decision(kind='final',text='complete',estimated_usd=bad_cost)

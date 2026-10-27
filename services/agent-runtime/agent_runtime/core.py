@@ -20,7 +20,7 @@ class Decision(BaseModel):
     args: dict[str, Any] = Field(default_factory=dict)
     text: str = ''
     source_refs: tuple[str, ...] = ()
-    estimated_usd: float = Field(default=0, ge=0)
+    estimated_usd: float = Field(default=0, ge=0, allow_inf_nan=False)
 
     @model_validator(mode='after')
     def consistent_action(self):
@@ -134,7 +134,11 @@ class RunResult:
 class Runtime:
     def __init__(self, model: ModelPort, gateway: ToolGateway,
                  memory: ThreadMemory | None = None, *,
-                 approved_spec_digests: frozenset[str] = frozenset()):
+                 approved_spec_digests: frozenset[str] = frozenset(),
+                 model_timeout_seconds: float = 30.0):
+        if not 0.01 <= model_timeout_seconds <= 120:
+            raise ValueError('model timeout outside configured safety limits')
+        self.model_timeout_seconds = model_timeout_seconds
         self.model, self.gateway = model, gateway
         self.memory = memory or ThreadMemory()
         self.approved_spec_digests = approved_spec_digests
@@ -170,9 +174,13 @@ class Runtime:
             try:
                 while step < spec.limits.max_steps:
                     step += 1
-                    decision = await self.model.decide(route=spec.model_route,
-                        prompt=spec.system_prompt, history=list(history),
-                        tool_ids=tuple(tool_bindings), trace_id=trace_id)
+                    try:
+                        decision = await asyncio.wait_for(self.model.decide(route=spec.model_route,
+                            prompt=spec.system_prompt, history=list(history),
+                            tool_ids=tuple(tool_bindings), trace_id=trace_id),
+                            timeout=self.model_timeout_seconds)
+                    except TimeoutError as exc:
+                        raise RuntimeDenied('MODEL_TIMEOUT') from exc
                     spent += decision.estimated_usd
                     if spent > spec.limits.max_usd_per_run:
                         raise RuntimeDenied('BUDGET_EXCEEDED')
