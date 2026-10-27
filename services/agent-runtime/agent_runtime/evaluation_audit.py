@@ -6,7 +6,6 @@ The in-memory store is a sandbox adapter, NOT a production audit ledger.
 """
 from __future__ import annotations
 
-import hmac
 import json
 import re
 import time
