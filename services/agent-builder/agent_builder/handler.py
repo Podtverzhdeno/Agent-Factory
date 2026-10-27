@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from typing import Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .audit import audit_event
 from .core import AgentSpec, BuildCommand, Builder, BuildError, TaskSnapshot, digest
 
 
@@ -54,6 +56,32 @@ class BuildHandler:
         self._lock = asyncio.Lock()
 
     async def build(self, command: BuildCommand) -> BuildResult:
+        """Emit bounded audit records without recording objective or command contents."""
+        started = time.monotonic()
+        operation_id = command.build_id
+        tenant_id = command.tenant_id
+        audit_event("builder", "build.started", "STARTED",
+                    tenant_id=tenant_id, operation_id=operation_id)
+        try:
+            result = await self._build_impl(command)
+        except BuildError as exc:
+            audit_event("builder", "build.denied", "DENIED",
+                        tenant_id=tenant_id, operation_id=operation_id,
+                        code=exc.code,
+                        duration_ms=max(0, int((time.monotonic() - started) * 1000)))
+            raise
+        except Exception:  # noqa: BLE001 - sanitize unexpected failure before re-raising.
+            audit_event("builder", "build.denied", "FAILED",
+                        tenant_id=tenant_id, operation_id=operation_id,
+                        code="UNEXPECTED_BUILD_EXCEPTION")
+            raise
+        audit_event("builder", "build.finished", result.status,
+                    tenant_id=tenant_id, operation_id=operation_id,
+                    code=result.error_code,
+                    duration_ms=max(0, int((time.monotonic() - started) * 1000)))
+        return result
+
+    async def _build_impl(self, command: BuildCommand) -> BuildResult:
         if not command.idempotency_key:
             raise BuildError('MISSING_IDEMPOTENCY_KEY', 'command must have a key')
         payload_digest = digest(command.model_dump(mode='json'))
@@ -63,6 +91,8 @@ class BuildHandler:
             if cached is not None:
                 if cached[0] != payload_digest:
                     raise BuildError('BUILD_IDEMPOTENCY_CONFLICT', 'key reused with different command')
+                audit_event('builder', 'build.replayed', 'REPLAYED',
+                            tenant_id=command.tenant_id, operation_id=command.build_id)
                 return cached[1]
             snapshot = self.tasks.ready_snapshot(command.tenant_id, command.task_snapshot_id)
             if snapshot is None:

@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import Any, Literal, Protocol
 
 from agent_builder import AgentSpec, ToolBinding, digest
+from agent_builder.audit import audit_event
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
@@ -146,6 +147,29 @@ class ToolGateway:
 
     async def execute(self, spec: AgentSpec, binding: ToolBinding, *, args: dict,
                       run_id: str, step: int) -> tuple[dict, str]:
+        started = time.monotonic()
+        audit_event("tool", "tool.started", "STARTED", tenant_id=spec.tenant_id,
+                    operation_id=run_id, tool_id=binding.tool_id, steps=step)
+        try:
+            result = await self._execute_impl(
+                spec, binding, args=args, run_id=run_id, step=step)
+        except RuntimeDenied as exc:
+            audit_event("tool", "tool.denied", "DENIED", tenant_id=spec.tenant_id,
+                        operation_id=run_id, tool_id=binding.tool_id, code=exc.code,
+                        duration_ms=max(0, int((time.monotonic() - started) * 1000)))
+            raise
+        except Exception:  # noqa: BLE001 - redact unexpected tool failure.
+            audit_event("tool", "tool.denied", "FAILED", tenant_id=spec.tenant_id,
+                        operation_id=run_id, tool_id=binding.tool_id,
+                        code="UNEXPECTED_TOOL_EXCEPTION")
+            raise
+        audit_event("tool", "tool.finished", "COMPLETED", tenant_id=spec.tenant_id,
+                    operation_id=run_id, tool_id=binding.tool_id,
+                    duration_ms=max(0, int((time.monotonic() - started) * 1000)))
+        return result
+
+    async def _execute_impl(self, spec: AgentSpec, binding: ToolBinding, *, args: dict,
+                            run_id: str, step: int) -> tuple[dict, str]:
         authorize_spec_for_runtime(spec)
         if binding not in spec.selected_tools:
             raise RuntimeDenied('TOOL_DENIED')
@@ -204,6 +228,32 @@ class Runtime:
 
     async def run(self, spec: AgentSpec, *, tenant_id: str, run_id: str,
                   thread_id: str, request: str, trace_id: str) -> RunResult:
+        """Log safe run lifecycle metadata while preserving existing semantics."""
+        started = time.monotonic()
+        audit_event("runtime", "run.started", "STARTED", tenant_id=tenant_id,
+                    operation_id=run_id, trace_id=trace_id)
+        try:
+            result = await self._run_impl(
+                spec, tenant_id=tenant_id, run_id=run_id, thread_id=thread_id,
+                request=request, trace_id=trace_id)
+        except RuntimeDenied as exc:
+            audit_event("runtime", "run.denied", "DENIED", tenant_id=tenant_id,
+                        operation_id=run_id, trace_id=trace_id, code=exc.code,
+                        duration_ms=max(0, int((time.monotonic() - started) * 1000)))
+            raise
+        except Exception:  # noqa: BLE001 - never include external exception details.
+            audit_event("runtime", "run.denied", "FAILED", tenant_id=tenant_id,
+                        operation_id=run_id, trace_id=trace_id,
+                        code="UNEXPECTED_RUNTIME_EXCEPTION")
+            raise
+        audit_event("runtime", "run.finished", result.status, tenant_id=tenant_id,
+                    operation_id=run_id, trace_id=trace_id, code=result.error_code,
+                    steps=result.steps, effect_count=len(result.tool_effect_refs),
+                    duration_ms=max(0, int((time.monotonic() - started) * 1000)))
+        return result
+
+    async def _run_impl(self, spec: AgentSpec, *, tenant_id: str, run_id: str,
+                        thread_id: str, request: str, trace_id: str) -> RunResult:
         if tenant_id != spec.tenant_id:
             raise RuntimeDenied('TENANT_DENIED')
         if (not run_id or not thread_id or not trace_id or len(trace_id) > 128
@@ -228,6 +278,9 @@ class Runtime:
                 old_hash, old_result = cached
                 if old_hash != request_hash:
                     raise RuntimeDenied('RUN_IDEMPOTENCY_CONFLICT')
+                audit_event('runtime', 'run.replayed', 'REPLAYED',
+                            tenant_id=tenant_id, operation_id=run_id,
+                            trace_id=trace_id, steps=old_result.steps)
                 return old_result
             history = self.memory.get(tenant_id, spec.agent_id, thread_id)
             history.append({'role': 'user', 'content': request})
