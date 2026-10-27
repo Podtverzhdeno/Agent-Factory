@@ -278,3 +278,34 @@ def test_binomial_cdf_stable_on_large_benchmark():
 def test_model_benchmark_large_sample_does_not_incorrectly_pass():
     from quality_engine.model_benchmark import _loss_upper_bound
     assert _loss_upper_bound(4000, 100000, .05) > .04
+
+
+def test_react_graph_missing_mandatory_transition_is_detected():
+    vault = DatasetVault()
+    owner = Principal("tenant-a", "evaluation")
+    gold = {"quotation": "correct"}
+    case = Case("r1", gold, required_graph_events=("tool.call", "tool.result", "final"))
+    vault.register(owner, Dataset("tenant-a", "graph-v1", "holdout", (case,)))
+    req = EvaluationRequest("tenant-a", "a1", "sha256:1", "graph-v1", "policy", "idem", "run")
+    obs = (ObservedRun("r1", gold, graph_events=("tool.call", "final")),)
+    result = EvaluationEngine(vault).evaluate(owner, req, obs, EvaluationPolicy())
+    assert not result.passed
+    assert "REQUIRED_GRAPH_EVENT_MISSING" in {f.code for f in result.findings}
+
+
+def test_long_term_memory_requires_source_freshness_and_correct_tenant():
+    from quality_engine import MemoryRead
+    vault = DatasetVault()
+    owner = Principal("tenant-a", "evaluation")
+    case = Case("m1", {"ok": True}, required_memory_keys=("approved_supplier",))
+    vault.register(owner, Dataset("tenant-a", "memory-v1", "holdout", (case,)))
+    req = EvaluationRequest("tenant-a", "a1", "sha256:1", "memory-v1", "policy", "idem", "run")
+    good = ObservedRun("m1", {"ok": True}, graph_events=("final",), memory_reads=(
+        MemoryRead("approved_supplier", "tenant-a", "sop://v2", 500, 501),))
+    bad = ObservedRun("m1", {"ok": True}, graph_events=("final",), memory_reads=(
+        MemoryRead("approved_supplier", "tenant-b", "sop://v2", 500, 501),
+        MemoryRead("approved_supplier", "tenant-a", "sop://v2", 500, 450),))
+    assert EvaluationEngine(vault).evaluate(owner, req, (good,), EvaluationPolicy()).passed
+    failed = EvaluationEngine(vault).evaluate(owner, req, (bad,), EvaluationPolicy())
+    assert failed.hard_veto
+    assert {"CROSS_TENANT_MEMORY", "STALE_MEMORY", "REQUIRED_MEMORY_MISSING"} <= {f.code for f in failed.findings}
