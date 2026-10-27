@@ -69,6 +69,10 @@ final class JdbcPersistenceIntegrationTest {
             new Protocol.Limits(2,new BigDecimal("3.00"),NOW.plusSeconds(3600)),"trace-01");
     }
     private ControlPlane orchestrator(JdbcWorkflowLedger ledger,AgentStore store) {
+        return orchestrator(ledger,store,false);
+    }
+
+    private ControlPlane orchestrator(JdbcWorkflowLedger ledger,AgentStore store,boolean automaticRelease) {
         return new ControlPlane(ledger,(tenant,snapshot) ->
             new Protocol.Snapshot(tenant,snapshot,"READY",DIGEST,
                 "artifact://policies/v1","artifact://datasets/holdout-v1","owner","rev-1"),
@@ -76,11 +80,51 @@ final class JdbcPersistenceIntegrationTest {
                 if(!tenant.equals(actor.tenantId()) || !actor.scopes().contains(scope))
                     throw new IllegalStateException("UNAUTHORIZED_TENANT_OR_SCOPE");
             },
-            (tenant,w,purpose)->false, view->false,()->NOW,store,
+            (tenant,w,purpose)->false, view->automaticRelease,()->NOW,store,
             (tenant,run,digest,e)-> {
                 if(!tenant.equals(TENANT) || !digest.equals(e.specDigest()))
                     throw new IllegalStateException("ATTESTATION_INVALID");
             });
+    }
+
+    @Test void verifiedLowRiskEvaluationAndAutoReleaseShareSingleCommit() {
+        var tx=tx();
+        var ledger=new JdbcWorkflowLedger(tx,codec());
+        var store=new JdbcAgentStore(tx,codec());
+        var control=orchestrator(ledger,store,true);
+        control.start(principal(),start());
+
+        var relay=new OutboxDispatcher(ledger,
+            command -> new Protocol.CommandReceipt(command.operationId(),true),
+            command -> new Protocol.CommandReceipt(command.operationId(),true),
+            command -> { throw new AssertionError("Unexpected GEPARD"); },
+            command -> { throw new AssertionError("Unexpected Soup"); });
+        assertEquals(1,relay.dispatchPending());
+
+        var buildPrincipal=new Protocol.Principal("builder",TENANT,Set.of("factory:events:build"));
+        var buildHeader=new Protocol.Header("0.1","build-done",TENANT,"wf-01",
+            ledger.get(TENANT,"wf-01").view().pendingOperationId(),"trace-01",NOW);
+        control.onBuild(buildPrincipal,new Protocol.BuildFinished(buildHeader,true,"agent-01",
+            "artifact://agent-spec/v1",DIGEST,Map.of("lookup",TOOL),MODEL,
+            "artifact://a2a/card-v1",null,false));
+        assertEquals(1,relay.dispatchPending());
+
+        var evaluationPrincipal=new Protocol.Principal("evaluator",TENANT,Set.of("factory:events:evaluation"));
+        var before=ledger.get(TENANT,"wf-01").view().revision();
+        var evaluationHeader=new Protocol.Header("0.1","evaluation-pass",TENANT,"wf-01",
+            ledger.get(TENANT,"wf-01").view().pendingOperationId(),"trace-01",NOW);
+        var lowRisk=new AgentStore.Evidence("eval-01",DIGEST,"artifact://datasets/holdout-v1",
+            DIGEST,"artifact://metrics/01","artifact://traces/01","artifact://holdout/independent",
+            true,true,false,true,true,AgentStore.Risk.LOW,Set.of());
+        var released=control.onEvaluation(evaluationPrincipal,new Protocol.EvaluationFinished(
+            evaluationHeader,"eval-01",DIGEST,lowRisk,new BigDecimal("0.1"),null,false));
+
+        assertEquals(Workflow.State.RELEASED,released.state());
+        assertEquals(before+1,released.revision());
+        assertEquals(released.revision(),new JdbcWorkflowLedger(tx(),codec())
+            .get(TENANT,"wf-01").view().revision());
+        assertEquals(DIGEST,new JdbcAgentStore(tx(),codec())
+            .active(TENANT,"agent-01").orElseThrow().specDigest());
     }
 
     @Test void workflowAndInboxOutboxSurviveFreshAdapterInstance() {
