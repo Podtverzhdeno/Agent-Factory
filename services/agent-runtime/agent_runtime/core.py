@@ -102,7 +102,7 @@ def validate_model_tool_args(args: object) -> None:
     """
     blocked = {'authorization', 'auth', 'secret', 'api_key', 'apikey',
                'password', 'access_token', 'refresh_token', 'private_key',
-               'client_secret', 'x-api-key'}
+               'client_secret', 'x_api_key'}
     stack = [(args, 0)]
     nodes = 0
     while stack:

@@ -28,7 +28,8 @@ def test_empty_side_effect_manifest_cannot_be_selected():
     ({'batch': [{'headers': {'authorization': 'Bearer anything'}}]}, 'CREDENTIAL_IN_TOOL_ARGS'),
     ({'f': float('nan')}, 'INVALID_TOOL_ARGS'),
     ({'nested': [{1: 'not-json'}]}, 'INVALID_TOOL_ARGS'),
-    ({'nested': ['é' * 16000]}, 'INVALID_TOOL_ARGS')
+    ({'nested': ['é' * 16000]}, 'INVALID_TOOL_ARGS'),
+    ({'headers': {'X-API-Key': 'not allowed'}}, 'CREDENTIAL_IN_TOOL_ARGS')
 ])
 async def test_nested_secrets_invalid_json_and_oversize_are_denied_before_call(args, error):
     spec = build(task('draft', ['draft'], ['draft_file'], ['draft:write']),
