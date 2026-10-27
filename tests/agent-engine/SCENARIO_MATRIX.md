@@ -5,8 +5,8 @@
 `bootstrap-factory-mvp`, `a2a-bilateral-evaluation`, and
 `twin-agent-harness`; this file introduces **no new owner-ratified architecture**.
 
-Statuses: **COMPONENT** = exercised by a local mock-backed unit/contract test;
-**CANDIDATE** = test/config exists but real SDK/DB run not verified;
+Statuses: **COMPONENT** = a local mock-backed unit/contract test exists (current revision's pass not implied);
+**CANDIDATE** = test/config exists but that execution is not verified;
 **GAP** = no implementation / no independent proof. An A2A task reaching
 `COMPLETED` is **never** a business outcome acceptance oracle.
 
@@ -14,7 +14,7 @@ Statuses: **COMPONENT** = exercised by a local mock-backed unit/contract test;
 |---|---|---|---|---|
 | B01 | Buyer supplies XLSX RFQ; catalog lookup produces correct draft (2 × $12 = $24) | 024–027, 029 | COMPONENT `test_synthetic_demo.py` | Real multi-sheet, units, provenance, macro safety absent |
 | B02 | Read-only approved supplier search yields evidence-backed response | 005, 007, 016 | COMPONENT `test_synthetic_demo.py` | Real connector authentication + source freshness |
-| B03 | Buyer A and supplier B approve independently; distinct AgentSpecs and scopes | 031, 038, 040 | COMPONENT `test_bilateral_business_scenarios.py` | Orchestrator dispatch and real two-tenant storage |
+| B03 | Buyer A and supplier B approve independently; distinct AgentSpecs and scopes | 031, 038, 040 | CANDIDATE `test_bilateral_business_scenarios.py` | Orchestrator dispatch and real two-tenant storage |
 | B04 | Both parties exchange incomplete RFQ, clarification, quote Artifact, acceptance | 032, 037, 047 | GAP | Two independent official A2A SDK endpoints and protocol client/server |
 | B05 | Required SKU/quantity absent; ask for missing data, do not invent them | 024, 032 | GAP | Typed clarification state and user-confirmed continuation |
 | B06 | Supplier returns quotation with wrong currency, units or totals | 008, 037, 044 | GAP | Independent typed output/units oracle, not LLM self-assessment |
@@ -23,7 +23,7 @@ Statuses: **COMPONENT** = exercised by a local mock-backed unit/contract test;
 | B09 | User attempts live purchase/payment with only read/draft grants | 004, 009, 040 | COMPONENT denies | Human-approved consequential effect workflow in another milestone |
 | B10 | Worker dies after creating a draft; restart must not duplicate effect | 012, 032, 039 | COMPONENT SQLite process-kill + guarded PG CANDIDATE | Real Postgres recovery, external reconciliation and outbox |
 | B11 | Partner timeout/disconnect mid-dialogue; preserve A2A task state | 032, 039 | GAP | Official A2A SDK + real PG checkpoint test; fault injection |
-| B12 | One side's Build fails; other side's approved artifact remains intact | 029, 038 | COMPONENT `test_bilateral_business_scenarios.py` | AgentStore cross-service orchestration |
+| B12 | One side's Build fails; other side's approved artifact remains intact | 029, 038 | CANDIDATE `test_bilateral_business_scenarios.py` | AgentStore cross-service orchestration |
 | B13 | Supplier file contains prompt injection, macros or malicious attachment | 007, 025–028 | COMPONENT tool deny, no file-ingest proof | Dedicated MIME parser sandbox / provenance oracle |
 | B14 | Proprietary partner data enters other tenant's optimization trace | 031, 034, 036 | GAP | Consent-aware artifact filtering and independent redaction |
 | B15 | GEPARD improves fluency but harms tool calls or private-data policy | 009, 011, 035, 041 | GAP | Independent eval, sealed holdout and baseline rollback |
@@ -74,3 +74,12 @@ independent business or production acceptance.
 and isolated `agent04-integration-gate`; the current staged environment
 patch also contains changes to the production service from another workstream.
 Do not apply the entire patch without coordinated owner approval.
+
+## Important infrastructure evidence
+
+At SHA `0cd81ba`, Railway built the integration container but failed
+`compileall` because `agent_builder/core.py` contained a repeated and
+unterminated field definition at line 62. The issue is fixed on a newer
+branch commit `569a61f` but **no successful rebuild on that commit was
+observed**. The Railway service's source update is staged only. All new
+scenario tests on the current branch await an executable run.

@@ -168,3 +168,27 @@ python -m pytest -q tests/agent-engine -ra
 python -m pytest -q tests/agent-engine --cov=agent_builder --cov=agent_runtime --cov=litellm_adapter --cov-report=term
 AGENT_ENGINE_REQUIRE_INTEGRATIONS=1 python -m pytest -q tests/agent-engine/test_official_integrations.py tests/agent-engine/test_postgres_effects.py
 ```
+
+## Scenario study and newly discovered defect (2026-10-27)
+
+- Added `tests/agent-engine/SCENARIO_MATRIX.md` with 22 B2B scenarios,
+  each tied to existing OpenSpec requirements, observable acceptance evidence,
+  business risks and next gate.
+- Added candidate bilateral buyer/supplier contract tests in
+  `tests/agent-engine/test_bilateral_business_scenarios.py`: independently
+  pinned specs, least-privilege tools, cross-tenant denial, partial build
+  failure and live-payment denial. **These are not wire-level A2A tests**.
+- The Railway test-gate deployment at **old commit `0cd81ba`** exposed a
+  genuine **SyntaxError in `agent_builder/core.py` at line 62**. Earlier
+  mock-test figures therefore cannot establish that commit's correctness.
+  The malformed/duplicated source was repaired in commit `569a61f`;
+  the real rebuild of that repair remains **NOT RUN**.
+- Added `test_source_integrity.py` to parse every agent-04 Python module
+  and reject duplicate classes in Builder. This regression is not a
+  replacement for executable CI on the actual code revision.
+- The local test fixture for two organizations is NOT equivalent to two
+  independent official A2A SDK endpoints with conversation, Artifact and
+  authenticated TaskStore state. No production release is authorized.
+
+Status discipline: until a complete build runs on the **current SHA**, do
+not repeat earlier test counts as acceptance evidence on this SHA.
