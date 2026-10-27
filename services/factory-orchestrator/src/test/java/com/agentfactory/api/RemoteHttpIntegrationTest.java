@@ -39,6 +39,7 @@ final class RemoteHttpIntegrationTest {
         final String receiptId;
         volatile boolean forgedOperationId;
         volatile boolean forgedEvaluationRunId;
+        volatile boolean oversizedReceipt;
         RemoteStub(String path,String receiptId) throws Exception {
             this.path=path;this.receiptId=receiptId;
             server=HttpServer.create(new InetSocketAddress("127.0.0.1",0),0);
@@ -52,6 +53,7 @@ final class RemoteHttpIntegrationTest {
                         ? new ObjectMapper().readTree(requestJson).path("evaluation_run_id").asText("")
                         : "accepted-001";
                     if(forgedEvaluationRunId) receiptValue="wrong-run-id";
+                    if(oversizedReceipt) receiptValue="x".repeat(9_000);
                     String response="{\""+receiptId+"\":\""+receiptValue+"\",\"status\":\"QUEUED\""+
                         (forgedOperationId?",\"operation_id\":\"wrong-operation\"":"")+"}";
                     byte[] body=response.getBytes(StandardCharsets.UTF_8);
@@ -215,6 +217,19 @@ final class RemoteHttpIntegrationTest {
             assertEquals("REMOTE_UNAVAILABLE",failure.getMessage());
             assertEquals(1,deliveries.get());
         } finally { unavailable.stop(0); }
+    }
+
+    @Test void oversizedReceiptIsRejectedBeforeParsingAndNeverRetried() throws Exception {
+        try(RemoteStub builder=new RemoteStub("/internal/builds","build_id")) {
+            builder.oversizedReceipt=true;
+            var failure=assertThrows(Protocol.RemoteCommandFailure.class,()->
+                RemoteHttpClients.builder(builder.transport("builder")).submit(
+                    new Protocol.BuildCommand(TENANT,"wf-01","snapshot-01",HASH,
+                        "operation-01","idempotency-01","correlation-01","artifact://policy/v1")));
+            assertEquals("REMOTE_RECEIPT_INVALID",failure.getMessage());
+            assertFalse(failure.retryable());
+            assertEquals(1,builder.requests.size());
+        }
     }
 
     @Test void relativeEndpointCannotBypassHostAndTlsChecks() {
