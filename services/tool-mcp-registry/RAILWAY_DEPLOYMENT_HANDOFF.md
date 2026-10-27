@@ -97,3 +97,17 @@ Read-only follow-up during this work turn on 2026-10-27:
 
 This supersedes the initial observation above that the only service was offline
 and there were no staged databases. Both observations reflect distinct moments.
+
+## Subsequent change — staged patch applied by other workstreams
+
+A second independent, read-only inventory on 2026-10-27 showed the earlier
+`Deploy PostgreSQL` staged patch is **no longer pending**. The project now
+has three live services: `Postgres` (latest deployment `SUCCESS`),
+`Agent-Factory` (source `agent/01-control-plane`, latest `BUILDING` at
+inspection), and `agent04-integration-gate` (source
+`agent/04-agent-engine`, latest `BUILDING` at inspection). This does
+**not** demonstrate that Tool Registry is connected to PostgreSQL or that
+the Builder/Runtime integration tests passed; independently inspect later
+terminal deployment results and test evidence.
+
+No mutations to any Railway resource were made by workstream 03.
