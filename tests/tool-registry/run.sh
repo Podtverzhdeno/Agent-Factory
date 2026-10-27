@@ -12,4 +12,5 @@ java -ea -cp "$OUTPUT" com.agentfactory.registry.RegistryBuilderProjectionTest
 
 python3 "$ROOT/tests/tool-registry/verify_fixtures.py"
 python3 "$ROOT/tests/tool-registry/verify_architecture.py"
-python3 "$ROOT/tests/tool-registry/verify_container_recipe.py"
+
+python3 "$ROOT/tests/tool-registry/verify_wire_contract.py"
