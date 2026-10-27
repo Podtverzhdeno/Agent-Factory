@@ -100,3 +100,21 @@ Additional regression scenarios cover replaying authorized operations after thei
 - `RemoteHttpClients` and `RemoteHttpIntegrationTest`: real HTTP transport over three local servers with JWT/token port, request headers, host allowlist, redirect denial, typed 202 receipts, and the full FAILED Evaluation → GEPARD → PASSED Evaluation workflow.
 - The independent live Builder/Evaluation/GEPARD services, verified artifact provenance, sealed holdout ACL, live A2A promotion and real Broker are **not** part of this isolated test.
 - Run the strict acceptance script on an environment with JDK 21, Maven and Docker. The latest PR SHA **has not passed the full exact-revision suite here** because Maven/Docker are unavailable. Do not mark integrated acceptance complete based on committed tests.
+
+## Late outbox response race (2026-10-27)
+
+The original command relay could overwrite a terminal workflow's `TIME_BUDGET_EXHAUSTED`
+reason when the remote service completed after termination. It also marked obsolete
+operations delivered if an HTTP acceptance arrived after the workflow changed state.
+
+- `OutboxDispatcher` now checks the *current* aggregate and pending operation under
+  `WorkflowLedger.transact` before either acknowledging a receipt or incrementing
+  failures. No-op late callbacks do not count as newly delivered work.
+- `OutboxRaceTests` covers an obsolete fifth failure, an obsolete successful receipt,
+  and unchanged normal idempotent delivery. **Executed in the mounted Java 21 subset:
+  3/3 PASS** with `javac -Xlint:all -Werror`.
+- `JdbcPersistenceIntegrationTest` has new cases for replay after a fresh JDBC instance
+  (including fingerprint verification and colliding payload rejection), plus the
+  fifth-failure/deadline race under PostgreSQL.
+- The current GitHub head's complete suite, Maven/Spring and Docker-based PostgreSQL
+  runs remain **UNVERIFIED**. No claim of production readiness follows.
