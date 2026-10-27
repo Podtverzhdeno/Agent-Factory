@@ -309,3 +309,28 @@ def test_long_term_memory_requires_source_freshness_and_correct_tenant():
     failed = EvaluationEngine(vault).evaluate(owner, req, (bad,), EvaluationPolicy())
     assert failed.hard_veto
     assert {"CROSS_TENANT_MEMORY", "STALE_MEMORY", "REQUIRED_MEMORY_MISSING"} <= {f.code for f in failed.findings}
+
+
+def test_input_reference_partition_contamination_detected_with_different_labels():
+    vault = DatasetVault()
+    owner = Principal("tenant-a", "evaluation")
+    vault.register(owner, Dataset("tenant-a", "tune", "tune", (
+        Case("one", {"expected": "a"}, input_ref="artifact://incoming/document-v2"),)))
+    with pytest.raises(InvalidEvidence, match="contamination"):
+        vault.register(owner, Dataset("tenant-a", "holdout", "holdout", (
+            Case("another", {"expected": "b"}, input_ref="artifact://incoming/document-v2"),)))
+
+
+def test_nan_usage_never_passes_business_evaluation(ev):
+    _, _, obs, _ = ev
+    bad = ObservedRun("rfq-1", obs[0].artifact, obs[0].tool_calls,
+                      cost_usd=float("nan"), graph_events=("final",))
+    with pytest.raises(InvalidEvidence):
+        evaluate(ev, (bad, obs[1]))
+
+
+def test_nan_cost_never_passes_model_benchmark():
+    p, c, b, runs = models()
+    bad = (ModelRun("case-0", True, False, float("nan")),) + runs[1:]
+    with pytest.raises(InvalidEvidence):
+        BenchmarkEngine().compare(p, c, b, bad, BenchmarkPolicy())
