@@ -98,3 +98,18 @@ def test_cross_tenant_durable_eval_is_invisible(scenario):
         wf.get(Principal("b", "evaluation"), "run-1")
     with pytest.raises(AccessDenied):
         wf.submit(Principal("b", "evaluation"), req)
+
+
+def test_tuning_dataset_never_sticks_as_running_or_publishes_pass(scenario):
+    _, vault, owner, _, _, store, req, wf = scenario
+    vault.register(owner, Dataset("a", "tune-v1", "tune", (
+        Case("r1", {"verified": True}, ("catalog.lookup",), ("effect:1",),
+             input_ref="artifact://train-only"),)))
+    training = replace(req, dataset_version_ref="tune-v1",
+                       idempotency_key="train", evaluation_run_id="train-run")
+    assert wf.submit(owner, training).status == "QUEUED"
+    result = wf.process(owner, "train-run")
+    assert result.status == "BLOCKED"
+    assert result.error_code == "INDEPENDENT_HOLDOUT_REQUIRED"
+    assert store.get(owner, "train-run").status == "BLOCKED"
+    assert [e.payload["passed"] for e in store.pending_events(owner)] == [False]
