@@ -57,6 +57,11 @@ final class JdbcSpringWiringIntegrationTest {
             startedContainer ? POSTGRES.getUsername() : "factory_test");
         registry.add("spring.datasource.password", () ->
             startedContainer ? POSTGRES.getPassword() : "synthetic_only");
+        // This wiring-only test deliberately uses an empty search_path even
+        // when another suite has applied migrations to public. Avoid any
+        // test-order dependence and prove connectivity != schema readiness.
+        registry.add("spring.datasource.connection-init-sql", () ->
+            "SET search_path TO cp_wiring_schema_not_initialized");
     }
 
     @AfterAll
@@ -89,10 +94,11 @@ final class JdbcSpringWiringIntegrationTest {
     }
 
     @Test
-    void schemaProbeConfirmsV1AndV2OnRealPostgres() throws Exception {
-        http.perform(get("/schemaz")).andExpect(status().isOk())
+    void schemaProbeFailsClosedWithConnectedButUnmigratedDatabase() throws Exception {
+        http.perform(get("/persistencez")).andExpect(status().isOk());
+        http.perform(get("/schemaz")).andExpect(status().isServiceUnavailable())
             .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
-                .jsonPath("$.schema").value("ready"));
+                .jsonPath("$.schema").value("unavailable"));
     }
 
     @Test
