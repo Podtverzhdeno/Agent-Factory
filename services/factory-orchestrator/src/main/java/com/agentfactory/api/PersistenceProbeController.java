@@ -32,8 +32,8 @@ public final class PersistenceProbeController {
             DataSource source = sources.getIfAvailable();
             if (source == null) return ResponseEntity.status(503).body(UNAVAILABLE);
             try (Connection connection = source.getConnection()) {
-            if (connection != null && connection.isValid(2))
-                return ResponseEntity.ok(Map.of("persistence", "available"));
+                if (connection != null && connection.isValid(2))
+                    return ResponseEntity.ok(Map.of("persistence", "available"));
             }
         } catch (SQLException | RuntimeException unavailable) {
             // Never disclose database topology or SQL failure details to clients.
