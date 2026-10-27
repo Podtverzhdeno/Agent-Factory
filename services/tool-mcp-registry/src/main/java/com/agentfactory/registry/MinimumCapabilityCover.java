@@ -64,11 +64,17 @@ final class MinimumCapabilityCover {
         int v = Integer.compare(a.size(), b.size()); if (v != 0) return v;
         v = Integer.compare(a.stream().mapToInt(m -> m.riskLevel().ordinal()).sum(), b.stream().mapToInt(m -> m.riskLevel().ordinal()).sum());
         if (v != 0) return v;
-        v = Integer.compare(a.stream().mapToInt(m -> m.requiredScopes().size()).sum(), b.stream().mapToInt(m -> m.requiredScopes().size()).sum());
+        v = Integer.compare(uniqueScopes(a).size(), uniqueScopes(b).size());
         if (v != 0) return v;
         v = Integer.compare(a.stream().mapToInt(m -> m.sideEffects().size()).sum(), b.stream().mapToInt(m -> m.sideEffects().size()).sum());
         if (v != 0) return v;
         return signature(a).compareTo(signature(b));
+    }
+    /** Compare the actual effective grants, rather than double-counting shared scopes. */
+    private static Set<String> uniqueScopes(List<Manifest> selected) {
+        Set<String> scopes = new HashSet<>();
+        for (Manifest manifest : selected) scopes.addAll(manifest.requiredScopes());
+        return scopes;
     }
     private static String signature(List<Manifest> x) {
         return x.stream().map(m -> m.toolId() + "@" + m.version() + "/" + m.operation()).sorted().collect(Collectors.joining("|"));
