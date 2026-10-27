@@ -7,6 +7,7 @@ candidate program, never an approved AgentSpec or a production rollout.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from inspect import signature
 from typing import Any
 
 
@@ -28,6 +29,10 @@ class DspyGepaBackend:
                 train_ref: str = "", validation_ref: str = "") -> GepaExecution:
         if not trainset or not valset or reflection_lm is None or not callable(metric):
             raise ValueError("approved train/validation data, metric and reflection LM required")
+        try:
+            signature(metric).bind(None, None, None, None, None)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("DSPy GEPA metric must accept 5 arguments") from exc
         if not 1 <= max_metric_calls <= 250:
             raise ValueError("bounded metric-call budget required")
         if not train_ref or not validation_ref or train_ref == validation_ref:
