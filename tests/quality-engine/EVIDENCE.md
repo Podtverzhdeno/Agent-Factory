@@ -55,3 +55,21 @@ The latest strict local run remains **81 passed, 3 skipped** using `pytest -q te
 - `tests/quality-engine/test_gepa_live_optin.py` — genuine DSPy GEPA compile with a synthetic training/validation corpus and a LiteLLM reflection model, capped to 8 metric calls; requires separately authorized credentials and the optional `dspy` package. Not executed in this environment.
 
 **Result of latest strict local run:** 81 PASS, 3 SKIP, no ResourceWarnings. All skipped external integrations remain OPEN, not silently treated as proof.
+
+## New deterministic regressions and strict local run (2026-10-27)
+
+Exact local source stage, Python 3.13.5:
+- `python -m pytest -q tests/quality-engine -W error::ResourceWarning` → **98 PASSED, 3 SKIPPED** (no ResourceWarnings).
+- `python -m pytest --cov=quality_engine --cov=gepard_optimizer --cov-report=term-missing -q tests/quality-engine -W error::ResourceWarning` → **98 PASSED, 3 SKIPPED; 95% coverage** (1,013 statements; 55 missed).
+- `python -m compileall -q services` → exit code 0.
+- SKIPPED integrations remain real PostgreSQL, live LiteLLM Proxy and real DSPy GEPA (not counted as successes). GitHub's shared workflow checks SDD/OpenSpec only, not these Python tests.
+
+New verified fixes:
+- Durable Evaluation no longer attempts to store tuning-only PASS as a release decision and leave a worker RUNNING; it commits BLOCKED/INDEPENDENT_HOLDOUT_REQUIRED and one sanitized outbox event.
+- SQL store prevents FAILED status with a contradictory positive evaluator result.
+- Model benchmark requires an absolute minimum successful-operation rate for BOTH baseline and candidate; two equally unreliable cheap models fail the gate.
+- LiteLLM HTTP adapter rejects unapproved provider model substitution, negative/noninteger tokens and nonfinite/negative response costs.
+- Cost-quality PASS now requires an injected trusted evidence verifier; a self-declared string saying holdout yields INCONCLUSIVE. Production service must implement that verifier against evaluator-owned signed source evidence, rather than a test lambda.
+- Added Ed25519 verification-only Runtime audit adapter, tenant-bound public keys, forged signature detection and full signed-audit-to-durable-workflow smoke test. Production Runtime audit producer/key rotation/mTLS remain cross-team work.
+
+These are local mock/SQLite-backed component proofs, NOT independently executed live network, PostgreSQL, Kafka or model-optimization acceptance.
