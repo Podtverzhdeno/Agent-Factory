@@ -23,6 +23,7 @@ class EvidenceEnvelope:
     case_id: str
     trace_ref: str
     observation: ObservedRun
+    evaluation_run_id: str = ""
 
 
 class EvidenceCollector(Protocol):
@@ -50,6 +51,7 @@ def collect_observations(
             envelope.dataset_version_ref != request.dataset_version_ref or
             envelope.case_id != case.case_id or
             envelope.observation.case_id != case.case_id or
+            (require_attestation and envelope.evaluation_run_id != request.evaluation_run_id) or
             not envelope.trace_ref
         ):
             raise InvalidEvidence("untrusted execution evidence / pinned identity mismatch")
