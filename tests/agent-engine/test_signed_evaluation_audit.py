@@ -9,15 +9,14 @@ import json
 
 import httpx
 import pytest
-from cryptography.exceptions import InvalidSignature
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-
 from agent_runtime import Decision, EffectLedger, Runtime, RuntimeDenied, ToolPolicy
 from agent_runtime.evaluation_audit import (
     EvidenceRecordingGateway,
     RuntimeAuditReadAPI,
     SignedRuntimeAudit,
 )
+from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from test_engine import FakeTools, Registry, ScriptedModel, build, manifest, task
 
 
