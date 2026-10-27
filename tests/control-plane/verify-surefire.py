@@ -15,7 +15,7 @@ from xml.etree import ElementTree
 REQUIRED = {
     "ControlPlaneComponentSuiteTest": 4,
     "ControlPlaneSecurityTest": 6,
-    "JdbcPersistenceIntegrationTest": 16,
+    "JdbcPersistenceIntegrationTest": 17,
     "JdbcSpringWiringIntegrationTest": 2,
     "RemoteHttpIntegrationTest": 9,
 }
