@@ -144,3 +144,31 @@ def test_durable_fastapi_rejects_cross_tenant_http(scenario):
     client = TestClient(create_app(workflow, lambda: Principal("other", "evaluation")))
     assert client.post("/internal/evaluations", json=asdict(req)).status_code == 403
     assert client.get("/internal/evaluations/run-1").status_code == 404
+
+
+def test_durable_workflow_with_runtime_ed25519_verify_only_key(scenario):
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    from quality_engine.ed25519_audit import Ed25519EvidenceVerifier, RuntimeAuditPublicKey
+    from quality_engine.attestation import AttestedEvidence, canonical_evidence
+    engine, vault, owner, _, _, store, request, _ = scenario
+    private = Ed25519PrivateKey.generate()  # synthetic Runtime-only signer
+    verifier = Ed25519EvidenceVerifier({
+        "runtime-v1": RuntimeAuditPublicKey("a", private.public_key())})
+
+    class RuntimeSignedCollector:
+        def collect(self, req, case):
+            assert not hasattr(case, "expected_artifact")
+            envelope = EvidenceEnvelope(
+                req.tenant_id, req.agent_spec_digest, req.dataset_version_ref,
+                case.case_id, "trace://audit",
+                ObservedRun(case.case_id, {"verified": True},
+                            (ToolCall("catalog.lookup", effect_proof="effect:1"),),
+                            graph_events=("tool.call", "final")))
+            return AttestedEvidence(envelope, "runtime-v1",
+                                    private.sign(canonical_evidence(envelope)).hex())
+
+    workflow = DurableEvaluationWorkflow(vault, RuntimeSignedCollector(), store,
+                                         verifier=verifier, clock=lambda: 100)
+    assert workflow.submit(owner, request).status == "QUEUED"
+    assert workflow.process(owner, request.evaluation_run_id).status == "PASSED"
+    assert not hasattr(verifier, "sign")
