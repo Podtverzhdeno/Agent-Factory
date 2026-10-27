@@ -114,7 +114,8 @@ public final class Workflow {
         return switch (type) {
             case BUILD -> state == State.BUILDING;
             case EVALUATE -> state == State.TESTING || state == State.RE_TESTING;
-            case OPTIMIZE, SOUP -> state == State.OPTIMIZING;
+            case OPTIMIZE -> state == State.OPTIMIZING;
+            case SOUP -> state == State.TRAINING;
         };
     }
     public View view() {
