@@ -18,7 +18,7 @@ checks = {
     "effects serializer": "module.addSerializer(Effect.class, lowerCaseSerializer())" in source,
     "effects deserializer": "module.addDeserializer(Effect.class, strictLowerCaseDeserializer(Effect.class))" in source,
     "strict case normalization": "value.equals(value.toLowerCase(Locale.ROOT))" in source,
-    "no unsafe default enum": 'throw new IllegalArgumentException("Unsupported lower-case "' in source,
+    "unknown enum maps to typed Jackson bad request": "context.weirdStringException(value, enumType" in source,
     "unknown fields rejected": "FAIL_ON_UNKNOWN_PROPERTIES, true" in source,
     "snake case retained": "PropertyNamingStrategies.SNAKE_CASE" in source,
     "wire JUnit uses supported case": '"\\"max_risk\\":\\"low\\""' in http_tests,
