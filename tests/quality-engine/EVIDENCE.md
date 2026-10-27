@@ -1,8 +1,8 @@
 # Agent 05 — verified component evidence
 
 ## Executed locally, Python 3.13.5
-- `pytest -q tests/quality-engine`: **49 passed**
-- `pytest --cov=quality_engine --cov=gepard_optimizer --cov-report=term -q tests/quality-engine`: **49 passed, 96% statement coverage** (567 statements, 25 missed)
+- `pytest -q tests/quality-engine`: **50 passed**
+- `pytest --cov=quality_engine --cov=gepard_optimizer --cov-report=term -q tests/quality-engine`: **50 passed, 96% statement coverage** (570 statements, 25 missed)
 - `python -m compileall -q services`: **passed**
 - CI on PR validates OpenSpec/SDD; it does NOT execute this component suite.
 
@@ -29,3 +29,10 @@ GEPARD is NOT actually optimizing a DSPy program using a paid/private model; tes
 - AF-REQ-048: standalone statistical model comparison implemented/tested; real LiteLLM metering, pricing snapshots, holdout authorization and release gate integration pending.
 
 Do NOT mark end-to-end SDD implementation tasks complete, and do NOT merge without independent code review and owner-approved ADR.
+
+## Last hardening pass
+- Verified runtime collector cannot see hidden gold (only PublicRunCase).
+- Nonfinite usage metrics and invalid cost-quality test provenance cannot yield PASS.
+- Published evaluation events cannot claim a foreign tenant or omit correlation identity.
+- Added deterministic fail → prompt candidate → held-out retest synthetic smoke (not live GEPA or LLM).
+- Latest local run: 50 unit/component tests passed; 96% statement coverage on Python 3.13.5.
