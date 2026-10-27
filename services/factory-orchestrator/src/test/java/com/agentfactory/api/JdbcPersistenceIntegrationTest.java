@@ -702,17 +702,26 @@ final class JdbcPersistenceIntegrationTest {
             java.util.function.Function<JdbcWorkflowLedger,OutboxDispatcher> relay=ledger ->
                 new OutboxDispatcher(ledger,build,eval,optimize,
                     c->{throw new AssertionError("Soup was not requested");});
-            java.util.function.Function<JdbcWorkflowLedger,ControlPlane> plane=ledger ->
-                orchestrator(ledger,new JdbcAgentStore(tx(),codec()));
+            // Ledger and AgentStore must share the SAME transaction scope.
+            record Stage(JdbcWorkflowLedger ledger, ControlPlane plane, OutboxDispatcher relay) { }
+            java.util.function.Supplier<Stage> stage=()->{
+                var transaction=tx();
+                var durableLedger=new JdbcWorkflowLedger(transaction,codec());
+                var durableStore=new JdbcAgentStore(transaction,codec());
+                return new Stage(durableLedger,orchestrator(durableLedger,durableStore),
+                    relay.apply(durableLedger));
+            };
 
-            var l1=new JdbcWorkflowLedger(tx(),codec());
-            plane.apply(l1).start(principal(),start());
-            assertEquals(1,relay.apply(l1).dispatchPending());
+            var stage1=stage.get();
+            var l1=stage1.ledger();
+            stage1.plane().start(principal(),start());
+            assertEquals(1,stage1.relay().dispatchPending());
             assertEquals(1,builder.requests.size());
 
-            var l2=new JdbcWorkflowLedger(tx(),codec());
-            assertEquals(0,relay.apply(l2).dispatchPending());
-            var p2=plane.apply(l2);
+            var stage2=stage.get();
+            var l2=stage2.ledger();
+            assertEquals(0,stage2.relay().dispatchPending());
+            var p2=stage2.plane();
             String buildOperation=l2.get(TENANT,"wf-01").view().pendingOperationId();
             assertEquals(Workflow.State.TESTING,p2.onBuild(
                 new Protocol.Principal("builder",TENANT,Set.of("factory:events:build")),
@@ -721,55 +730,59 @@ final class JdbcPersistenceIntegrationTest {
                         buildOperation,"trace-01",NOW),
                     true,"agent-01","artifact://agent-spec/v1",DIGEST,
                     Map.of("lookup",TOOL),MODEL,"artifact://a2a/card-v1",null,false)).state());
-            assertEquals(1,relay.apply(l2).dispatchPending());
+            assertEquals(1,stage2.relay().dispatchPending());
             assertEquals(1,evaluator.requests.size());
 
-            var l3=new JdbcWorkflowLedger(tx(),codec());
-            assertEquals(0,relay.apply(l3).dispatchPending());
+            var stage3=stage.get();
+            var l3=stage3.ledger();
+            assertEquals(0,stage3.relay().dispatchPending());
             String firstRun=l3.get(TENANT,"wf-01").view().pendingOperationId();
             var rejected=new AgentStore.Evidence(firstRun,DIGEST,"artifact://datasets/holdout-v1",
                 DIGEST,"artifact://metrics/failure","artifact://traces/failure",
                 "artifact://holdout/independent",true,false,false,true,true,
                 AgentStore.Risk.HIGH,Set.of());
-            assertEquals(Workflow.State.OPTIMIZING,plane.apply(l3).onEvaluation(
+            assertEquals(Workflow.State.OPTIMIZING,stage3.plane().onEvaluation(
                 new Protocol.Principal("evaluator",TENANT,Set.of("factory:events:evaluation")),
                 new Protocol.EvaluationFinished(
                     new Protocol.Header("0.1","eval-reject",TENANT,"wf-01",
                         firstRun,"trace-01",NOW),
                     firstRun,DIGEST,rejected,new BigDecimal("0.1"),null,false)).state());
-            assertEquals(1,relay.apply(l3).dispatchPending());
+            assertEquals(1,stage3.relay().dispatchPending());
             assertEquals(1,optimizer.requests.size());
 
-            var l4=new JdbcWorkflowLedger(tx(),codec());
-            assertEquals(0,relay.apply(l4).dispatchPending());
+            var stage4=stage.get();
+            var l4=stage4.ledger();
+            assertEquals(0,stage4.relay().dispatchPending());
             String optimizeRun=l4.get(TENANT,"wf-01").view().pendingOperationId();
             String improved="sha256:"+"f".repeat(64);
-            assertEquals(Workflow.State.RE_TESTING,plane.apply(l4).onOptimization(
+            assertEquals(Workflow.State.RE_TESTING,stage4.plane().onOptimization(
                 new Protocol.Principal("optimizer",TENANT,Set.of("factory:events:optimization")),
                 new Protocol.OptimizationFinished(
                     new Protocol.Header("0.1","gepard-complete",TENANT,"wf-01",
                         optimizeRun,"trace-01",NOW),
                     true,DIGEST,"artifact://agents/improved-v2",improved,
                     new BigDecimal("0.2"),null,false)).state());
-            assertEquals(1,relay.apply(l4).dispatchPending());
+            assertEquals(1,stage4.relay().dispatchPending());
             assertEquals(2,evaluator.requests.size());
 
-            var l5=new JdbcWorkflowLedger(tx(),codec());
-            assertEquals(0,relay.apply(l5).dispatchPending());
+            var stage5=stage.get();
+            var l5=stage5.ledger();
+            assertEquals(0,stage5.relay().dispatchPending());
             String finalRun=l5.get(TENANT,"wf-01").view().pendingOperationId();
             var approved=new AgentStore.Evidence(finalRun,improved,
                 "artifact://datasets/holdout-v1",DIGEST,"artifact://metrics/pass",
                 "artifact://traces/pass","artifact://holdout/independent",
                 true,true,false,true,true,AgentStore.Risk.HIGH,Set.of());
-            assertEquals(Workflow.State.VERIFIED,plane.apply(l5).onEvaluation(
+            assertEquals(Workflow.State.VERIFIED,stage5.plane().onEvaluation(
                 new Protocol.Principal("evaluator",TENANT,Set.of("factory:events:evaluation")),
                 new Protocol.EvaluationFinished(
                     new Protocol.Header("0.1","eval-pass",TENANT,"wf-01",
                         finalRun,"trace-01",NOW),
                     finalRun,improved,approved,new BigDecimal("0.2"),null,false)).state());
 
-            var durable=new JdbcWorkflowLedger(tx(),codec());
-            assertEquals(0,relay.apply(durable).dispatchPending());
+            var finalStage=stage.get();
+            var durable=finalStage.ledger();
+            assertEquals(0,finalStage.relay().dispatchPending());
             assertEquals(Workflow.State.VERIFIED,
                 durable.get(TENANT,"wf-01").view().state());
             assertEquals(1,new JdbcAgentStore(tx(),codec())
