@@ -37,11 +37,15 @@ public final class ControlPlaneComponentTests {
         final Set<String> approvals=new HashSet<>();
         boolean auto;
         boolean failOnce;
+        boolean invalidEvidence;
         final ControlPlane cp=new ControlPlane(ledger,(tenant,snap) ->
             new Snapshot(tenant,snap,"READY",hash('e'),POLICY,DATASET,"owner","r1"),
             (p,tenant,scope) -> { if(p==null || !tenant.equals(p.tenantId()) || !p.scopes().contains(scope))
                 throw new IllegalStateException("UNAUTHORIZED_TENANT_OR_SCOPE"); },
-            (t,w,purpose)-> approvals.contains(purpose), view->auto, ()->NOW,store);
+            (t,w,purpose)-> approvals.contains(purpose), view->auto, ()->NOW,store,
+            (tenant,run,digest,evidence)-> {
+                if(invalidEvidence) throw new IllegalStateException("NOT_ATTESTED");
+            });
         final OutboxDispatcher dispatcher=new OutboxDispatcher(ledger,
             command -> { builds.incrementAndGet(); if(failOnce) throw new IllegalStateException("down");
                 return new CommandReceipt(command.operationId(),true); },
@@ -189,7 +193,7 @@ public final class ControlPlaneComponentTests {
             f.eval(true,false,true,AgentStore.Risk.HIGH,SPEC1,"0.1");
             error("TRAINING_RIGHTS_OR_APPROVAL_MISSING",()->f.cp.requestSoup(COMMAND,TENANT,WF,"artifact://rights/valid"));
             f.approvals.add("training:approve");
-            check(f.cp.requestSoup(COMMAND,TENANT,WF,"artifact://rights/valid").state()==Workflow.State.OPTIMIZING);
+            check(f.cp.requestSoup(COMMAND,TENANT,WF,"artifact://rights/valid").state()==Workflow.State.TRAINING);
             f.dispatcher.dispatchPending();check(f.soups.get()==1);
             check(f.opts.get()==0);
         });
@@ -206,10 +210,11 @@ public final class ControlPlaneComponentTests {
             f.approvals.add("training:approve");
             f.cp.requestSoup(COMMAND,TENANT,WF,"artifact://rights/valid");
             f.dispatcher.dispatchPending();
-            error("UNEXPECTED_OPTIMIZER_EVENT", ()->f.cp.onOptimization(EVENTS,
+            check(f.cp.onOptimization(EVENTS,
                 new OptimizationFinished(f.header("forged-gepard"),true,SPEC1,
-                    "artifact://agents/poison",SPEC2,new BigDecimal("0"),null,false)));
-            check(f.get().state()==Workflow.State.OPTIMIZING);
+                    "artifact://agents/poison",SPEC2,new BigDecimal("0"),null,false))
+                .state()==Workflow.State.TRAINING);
+            check(f.get().state()==Workflow.State.TRAINING);
         });
         test("AF-REQ-014 high risk never auto promotes",()->{
             Fixture f=new Fixture();f.auto=true;f.start();f.build();
@@ -236,6 +241,42 @@ public final class ControlPlaneComponentTests {
             check(f.cp.onBuild(EVENTS,early).state()==Workflow.State.BUILDING);
             check(f.dispatcher.dispatchPending()==1);
             check(f.cp.onBuild(EVENTS,early).state()==Workflow.State.TESTING);
+        });
+        test("AF-REQ-014 forged evaluator attestation is BLOCKED",()->{
+            Fixture f=new Fixture();f.invalidEvidence=true;f.start();f.build();
+            check(f.eval(true,false,true,AgentStore.Risk.LOW,SPEC1,"0.1")
+                .errorCode().equals("UNTRUSTED_EVALUATION_EVIDENCE"));
+            check(f.store.active(TENANT,"agent-01").isEmpty());
+        });
+        test("AF-REQ-010 non-repairable connector absence prevents GEPARD",()->{
+            Fixture f=new Fixture();f.start();f.build();f.dispatcher.dispatchPending();
+            AgentStore.Evidence e=f.evidence(false,false,true,AgentStore.Risk.LOW,SPEC1);
+            Workflow.View v=f.cp.onEvaluation(EVENTS,new EvaluationFinished(f.header("missing-tool"),
+                "evaluation-1",SPEC1,e,new BigDecimal("0.1"),"MISSING_CAPABILITY",false));
+            check(v.state()==Workflow.State.BLOCKED);
+            check(v.errorCode().equals("MISSING_CAPABILITY"));
+            check(f.opts.get()==0);
+        });
+        test("AF-REQ-017 Soup result creates immutable new candidate and re-evaluation",()->{
+            Fixture f=new Fixture();f.start();f.build();
+            f.eval(true,false,true,AgentStore.Risk.HIGH,SPEC1,"0.1");
+            f.approvals.add("training:approve");
+            f.cp.requestSoup(COMMAND,TENANT,WF,"artifact://rights/valid");
+            check(f.dispatcher.dispatchPending()==1);
+            check(f.cp.onSoup(EVENTS,new SoupFinished(f.header("soup-done"),true,SPEC1,
+                "artifact://agents/trained",SPEC2,hash('f'),new BigDecimal("0.4"),null,false))
+                .state()==Workflow.State.RE_TESTING);
+            check(f.dispatcher.dispatchPending()==1);
+            check(f.eval(true,false,true,AgentStore.Risk.HIGH,SPEC2,"0.2").state()==Workflow.State.VERIFIED);
+            check(f.store.active(TENANT,"agent-01").isEmpty());
+            check(f.store.versions(TENANT,"agent-01").size()==2);
+        });
+        test("AF-REQ-015 obsolete undelivered outbox cannot dispatch",()->{
+            Fixture f=new Fixture();f.start();
+            f.ledger.transact(TENANT,WF,w->{w.state=Workflow.State.BLOCKED;
+                w.errorCode="MANUAL_CANCEL";w.pendingOperationId=null;return null;});
+            check(f.dispatcher.dispatchPending()==0);
+            check(f.builds.get()==0);
         });
         System.out.println("COMPONENT TESTS PASSED: "+run.get());
     }
