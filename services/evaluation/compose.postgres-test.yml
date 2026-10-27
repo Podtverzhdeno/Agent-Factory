@@ -1,0 +1,17 @@
+# Test fixture only. Not an approved production service/deployment topology.
+services:
+  evaluation-postgres-test:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: agent_factory_quality_test
+      POSTGRES_USER: evaluation_test
+      POSTGRES_PASSWORD: evaluation_local_test_only
+    ports:
+      - "127.0.0.1:55432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U evaluation_test -d agent_factory_quality_test"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+    tmpfs:
+      - /var/lib/postgresql/data
