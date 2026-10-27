@@ -217,6 +217,15 @@ final class RemoteHttpIntegrationTest {
         } finally { unavailable.stop(0); }
     }
 
+    @Test void relativeEndpointCannotBypassHostAndTlsChecks() {
+        assertThrows(IllegalArgumentException.class,()->new RemoteHttpClients.Transport(
+            "builder",URI.create("/internal/builds"),Set.of("localhost"),false,
+            (service,tenant)->"synthetic-token",new ObjectMapper()));
+        assertThrows(IllegalArgumentException.class,()->new RemoteHttpClients.Transport(
+            "builder",URI.create("https://builder.example.invalid"),null,false,
+            (service,tenant)->"synthetic-token",new ObjectMapper()));
+    }
+
     @Test void endpointAllowlistDeniesArbitraryOutboundHost() {
         assertThrows(IllegalArgumentException.class,()->new RemoteHttpClients.Transport("builder",
             URI.create("http://169.254.169.254:80"),Set.of("169.254.169.254"),true,
