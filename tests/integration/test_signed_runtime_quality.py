@@ -68,7 +68,8 @@ def _agent(*, uses_tool: bool, candidate_spec=None):
 
 
 def _collect_and_evaluate(tmp_path, spec, private, audit, *, eval_id: str,
-                          expected_tool: bool, corrupt: bool = False):
+                          expected_tool: bool, corrupt: bool = False,
+                          require_external_proof: bool = False):
     token = "synthetic-service-token"
     api = RuntimeAuditReadAPI(
         audit, authenticate=lambda given: "buyer" if given == token else None)
@@ -96,10 +97,12 @@ def _collect_and_evaluate(tmp_path, spec, private, audit, *, eval_id: str,
     vault = DatasetVault()
     principal = Principal("buyer", "evaluation")
     required_calls = ("quote.render",) if expected_tool else ()
+    required_proofs = ("artifact://external-confirmation",) if require_external_proof else ()
     vault.register(principal, Dataset(
         "buyer", "holdout-v1", "holdout",
         (Case("case-1", {"ok": True, "ref": "artifact://synthetic/output"},
               required_tool_calls=required_calls,
+              required_effect_proofs=required_proofs,
               input_ref="artifact://public-input"),)))
     engine = create_engine(f"sqlite+pysqlite:///{tmp_path / (eval_id + '.sqlite')}")
     metadata.create_all(engine)
@@ -192,3 +195,20 @@ def test_runtime_evidence_tampering_is_blocked_by_quality(tmp_path):
     assert blocked.result is None
     assert len(tools.called) == 1
     assert count == 1
+
+
+def test_local_reservation_never_counts_as_external_business_effect(tmp_path):
+    spec, tools, private, audit = _agent(uses_tool=True)
+    signed = _run(audit, eval_id="proof-required")
+    assert signed["envelope"]["observation"]["tool_calls"][0]["effect_proof"] is None
+    # Even a schema-valid successful tool response is insufficient when the
+    # business holdout demands independent proof of a real external effect.
+    result, count = _collect_and_evaluate(
+        tmp_path, spec, private, audit, eval_id="proof-required",
+        expected_tool=True, require_external_proof=True)
+    assert result.status == "FAILED"
+    assert result.result is not None
+    assert any(finding.code == "VERIFIED_EFFECT_MISSING"
+               for finding in result.result.findings)
+    assert count == 1
+    assert len(tools.called) == 1
