@@ -23,18 +23,9 @@ RUN set -eu; \
 
 FROM eclipse-temurin:21-jre
 WORKDIR /opt/control-plane
-# Pin OpenTelemetry Java agent and independently verify its SHA-256 from the
-# publisher's GitHub release asset metadata (v2.33.0, 2026-10-23).
-# Railway injects the OTEL_* trace exporter settings when tracing is enabled.
-ADD https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.33.0/opentelemetry-javaagent.jar /opt/control-plane/opentelemetry-javaagent.jar
-RUN echo "5f9d1f10056ed2b246fbb19543519b8066cda23d6aff19022dbdb84402d6c3ab  /opt/control-plane/opentelemetry-javaagent.jar" | sha256sum -c - && chmod 0644 /opt/control-plane/opentelemetry-javaagent.jar
 COPY --from=build /workspace/services/factory-orchestrator/target/factory-orchestrator-0.1.0-SNAPSHOT.jar /opt/control-plane/app.jar
 USER 10001:10001
 ENV SERVER_PORT=8080
 ENV SPRING_PROFILES_ACTIVE=railway-smoke
-ENV OTEL_METRICS_EXPORTER=none
-ENV OTEL_LOGS_EXPORTER=none
-# Build must fail if the non-root runtime cannot actually load the agent.
-RUN java -javaagent:/opt/control-plane/opentelemetry-javaagent.jar -version
 EXPOSE 8080
-ENTRYPOINT ["java", "-javaagent:/opt/control-plane/opentelemetry-javaagent.jar", "-XX:MaxRAMPercentage=75.0", "-jar", "/opt/control-plane/app.jar"]
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75.0", "-jar", "/opt/control-plane/app.jar"]
