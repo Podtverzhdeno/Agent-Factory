@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import static com.agentfactory.control.Protocol.*;
 
 /** Dependency-free executable component tests for offline CI and review. */
@@ -19,7 +20,8 @@ public final class ControlPlaneComponentTests {
         return new Principal("test-principal",tenant,Set.of(scopes));
     }
     static final Principal COMMAND=actor(TENANT,"factory:start","factory:read","factory:release","factory:rollback","factory:training");
-    static final Principal EVENTS=actor(TENANT,"factory:events");
+    static final Principal EVENTS=actor(TENANT,"factory:events:build","factory:events:evaluation",
+        "factory:events:optimization","factory:events:soup");
     static final AtomicInteger run=new AtomicInteger();
     static void test(String name,Runnable action) {
         try { action.run(); System.out.println("PASS "+name);run.incrementAndGet(); }
@@ -38,11 +40,12 @@ public final class ControlPlaneComponentTests {
         boolean auto;
         boolean failOnce;
         boolean invalidEvidence;
+        final AtomicReference<Instant> now=new AtomicReference<>(NOW);
         final ControlPlane cp=new ControlPlane(ledger,(tenant,snap) ->
             new Snapshot(tenant,snap,"READY",hash('e'),POLICY,DATASET,"owner","r1"),
             (p,tenant,scope) -> { if(p==null || !tenant.equals(p.tenantId()) || !p.scopes().contains(scope))
                 throw new IllegalStateException("UNAUTHORIZED_TENANT_OR_SCOPE"); },
-            (t,w,purpose)-> approvals.contains(purpose), view->auto, ()->NOW,store,
+            (t,w,purpose)-> approvals.contains(purpose), view->auto, now::get,store,
             (tenant,run,digest,evidence)-> {
                 if(invalidEvidence) throw new IllegalStateException("NOT_ATTESTED");
             });
@@ -303,6 +306,57 @@ public final class ControlPlaneComponentTests {
             check(f.store.active("other-tenant","agent-01").isEmpty());
             check(f.store.history("other-tenant","agent-01").isEmpty());
             check(f.store.versions("other-tenant","agent-01").isEmpty());
+        });
+        test("AF-REQ-020 Builder publisher cannot forge an Evaluation event",()->{
+            Fixture f=new Fixture();f.start();f.build();f.dispatcher.dispatchPending();
+            error("UNAUTHORIZED_TENANT_OR_SCOPE",()->f.cp.onEvaluation(
+                actor(TENANT,"factory:events:build"),
+                new EvaluationFinished(f.header("forged-evaluation"),"evaluation-1",SPEC1,
+                    f.evidence(true,false,true,AgentStore.Risk.LOW,SPEC1),
+                    new BigDecimal("0.1"),null,false)));
+            check(f.get().state()==Workflow.State.TESTING);
+        });
+        test("AF-REQ-015 AgentStore replay cannot change verified metadata",()->{
+            Fixture f=new Fixture();
+            AgentStore.Evidence e=f.evidence(true,false,true,AgentStore.Risk.HIGH,SPEC1);
+            AgentStore.Metadata m=new AgentStore.Metadata(TENANT,"agent-01",
+                "artifact://agents/a1",SPEC1,Map.of("catalog.lookup",TOOL),MODEL,null,e);
+            check(f.store.registerCandidate(m,"key-1").version()==1);
+            check(f.store.registerCandidate(m,"key-1").version()==1);
+            error("IDEMPOTENCY_CONFLICT",()->f.store.registerCandidate(
+                new AgentStore.Metadata(TENANT,"agent-01","artifact://agents/a1",SPEC1,
+                    Map.of("catalog.lookup",hash('f')),MODEL,null,e),"key-1"));
+            check(f.store.versions(TENANT,"agent-01").size()==1);
+        });
+        test("AF-REQ-017 Soup duplicate command queues one job",()->{
+            Fixture f=new Fixture();f.start();f.build();
+            f.eval(true,false,true,AgentStore.Risk.HIGH,SPEC1,"0.1");
+            f.approvals.add("training:approve");
+            check(f.cp.requestSoup(COMMAND,TENANT,WF,"artifact://rights/valid","train-1")
+                .state()==Workflow.State.TRAINING);
+            check(f.cp.requestSoup(COMMAND,TENANT,WF,"artifact://rights/valid","train-1")
+                .trainingAttempts()==1);
+            error("IDEMPOTENCY_CONFLICT",()->f.cp.requestSoup(COMMAND,TENANT,WF,
+                "artifact://rights/changed","train-1"));
+            check(f.dispatcher.dispatchPending()==1);
+            check(f.soups.get()==1);
+        });
+        test("AF-REQ-010 no Builder completion after deadline",()->{
+            Fixture f=new Fixture();f.start();check(f.dispatcher.dispatchPending()==1);
+            f.now.set(NOW.plusSeconds(3601));
+            check(f.cp.onBuild(EVENTS,new BuildFinished(f.header("late-build"),true,
+                "agent-01","artifact://agents/a1",SPEC1,Map.of("catalog.lookup",TOOL),
+                MODEL,null,null,false)).errorCode().equals("TIME_BUDGET_EXHAUSTED"));
+            check(f.evals.get()==0);
+            check(f.dispatcher.dispatchPending()==0);
+        });
+        test("AF-REQ-015 response revision and audit reason committed",()->{
+            Fixture f=new Fixture();f.start();f.dispatcher.dispatchPending();
+            Workflow.View out=f.cp.onBuild(EVENTS,new BuildFinished(f.header("invalid"),true,
+                "agent-01","artifact://agents/bad","broken",Map.of("tool",TOOL),MODEL,
+                null,null,false));
+            check(out.revision()==f.get().revision());
+            check(f.cp.audit(COMMAND,TENANT,WF).getLast().reason().equals("INVALID_AGENT_SPEC"));
         });
         System.out.println("COMPONENT TESTS PASSED: "+run.get());
     }
