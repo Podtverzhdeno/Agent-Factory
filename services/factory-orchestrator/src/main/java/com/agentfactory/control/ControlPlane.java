@@ -15,13 +15,16 @@ public final class ControlPlane {
     private final Ports.ApprovalReader approvals;
     private final Ports.ReleasePolicy releasePolicy;
     private final Ports.TimeSource clock;
+    private final Ports.EvidenceVerifier evidenceVerifier;
     private final AgentStore store;
 
     public ControlPlane(Ports.WorkflowLedger ledger, Ports.TaskSnapshotReader snapshots,
                         Ports.TenantAuthz authz, Ports.ApprovalReader approvals,
-                        Ports.ReleasePolicy releasePolicy, Ports.TimeSource clock, AgentStore store) {
+                        Ports.ReleasePolicy releasePolicy, Ports.TimeSource clock, AgentStore store,
+                        Ports.EvidenceVerifier evidenceVerifier) {
         this.ledger=ledger; this.snapshots=snapshots; this.authz=authz;
         this.approvals=approvals; this.releasePolicy=releasePolicy; this.clock=clock; this.store=store;
+        this.evidenceVerifier=java.util.Objects.requireNonNull(evidenceVerifier);
     }
     private static void require(boolean ok, String code) {
         if (!ok) throw new IllegalStateException(code);
@@ -141,6 +144,12 @@ public final class ControlPlane {
             }
             if (!budgetOkay(w,event.spendUsd())) return w.view();
             AgentStore.Evidence e=event.evidence();
+            try {
+                evidenceVerifier.validate(w.tenantId,event.evaluationRunId(),event.specDigest(),e);
+            } catch (RuntimeException invalidEvidence) {
+                block(w,"UNTRUSTED_EVALUATION_EVIDENCE","obtain independently attested evaluator result");
+                return w.view();
+            }
             w.lastEvidence=e;
             if (e.safetyVeto()) {
                 block(w,"SAFETY_HARD_VETO","security and risk review");
@@ -158,6 +167,10 @@ public final class ControlPlane {
                 w.pendingOperationId=null;
             } else if (e.passed()) {
                 block(w,"INCOMPLETE_RELEASE_EVIDENCE","complete required audit and tool-effect evidence");
+            } else if (event.failureCode()!=null && Set.of("MISSING_CAPABILITY", "NO_APPROVED_CONNECTOR",
+                    "UNAUTHORIZED_TOOL", "POLICY_INVALID", "SEALED_HOLDOUT_UNAVAILABLE",
+                    "TOOL_EFFECT_UNVERIFIED").contains(event.failureCode())) {
+                block(w,event.failureCode(),"resolve evaluator's non-repairable finding");
             } else if (w.repairs>=w.limits.maxRepairs()) {
                 block(w,"MAX_REPAIR_ATTEMPTS","manual diagnosis required");
             } else {
@@ -208,8 +221,39 @@ public final class ControlPlane {
             require(w.state==Workflow.State.VERIFIED, "TRAINING_REQUIRES_VERIFIED_BASELINE");
             require(w.trainingAttempts<1 && clock.now().isBefore(w.limits.deadline()),"TRAINING_BUDGET_EXHAUSTED");
             w.trainingAttempts++;
-            w.state=Workflow.State.OPTIMIZING;
+            w.state=Workflow.State.TRAINING;
             w.enqueue(Workflow.ActionType.SOUP,rightsRef,w.specDigest);
+            return w.view();
+        });
+    }
+
+    /** Separately authorized Soup completion; never promotes without fresh independent evaluation. */
+    public Workflow.View onSoup(Principal actor, SoupFinished event) {
+        verifyEventActor(actor,event.header());
+        Header h=event.header();
+        return ledger.transact(h.tenantId(),h.workflowId(),w -> {
+            if (sameEvent(w,h,event) || !expected(w,h,Workflow.State.TRAINING)) return w.view();
+            require(w.actions.stream().anyMatch(a -> a.operationId.equals(h.operationId()) &&
+                a.type==Workflow.ActionType.SOUP), "UNEXPECTED_SOUP_EVENT");
+            w.inbox.put(h.eventId(),event.toString());
+            if (!Objects.equals(w.specDigest,event.baseSpecDigest())) {
+                block(w,"TRAINING_BASE_MISMATCH","discard stale training artifact");
+            } else if (!budgetOkay(w,event.spendUsd())) {
+                // Budget hard stop; no evaluation is scheduled.
+            } else if (!event.success()) {
+                block(w,AgentStore.filled(event.failureCode())?event.failureCode():"TRAINING_FAILED",
+                    "review training results and data rights");
+            } else if (!AgentStore.hash(event.candidateSpecDigest()) ||
+                       !AgentStore.hash(event.modelRouteDigest()) ||
+                       !goodRef(event.candidateSpecRef()) ||
+                       event.candidateSpecDigest().equals(w.specDigest)) {
+                block(w,"INVALID_TRAINING_CANDIDATE","pin new spec and model revision");
+            } else {
+                w.specRef=event.candidateSpecRef(); w.specDigest=event.candidateSpecDigest();
+                w.modelRouteDigest=event.modelRouteDigest();
+                w.state=Workflow.State.RE_TESTING;
+                w.enqueue(Workflow.ActionType.EVALUATE,w.specRef,w.specDigest);
+            }
             return w.view();
         });
     }
