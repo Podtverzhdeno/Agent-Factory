@@ -14,10 +14,11 @@ from xml.etree import ElementTree
 # deliberately conservative; a reduced test suite must trigger a review.
 REQUIRED = {
     "ControlPlaneComponentSuiteTest": 4,
-    "ControlPlaneSecurityTest": 6,
+    "ControlPlaneSecurityTest": 8,
     "JdbcPersistenceIntegrationTest": 17,
-    "JdbcSpringWiringIntegrationTest": 2,
-    "RemoteHttpIntegrationTest": 9,
+    "JdbcSpringWiringIntegrationTest": 3,
+    "RemoteHttpIntegrationTest": 11,
+    "PersistenceProbeControllerTest": 3,
 }
 
 
