@@ -7,7 +7,7 @@ cd <repository root>
 bash tests/control-plane/run-core-tests.sh
 ```
 
-OpenJDK 21: `javac -Xlint:all -Werror` completed; **22/22 PASS**. Framework-independent, synthetic fixtures only. No external services, secrets or real customer data.
+OpenJDK 21: `javac -Xlint:all -Werror` completed; **26/26 PASS**. Framework-independent, synthetic fixtures only. No external services, secrets or real customer data.
 
 ## Requirement → task → executable checks
 
@@ -30,3 +30,11 @@ The inbox uses event_id + event-content fingerprint; duplicate delivery is idemp
 ## Reproduction limits
 
 Tests are deliberately dependency-free. `mvn test`/Spring Boot startup/PostgreSQL/Kafka were **not executed** in this environment; Maven is unavailable. Run them in a dedicated environment after building real adapters and security configuration.
+
+## Safety hardening, workstream 01 (2026-10-27)
+
+- Evaluation events carry a run ID and digest but **cannot authorize release merely by asserting** `independent=true`. `EvidenceVerifier` is a typed upstream-attestation port. Production Spring wiring **denies all** until an explicitly verified upstream adapter is supplied.
+- Terminal Evaluation errors for absent approved connectors, unavailable sealed holdout or unauthorised side effects stop repair and require review.
+- Separate `SoupFinished` completion returns a pinned model-route and immutable spec revision into independent `RE_TESTING`; GEPARD event cannot stand in for Soup completion.
+- Outbox dispatcher ignores historical actions and actions outside their permitted workflow stage, even if their receipts remain pending.
+- Four additional synthetic tests cover these controls; no real Evaluation provenance service or training backend is claimed.
