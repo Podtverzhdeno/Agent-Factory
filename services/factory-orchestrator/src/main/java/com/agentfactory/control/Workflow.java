@@ -67,6 +67,8 @@ public final class Workflow {
     String pendingOperationId;
     AgentStore.Evidence lastEvidence;
     long releasedVersion;
+    String releaseOperationKey;
+    String rollbackOperationKey;
     String errorCode;
     String requiredAction;
     List<Action> actions = new ArrayList<>();
@@ -97,6 +99,7 @@ public final class Workflow {
         w.toolDigests=new HashMap<>(toolDigests); w.modelRouteDigest=modelRouteDigest;
         w.a2aCardRef=a2aCardRef; w.pendingOperationId=pendingOperationId;
         w.lastEvidence=lastEvidence; w.releasedVersion=releasedVersion;
+        w.releaseOperationKey=releaseOperationKey; w.rollbackOperationKey=rollbackOperationKey;
         w.errorCode=errorCode; w.requiredAction=requiredAction;
         for (Action action: actions) w.actions.add(action.copy());
         w.inbox=new HashMap<>(inbox); w.revision=revision;
