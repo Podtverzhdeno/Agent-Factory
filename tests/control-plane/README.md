@@ -208,3 +208,33 @@ container's Python environment**; their Git blob SHA values were independently
 compared with GitHub. Together with 7 separately executed Java/JDBC/hash
 assertions, there are **14 confirmed passing isolated checks**. This does
 **not** imply the unexecuted Maven/PostgreSQL/JWT/HTTP integration suites pass.
+
+## Verified follow-up: strict Surefire evidence and malformed receipts
+
+- **2026-10-27, executed locally under OpenJDK 21:** `bash tests/control-plane/run-core-tests.sh`
+  produced **36/36 component, 7/7 outbox reliability and 5/5 strict Evaluation
+  HTTP DTO tests PASS**, with `javac -Xlint:all -Werror`.
+  This is the mounted local subset, **not** a claim of full-suite verification
+  at the latest GitHub commit.
+- A mismatched `CommandReceipt.operationId` is now
+  `RemoteCommandFailure("REMOTE_RECEIPT_MISMATCH", false)`; receiver protocol
+  violations are terminal and cannot cause five unnecessary business retries.
+  The seventh outbox test covers wrong-operation receipts and no re-dispatch.
+- The existing `verify-surefire.py` was strengthened to compare XML testcase
+  elements with report totals and per-case skip/failure/error evidence. Its
+  `JdbcPersistenceIntegrationTest` minimum was corrected from an impossible
+  15 to the **14 actual JUnit test methods** on the inspected revision.
+  `RemoteHttpIntegrationTest` minimum was raised to 9.
+- **Exact GitHub blob tests executed:** `test_verify_surefire.py` **9/9 PASS**,
+  using `python3 -m unittest discover -s tests/control-plane -p
+  test_verify_surefire.py -v`; verifier blob
+  `d69c556fa1dee79bed9d6428ce5966b6ef1fa1c6` and test blob
+  `a8115a88d79f2e0435e5df80759f348b13c05292` matched
+  `git hash-object` locally.
+- Duplicate alternative validator files were deleted; only the one acceptance
+  script and its tested validator remain.
+- **Still not executed:** exact-revision Maven/Spring/JWT, actual PostgreSQL
+  Testcontainers, full upstream Builder/GEPARD HTTP E2E or independent
+  production security approval. Maven and Docker are unavailable in the
+  current execution environment. GitHub's SDD validation does not cover Java.
+  ADR-0002 remains owner-pending.
