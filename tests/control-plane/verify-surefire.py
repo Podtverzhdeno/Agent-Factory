@@ -16,6 +16,7 @@ REQUIRED = {
     "ControlPlaneComponentSuiteTest": 4,
     "ControlPlaneSecurityTest": 6,
     "JdbcPersistenceIntegrationTest": 14,
+    "JdbcSpringWiringIntegrationTest": 2,
     "RemoteHttpIntegrationTest": 9,
 }
 
