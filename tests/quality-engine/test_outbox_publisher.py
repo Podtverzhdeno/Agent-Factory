@@ -17,7 +17,7 @@ class MemoryKafka:
         self.messages.append(kwargs)
 
 
-def scenario(tmp_path):
+def _scenario(tmp_path):
     engine = create_engine(f"sqlite+pysqlite:///{tmp_path / 'outbox.db'}")
     metadata.create_all(engine)
     store = SqlEvaluationJobStore(engine)
@@ -32,8 +32,15 @@ def scenario(tmp_path):
     return store, principal
 
 
-def test_transactional_outbox_publishes_only_scrubbed_event(tmp_path):
-    store, principal = scenario(tmp_path)
+@pytest.fixture
+def scenario(tmp_path):
+    store, principal = _scenario(tmp_path)
+    yield store, principal
+    store.engine.dispose()
+
+
+def test_transactional_outbox_publishes_only_scrubbed_event(scenario):
+    store, principal = scenario
     kafka = MemoryKafka()
     pub = OutboxPublisher(store, kafka)
     assert pub.publish_batch(principal) == 1
@@ -47,7 +54,7 @@ def test_transactional_outbox_publishes_only_scrubbed_event(tmp_path):
     assert not any(x in str(event) for x in ("gold_answer", "prompt", "tool_input"))
 
 
-def test_outbox_survives_failed_broker_and_retries(tmp_path):
+def test_outbox_survives_failed_broker_and_retries(scenario):
     store, principal = scenario(tmp_path)
     with pytest.raises(ConnectionError):
         OutboxPublisher(store, MemoryKafka(fail=True)).publish_batch(principal)
