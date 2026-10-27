@@ -108,3 +108,11 @@ Local task/design delta: [`spec/WORKSTREAM_03.md`](spec/WORKSTREAM_03.md). No ch
 ## Offline Builder/Registry fixture contract check
 
 The standalone runner also executes `tests/tool-registry/verify_fixtures.py` (Python 3 standard library only). It validates every fixture digest against an independent implementation of the Java UTF-16-length-prefixed SHA-256 canonicalization, detects scope/tenant/description tampering, and verifies that the allowed synthetic RFQ operation set is the exact least-authority three-operation cover with no payment tool. This detects stale JSON fixtures even when in-memory Java tests remain green. It does **not** prove the live Builder adapter or MCP endpoints work.
+
+## Builder v0 integration compatibility (PROPOSED)
+
+The actual Agent Builder port in `agent/04-agent-engine` requires `approved=true`, accepts only low/medium/high risk, and has no `operation` field in its binding. The raw Registry manifest response is **not** a drop-in Builder input.
+
+This workstream now exposes `GET /v0/registry/builder/manifests` as a read-only adapter for approved, authorized, tenant-scoped `execute` operations below critical risk. It does not grant any scope; any other operation is excluded and a catalogue above 18 eligible operations fails closed with `BUILDER_PORT_CAPACITY`. Java projection tests and OpenAPI describe the temporary bridge. Spring HTTP/JWT tests are **written but not run** pending Maven dependencies and approved architecture.
+
+The remaining `operation` pinning and runtime revalidation gap is documented in `CONTRACT_CHANGE_REQUEST.md`. No claim of a live Builder integration or production MCP attestation is made.
