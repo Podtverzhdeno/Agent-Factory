@@ -1,0 +1,15 @@
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+.env
+.env.*
+!.env.example
+*.pyc
+*.log
+node_modules/
+data/private/
+datasets/private/
+artifacts/
+models/checkpoints/

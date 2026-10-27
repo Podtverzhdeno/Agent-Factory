@@ -1,0 +1,32 @@
+schema: spec-driven
+
+context: |
+  Product: Verified Self-Optimizing B2B Agent Factory.
+  Status: greenfield, specification-only until the MVP implementation starts.
+  Architecture style: MICROSERVICES required by owner. Service topology and protocols PENDING owner ADR-0002;
+    AI must ask owner architectural questions and cannot approve choices on the owner's behalf.
+  Runtime target: Python 3.12+, FastAPI, Pydantic, PostgreSQL; adapters for A2A, MCP,
+    LLM gateways, evaluations, GEPARD and swappable durable execution.
+  Task intake: typed immutable Business Task Package with classified file artifacts; separate
+    sealed holdout evaluation cases are never accessible to Builder or GEPARD.
+  Scope: minimal trusted agent creation -> sandbox run -> independent evaluation ->
+    bounded remediation -> approval -> versioned release.
+  Spec authority: openspec changes and archived baseline specifications.
+  Spec Kit: constitution / planning / clarify / checklist / analyze techniques only.
+  Non-goals for MVP: autonomous unknown-code production deployment, full ACT payments,
+    broad connector marketplace, training every model.
+
+rules:
+  specs:
+    - Each Requirement SHALL have an AF-REQ identifier and at least one WHEN/THEN scenario.
+    - Distinguish agent assembly from verified business task outcome.
+    - Define failure, blocked, safety and authorization behavior.
+    - Include security, observability and reproducibility where relevant.
+  design:
+    - Include ports/adapters, trust boundaries, state machine and data contracts.
+    - Distinguish implemented functionality from proposed architecture.
+    - Record alternative options and reversal paths for experimental runtimes.
+  tasks:
+    - Each task references an AF-REQ and a checkable test or evidence artifact.
+    - Unexecuted or blocked work stays unchecked.
+    - Include negative, fault-injection and cross-tenant scenarios where relevant.
