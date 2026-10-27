@@ -83,8 +83,11 @@ class EvaluationResult:
     evidence_digest: str
     requires_independent_release_gate: bool = True
     independent_acceptance: bool = False
+    tenant_id: str = ""
 
     def event(self, tenant_id: str, correlation_id: str) -> dict[str, Any]:
+        if tenant_id != self.tenant_id or not correlation_id:
+            raise AccessDenied("evaluation event tenant or correlation mismatch")
         # No gold, prompts, raw traces or confidential case inputs in events.
         return {"schema_version": "0.1", "type": "evaluation.completed",
                 "tenant_id": tenant_id, "correlation_id": correlation_id,
@@ -183,7 +186,8 @@ class EvaluationEngine:
                                   status, status == "PASSED", veto, rate, len(dataset.cases), findings,
                                   round(sum(o.cost_usd for o in observations), 7), p95,
                                   digest((request.agent_spec_digest, dataset.version, observations, findings)),
-                                  independent_acceptance=(dataset.split == "holdout"))
+                                  independent_acceptance=(dataset.split == "holdout"),
+                                  tenant_id=request.tenant_id)
         self._runs[key] = (signature, result)
         return result
 
