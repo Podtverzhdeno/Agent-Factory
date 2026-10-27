@@ -12,6 +12,8 @@ class Case:
     required_tool_calls: tuple[str, ...] = ()
     required_effect_proofs: tuple[str, ...] = ()
     max_steps: int = 25
+    required_graph_events: tuple[str, ...] = ()
+    required_memory_keys: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
