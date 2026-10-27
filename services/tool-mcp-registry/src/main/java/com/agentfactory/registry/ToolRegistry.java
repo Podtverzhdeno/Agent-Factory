@@ -57,7 +57,10 @@ public final class ToolRegistry {
     }
     public record Caller(String subject, String tenantId, Set<String> scopes) {
         public Caller {
-            if (blank(subject) || blank(tenantId) || !valid(tenantId) || subject.length() > 200)
+            if (blank(subject) || blank(tenantId) || !valid(tenantId) || subject.length() > 200
+                || subject.codePoints().anyMatch(c -> Character.isISOControl(c)
+                    || c == 0x202A || c == 0x202B || c == 0x202D || c == 0x202E || c == 0x2066
+                    || c == 0x2067 || c == 0x2068 || c == 0x2069))
                 throw failure("UNAUTHENTICATED", "Valid bounded caller identity required");
             scopes = Set.copyOf(Objects.requireNonNull(scopes));
         }
@@ -123,12 +126,18 @@ public final class ToolRegistry {
     private final Map<String, Long> auditSequences = new HashMap<>();
     private final Map<String, Shape> approvedSchemas;
     private final Set<String> verifiedEndpointRefs;
+    private final Set<String> verifiedProvenanceRefs;
 
-    public ToolRegistry(Map<String, Shape> approvedSchemas, Set<String> verifiedEndpointRefs) {
+    /** References are supplied by an independent trust administrator, never learned from incoming manifests. */
+    public ToolRegistry(Map<String, Shape> approvedSchemas, Set<String> verifiedEndpointRefs,
+                        Set<String> verifiedProvenanceRefs) {
         this.approvedSchemas = Map.copyOf(approvedSchemas);
         this.verifiedEndpointRefs = Set.copyOf(verifiedEndpointRefs);
+        this.verifiedProvenanceRefs = Set.copyOf(verifiedProvenanceRefs);
         for (String ref : approvedSchemas.keySet()) if (!REF.matcher(ref).matches()) throw failure("INVALID_SCHEMA_REF", "Schema reference is not approved artifact URI");
         for (String ref : verifiedEndpointRefs) if (!ENDPOINT.matcher(ref).matches()) throw failure("INVALID_ENDPOINT", "Endpoint reference must be approved artifact URI");
+        for (String ref : verifiedProvenanceRefs)
+            if (!validProvenance(ref)) throw failure("UNTRUSTED_PROVENANCE", "Invalid trust-provenance identifier");
     }
     public synchronized void registerDraft(Caller caller, Manifest manifest) {
         require(caller, "registry:register");
@@ -326,12 +335,15 @@ public final class ToolRegistry {
             throw failure("INVALID_SCHEMA", "Input/output schema must resolve to an approved typed shape");
         if (!ENDPOINT.matcher(nonNull(m.endpointRef())).matches() || !verifiedEndpointRefs.contains(m.endpointRef()))
             throw failure("ENDPOINT_UNVERIFIED", "Raw URLs and unknown MCP endpoints are forbidden");
-        if (blank(m.provenance()) || !m.provenance().startsWith("trusted:") || m.provenance().length() > 200 || suspicious(m.provenance()))
-            throw failure("UNTRUSTED_PROVENANCE", "Verified non-secret provenance required");
+        if (!validProvenance(m.provenance()) || !verifiedProvenanceRefs.contains(m.provenance()))
+            throw failure("UNTRUSTED_PROVENANCE", "Only independently allowlisted provenance is accepted");
         if (blank(m.description()) || m.description().length() > 300 || suspicious(m.description()))
             throw failure("MALICIOUS_DESCRIPTION", "Untrusted description or instruction injection");
         if (m.manifestDigest() == null || !m.manifestDigest().equals(digest(m)))
             throw failure("INVALID_DIGEST", "Manifest digest mismatch");
+    }
+    private static boolean validProvenance(String provenance) {
+        return provenance != null && provenance.matches("trusted:[A-Za-z0-9._-]{1,100}");
     }
     private static boolean suspicious(String text) {
         return INJECTION.matcher(text).find() || text.chars().anyMatch(c -> Character.isISOControl(c));
