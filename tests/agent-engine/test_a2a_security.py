@@ -1,0 +1,53 @@
+"""Real ASGI authorization boundary test; official SDK conformance is separate."""
+import httpx
+import pytest
+from starlette.applications import Starlette
+from starlette.responses import PlainTextResponse
+from starlette.routing import Route
+from agent_runtime import A2ABoundary
+from agent_runtime.official_a2a import A2AIdentity, AuthenticatedA2AASGI, current_a2a_identity
+from test_engine import Registry, build, manifest, task
+
+def make_app(*, released=True):
+    spec = build(task('read', ['read'], ['read'], []),
+                 Registry([manifest('read', ['read'], ['read'], [])]))
+    async def handler(request):
+        identity = current_a2a_identity()
+        return PlainTextResponse(f'{identity.tenant_id}:{identity.principal}')
+    boundary = A2ABoundary(released_spec_digests=frozenset({spec.artifact_digest})
+                           if released else frozenset(),
+                           authorize=lambda principal, tenant: principal == 'trusted' and tenant == 'buyer')
+    def authenticate(token):
+        return {'good': A2AIdentity('buyer', 'trusted'),
+                'wrong-tenant': A2AIdentity('seller', 'trusted')}.get(token)
+    return AuthenticatedA2AASGI(Starlette(routes=[Route('/', handler)]),
+                                 spec=spec, boundary=boundary, authenticate=authenticate)
+
+@pytest.mark.asyncio
+async def test_a2a_denies_spoofed_tenant_and_anonymous():
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=make_app()),
+                                 base_url='http://example.test') as client:
+        assert (await client.get('/')).status_code == 401
+        assert (await client.get('/', headers={'Authorization': 'Bearer forged',
+                 'x-tenant-id': 'buyer'})).status_code == 401
+        assert (await client.get('/', headers={'Authorization': 'Bearer wrong-tenant',
+                 'x-tenant-id': 'buyer'})).status_code == 403
+        good = await client.get('/', headers={'Authorization': 'Bearer good',
+                                              'x-tenant-id': 'evil'})
+        assert good.status_code == 200 and good.text == 'buyer:trusted'
+
+@pytest.mark.asyncio
+async def test_a2a_revoked_spec_denies_valid_token():
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=make_app(released=False)),
+                                 base_url='http://example.test') as client:
+        assert (await client.get('/', headers={'Authorization': 'Bearer good'})).status_code == 403
+
+def test_sdk_factory_rejects_unreleased_spec_before_import():
+    from agent_runtime.official_a2a import create_official_a2a_app
+    from agent_runtime import RuntimeDenied
+    spec = build(task('read', ['read'], ['read'], []),
+                 Registry([manifest('read', ['read'], ['read'], [])]))
+    with pytest.raises(RuntimeDenied, match='A2A_NOT_RELEASED'):
+        create_official_a2a_app(spec=spec, runtime=None,
+            boundary=A2ABoundary(released_spec_digests=frozenset(), authorize=lambda *_: True),
+            agent_card=None, authenticate=lambda _: None)
