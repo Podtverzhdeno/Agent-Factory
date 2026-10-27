@@ -1,9 +1,23 @@
-# Agent 05 — Quality Engine verification evidence
+# Agent 05 — CURRENT local verification snapshot, 27 Oct 2026
+
+**Branch:** `agent/05-quality-engine`, PR #2; workstream scope unchanged.
+
+- `pytest -q tests/quality-engine -W error::ResourceWarning` — **117 passed, 3 skipped** (Python 3.13.5). Three skips are the opt-in *real* PostgreSQL server, live LiteLLM Proxy, and live DSPy/GEPA inference, all still OPEN.
+- `pytest -q tests/quality-engine --cov=quality_engine --cov=gepard_optimizer --cov-report=term -W error::ResourceWarning` — **117 passed, 3 skipped, 93% statement coverage** (1,181 statements, 79 missed).
+- `python -m compileall -q services` — success. These checks ran on the locally staged Python sources; the currently configured GitHub SDD workflow does not run this Python suite on the exact PR commit.
+
+**Newly verified beyond earlier snapshots:** fenced lease heartbeat sustains long-running Evaluation and denies obsolete workers; separate read-only Runtime HTTP audit client with bounded body, TLS requirement, strict typed schema and service authentication; **real loopback TCP** to a locally simulated Ed25519-signing Runtime → Evaluation → SQLite job store → outbox; signature now covers `evaluation_run_id`, and attempts to replay old run evidence fail closed; signer expiry/revocation can be checked via an injected current key resolver; actual DSPy GEPA five-argument metric interface checked against public DSPy docs and negative-tested.
+
+**Critical distinctions:** The loopback server is a test double, **not Agent 04 Runtime**. Real external PostgreSQL/Kafka/LiteLLM/DSPy, service identity, signed producer, production KMS, shared CI and whole-factory E2E remain unverified. ADR-0002 requires owner decision. No production acceptance or merge is claimed.
+
+---
+
+## Detailed previous verification records (historical snapshots)
 
 Updated 2026-10-27. Workstream branch: agent/05-quality-engine. PR #2.
 **Scope:** local component verification and explicitly separated external integration gates.
 
-## Latest executed local verification
+## Historical component verification before the latest hardening
 
 - Python 3.13, pytest 9, SQLAlchemy 2, cryptography 46, FastAPI/httpx
 - `pytest -q tests/quality-engine -W error::ResourceWarning` → **81 passed, 3 skipped** (no warnings)
@@ -72,4 +86,4 @@ New verified fixes:
 - Cost-quality PASS now requires an injected trusted evidence verifier; a self-declared string saying holdout yields INCONCLUSIVE. Production service must implement that verifier against evaluator-owned signed source evidence, rather than a test lambda.
 - Added Ed25519 verification-only Runtime audit adapter, tenant-bound public keys, forged signature detection and full signed-audit-to-durable-workflow smoke test. Production Runtime audit producer/key rotation/mTLS remain cross-team work.
 
-These are local mock/SQLite-backed component proofs, NOT independently executed live network, PostgreSQL, Kafka or model-optimization acceptance.
+The historical phase used local mocks and SQLite. The later TCP test above exercises a real loopback connection to a synthetic Runtime, not a deployed cross-service producer.
