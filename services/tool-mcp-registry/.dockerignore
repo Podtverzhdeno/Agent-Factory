@@ -1,0 +1,12 @@
+# Keep all Java sources and tests in the build context for Maven verify.
+target/
+.git/
+.mvn/wrapper/maven-wrapper.jar
+*.log
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+.DS_Store

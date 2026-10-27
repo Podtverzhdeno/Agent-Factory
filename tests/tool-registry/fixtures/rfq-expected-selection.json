@@ -1,0 +1,12 @@
+{
+  "decision": "SELECTED",
+  "selected_tool_ids": [
+    "catalog.lookup",
+    "xlsx.read",
+    "xlsx.write"
+  ],
+  "excluded_tool_ids": [
+    "payments.charge"
+  ],
+  "note": "Requires independent maker-checker approval plus tenant-a JWT scopes xlsx:read, catalog:read, xlsx:draft"
+}

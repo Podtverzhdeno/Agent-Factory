@@ -1,0 +1,258 @@
+openapi: 3.0.3
+info:
+  title: Trusted Tool/MCP Registry (experimental)
+  version: '0.2.0'
+  description: >-
+    Contract-first, deny-by-default API. No MCP connectivity, credential issuance,
+    external writes, or owner-ratified deployment. Tenant and scopes come from validated JWT.
+servers:
+  - url: http://localhost:8080
+security:
+  - jwtBearer: []
+tags:
+  - name: Lifecycle
+  - name: Discovery
+  - name: Validation
+components:
+  securitySchemes:
+    jwtBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Trusted issuer/audience, tenant_id and explicit space-separated scope claims
+  schemas:
+    Manifest:
+      type: object
+      additionalProperties: false
+      required: [schema_version, tool_id, version, operation, transport, capabilities,
+        input_schema_ref, output_schema_ref, side_effects, required_scopes, risk_level,
+        tenant_availability, endpoint_ref, health, provenance, description, manifest_digest]
+      properties:
+        schema_version: {type: string, enum: ['0.1']}
+        tool_id: {type: string, pattern: '^[A-Za-z][A-Za-z0-9_.:-]{0,127}$'}
+        version: {type: string, pattern: '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$'}
+        operation: {type: string, pattern: '^[A-Za-z][A-Za-z0-9_.:-]{0,127}$'}
+        transport: {type: string, enum: [MCP, LOCAL]}
+        capabilities: {type: array, uniqueItems: true, minItems: 1, items: {type: string}}
+        input_schema_ref: {type: string, pattern: '^artifact://schemas/[A-Za-z0-9._/-]+$'}
+        output_schema_ref: {type: string, pattern: '^artifact://schemas/[A-Za-z0-9._/-]+$'}
+        side_effects: {type: array, uniqueItems: true, minItems: 1, items: {$ref: '#/components/schemas/Effect'}}
+        required_scopes: {type: array, uniqueItems: true, minItems: 1, items: {type: string, pattern: '^[a-z][a-z0-9_-]*:[a-z][a-z0-9_-]*$'}}
+        risk_level: {$ref: '#/components/schemas/Risk'}
+        tenant_availability: {type: array, minItems: 1, maxItems: 1, uniqueItems: true, items: {type: string}}
+        endpoint_ref: {type: string, pattern: '^artifact://approved/endpoints/[A-Za-z0-9._/-]+$'}
+        health: {type: string, enum: [HEALTHY, DEGRADED, UNKNOWN]}
+        provenance: {type: string, maxLength: 200}
+        description: {type: string, maxLength: 300}
+        manifest_digest: {type: string, pattern: '^sha256:[0-9a-f]{64}$'}
+    Effect: {type: string, enum: [read, draft_file, write, payment, destructive]}
+    Risk: {type: string, enum: [low, medium, high, critical]}
+    ExpectedSchema:
+      type: object
+      additionalProperties: false
+      properties:
+        input_schema_ref: {type: string}
+        output_schema_ref: {type: string}
+    SelectionRequest:
+      type: object
+      additionalProperties: false
+      required: [required_capabilities, allowed_effects, max_risk, pinned_versions, expected_schemas]
+      properties:
+        required_capabilities: {type: array, minItems: 1, maxItems: 16, uniqueItems: true, items: {type: string}}
+        allowed_effects: {type: array, uniqueItems: true, items: {$ref: '#/components/schemas/Effect'}}
+        max_risk: {$ref: '#/components/schemas/Risk'}
+        pinned_versions: {type: object, additionalProperties: {type: string}}
+        expected_schemas: {type: object, additionalProperties: {$ref: '#/components/schemas/ExpectedSchema'}}
+    Binding:
+      type: object
+      additionalProperties: false
+      required: [tool_id, version, operation, manifest_digest, granted_scopes, covered_capabilities, explanation]
+      properties:
+        tool_id: {type: string}
+        version: {type: string}
+        operation: {type: string}
+        manifest_digest: {type: string}
+        granted_scopes: {type: array, items: {type: string}}
+        covered_capabilities: {type: array, items: {type: string}}
+        explanation: {type: string}
+    Denial:
+      type: object
+      additionalProperties: false
+      required: [capability, tool_id, code, reason]
+      properties:
+        capability: {type: string}
+        tool_id: {type: string, description: Redacted for other tenants}
+        code: {type: string, enum: [NO_CAPABILITY, NOT_APPROVED, WRONG_TENANT, MISSING_PERMISSION, EFFECT_NOT_ALLOWED, RISK_NOT_ALLOWED, SCHEMA_INCOMPATIBLE, VERSION_INCOMPATIBLE, ENDPOINT_UNVERIFIED, UNHEALTHY, SEARCH_LIMIT, INCOMPATIBLE_VERSIONS, REVOKED]}
+        reason: {type: string}
+    Selection:
+      type: object
+      additionalProperties: false
+      required: [decision, registry_revision, selected_tools, denials, explanation]
+      properties:
+        decision: {type: string, enum: [SELECTED, BLOCKED]}
+        registry_revision: {type: string, pattern: '^sha256:[0-9a-f]{64}$'}
+        selected_tools: {type: array, items: {$ref: '#/components/schemas/Binding'}}
+        denials: {type: array, items: {$ref: '#/components/schemas/Denial'}}
+        explanation: {type: string}
+    BuilderToolManifest:
+      type: object
+      additionalProperties: false
+      required: [tool_id, version, manifest_digest, capabilities, side_effects,
+        required_scopes, tenant_availability, input_schema_ref, output_schema_ref,
+        risk_level, approved, transport]
+      properties:
+        tool_id: {type: string}
+        version: {type: string}
+        manifest_digest: {type: string, pattern: '^sha256:[0-9a-f]{64}$'}
+        capabilities: {type: array, items: {type: string}}
+        side_effects: {type: array, items: {$ref: '#/components/schemas/Effect'}}
+        required_scopes: {type: array, items: {type: string}}
+        tenant_availability: {type: array, items: {type: string}}
+        input_schema_ref: {type: string}
+        output_schema_ref: {type: string}
+        risk_level: {type: string, enum: [low, medium, high]}
+        approved: {type: boolean, enum: [true]}
+        transport: {type: string, enum: [LOCAL, MCP]}
+    AuditEvent:
+      type: object
+      additionalProperties: false
+      required: [sequence, tenant_id, action, tool_id, version, operation, actor, digest]
+      properties:
+        sequence: {type: integer, format: int64}
+        tenant_id: {type: string}
+        action: {type: string, enum: [REGISTERED, APPROVED, REVOKED]}
+        tool_id: {type: string}
+        version: {type: string}
+        operation: {type: string}
+        actor: {type: string}
+        digest: {type: string}
+    Error:
+      type: object
+      additionalProperties: false
+      required: [code, detail, retryable, trace_id, required_action]
+      properties:
+        code: {type: string}
+        detail: {type: string}
+        retryable: {type: boolean}
+        trace_id: {type: string}
+        required_action: {type: string}
+  responses:
+    Forbidden:
+      description: Missing explicit authorization or tenant boundary failure
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    Invalid:
+      description: Invalid contract or failed business policy
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+paths:
+  /v0/registry/manifests:
+    post:
+      tags: [Lifecycle]
+      summary: Register immutable draft manifest (registry:register)
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/Manifest'}}}
+      responses:
+        '201': {description: Draft created; approval still required}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '422': {$ref: '#/components/responses/Invalid'}
+    get:
+      tags: [Discovery]
+      summary: List approved accessible manifests (registry:lookup)
+      responses:
+        '200':
+          description: Explicitly scoped tenant-visible versions only
+          content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/Manifest'}}}}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /v0/registry/manifests/{toolId}/{version}/{operation}/approve:
+    post:
+      tags: [Lifecycle]
+      summary: Independent human-approved version promotion (registry:approve)
+      parameters:
+        - {name: toolId, in: path, required: true, schema: {type: string}}
+        - {name: version, in: path, required: true, schema: {type: string}}
+        - {name: operation, in: path, required: true, schema: {type: string}}
+      responses:
+        '200': {description: Approved and audit recorded}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Invalid'}
+  /v0/registry/manifests/{toolId}/{version}/{operation}/revoke:
+    post:
+      tags: [Lifecycle]
+      summary: Revoke approved version without deleting its history (registry:approve)
+      parameters:
+        - {name: toolId, in: path, required: true, schema: {type: string}}
+        - {name: version, in: path, required: true, schema: {type: string}}
+        - {name: operation, in: path, required: true, schema: {type: string}}
+      responses:
+        '200': {description: Revoked and audit recorded; version cannot be reapproved}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Invalid'}
+  /v0/registry/audit:
+    get:
+      tags: [Lifecycle]
+      summary: Return tenant-bound immutable audit events (registry:audit)
+      responses:
+        '200':
+          description: Tenant-scoped audit trail
+          content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/AuditEvent'}}}}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /v0/registry/select:
+    post:
+      tags: [Discovery]
+      summary: Exact minimum authorized capability cover (registry:lookup)
+      description: >-
+        Autonomous Registry v0 categorically excludes PAYMENT and DESTRUCTIVE
+        operations from agent selection, even when the caller carries a matching
+        scope and the task allows CRITICAL risk. Mixed safe+consequential requests
+        return BLOCKED with no partial selected_tools. Human-approved effectful
+        execution requires a separate, independently reviewed workflow.
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/SelectionRequest'}}}
+      responses:
+        '200':
+          description: SELECTED or BLOCKED; no permissions were granted
+          content: {application/json: {schema: {$ref: '#/components/schemas/Selection'}}}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '422': {$ref: '#/components/responses/Invalid'}
+  /v0/registry/payloads/validate:
+    post:
+      tags: [Validation]
+      summary: Validate bounded nested JSON against pinned operation's typed shape (registry:lookup)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [tool_id, version, operation, input, payload]
+              properties:
+                tool_id: {type: string}
+                version: {type: string}
+                operation: {type: string}
+                input: {type: boolean}
+                payload: {type: object}
+      responses:
+        '200': {description: Valid payload (this never invokes a tool)}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '422': {$ref: '#/components/responses/Invalid'}
+
+  /v0/registry/builder/manifests:
+    get:
+      tags: [Discovery]
+      summary: Experimental Builder v0 compatibility projection (approved, scoped, execute-only)
+      description: >-
+        Read-only projection filtered by authenticated tenant and tool grants. Critical-risk
+        and non-execute operations are intentionally excluded. More than 18 eligible
+        candidates fails closed with BUILDER_PORT_CAPACITY; no MCP execution occurs.
+      responses:
+        '200':
+          description: Builder-compatible manifests; no permission issuance
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/BuilderToolManifest'}
+        '403': {description: Caller lacks registry lookup permission}
+        '422': {description: Builder v0 candidate limit exceeded}

@@ -1,0 +1,116 @@
+{
+  "fixtures_only": true,
+  "approved_by": [
+    "creator-not-equal-reviewer"
+  ],
+  "manifests": [
+    {
+      "schema_version": "0.1",
+      "tool_id": "xlsx.read",
+      "version": "1.0.0",
+      "operation": "execute",
+      "transport": "MCP",
+      "capabilities": [
+        "read_xlsx"
+      ],
+      "input_schema_ref": "artifact://schemas/file-input",
+      "output_schema_ref": "artifact://schemas/rows",
+      "side_effects": [
+        "read"
+      ],
+      "required_scopes": [
+        "xlsx:read"
+      ],
+      "risk_level": "low",
+      "tenant_availability": [
+        "tenant-a"
+      ],
+      "endpoint_ref": "artifact://approved/endpoints/xlsx",
+      "health": "HEALTHY",
+      "provenance": "trusted:synthetic-fixture",
+      "description": "Approved synthetic read_xlsx operation",
+      "manifest_digest": "sha256:d59956ebb5db97f99a35ddeae1056ff73e4271f5b745b636ee649209efb20727"
+    },
+    {
+      "schema_version": "0.1",
+      "tool_id": "catalog.lookup",
+      "version": "1.0.0",
+      "operation": "execute",
+      "transport": "MCP",
+      "capabilities": [
+        "catalog_lookup"
+      ],
+      "input_schema_ref": "artifact://schemas/lookup-input",
+      "output_schema_ref": "artifact://schemas/lookup-output",
+      "side_effects": [
+        "read"
+      ],
+      "required_scopes": [
+        "catalog:read"
+      ],
+      "risk_level": "low",
+      "tenant_availability": [
+        "tenant-a"
+      ],
+      "endpoint_ref": "artifact://approved/endpoints/catalog",
+      "health": "HEALTHY",
+      "provenance": "trusted:synthetic-fixture",
+      "description": "Approved synthetic catalog_lookup operation",
+      "manifest_digest": "sha256:a592f49d48f04a210a6c33c6406a28c536924ca19f54d5042831cbbc42fa62c7"
+    },
+    {
+      "schema_version": "0.1",
+      "tool_id": "xlsx.write",
+      "version": "1.0.0",
+      "operation": "execute",
+      "transport": "MCP",
+      "capabilities": [
+        "write_xlsx"
+      ],
+      "input_schema_ref": "artifact://schemas/write-input",
+      "output_schema_ref": "artifact://schemas/file-output",
+      "side_effects": [
+        "draft_file"
+      ],
+      "required_scopes": [
+        "xlsx:draft"
+      ],
+      "risk_level": "low",
+      "tenant_availability": [
+        "tenant-a"
+      ],
+      "endpoint_ref": "artifact://approved/endpoints/xlsx",
+      "health": "HEALTHY",
+      "provenance": "trusted:synthetic-fixture",
+      "description": "Approved synthetic write_xlsx operation",
+      "manifest_digest": "sha256:7fdf8351ff5c395ffb77daf3837c044a65b580b69bd9464d71f91ef9008c6c80"
+    },
+    {
+      "schema_version": "0.1",
+      "tool_id": "payments.charge",
+      "version": "1.0.0",
+      "operation": "execute",
+      "transport": "MCP",
+      "capabilities": [
+        "charge_card"
+      ],
+      "input_schema_ref": "artifact://schemas/pay-input",
+      "output_schema_ref": "artifact://schemas/pay-output",
+      "side_effects": [
+        "payment"
+      ],
+      "required_scopes": [
+        "payments:charge"
+      ],
+      "risk_level": "critical",
+      "tenant_availability": [
+        "tenant-a"
+      ],
+      "endpoint_ref": "artifact://approved/endpoints/payments",
+      "health": "HEALTHY",
+      "provenance": "trusted:synthetic-fixture",
+      "description": "Approved synthetic charge_card operation",
+      "manifest_digest": "sha256:c2777efcb32aab7aa5089019de5c8b230c63596a3ef83086db8963fe481b086e"
+    }
+  ]
+}
