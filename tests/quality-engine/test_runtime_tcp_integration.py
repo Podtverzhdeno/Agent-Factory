@@ -34,6 +34,7 @@ def local_runtime(private):
             envelope = EvidenceEnvelope(
                 "tenant-a", "spec-digest", "holdout-v1", "case1", "trace://local-runtime",
                 ObservedRun("case1", {"correct": True}, graph_events=("final",)),
+                "eval-1",
             )
             payload = json.dumps({
                 "envelope": asdict(envelope), "key_id": "runtime-1",
