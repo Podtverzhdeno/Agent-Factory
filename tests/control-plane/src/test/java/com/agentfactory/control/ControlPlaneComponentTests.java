@@ -225,6 +225,7 @@ public final class ControlPlaneComponentTests {
             check(released.state()==Workflow.State.RELEASED);
             f.approvals.remove("release:approve");
             check(f.cp.release(COMMAND,TENANT,WF,"release-1").state()==Workflow.State.RELEASED);
+            error("IDEMPOTENCY_CONFLICT",()->f.cp.release(COMMAND,TENANT,WF,"release-different"));
             check(f.store.history(TENANT,"agent-01").stream()
                 .filter(t->t.to()==AgentStore.Channel.RELEASED).count()==1);
             f.approvals.add("rollback:approve");
@@ -233,6 +234,7 @@ public final class ControlPlaneComponentTests {
             f.approvals.remove("rollback:approve");
             check(f.cp.rollback(COMMAND,TENANT,WF,"rollback-1")
                 .state()==Workflow.State.ROLLED_BACK);
+            error("IDEMPOTENCY_CONFLICT",()->f.cp.rollback(COMMAND,TENANT,WF,"rollback-different"));
             check(f.store.history(TENANT,"agent-01").stream()
                 .filter(t->t.to()==AgentStore.Channel.ROLLED_BACK).count()==1);
         });
