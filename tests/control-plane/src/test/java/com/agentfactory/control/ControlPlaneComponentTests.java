@@ -278,6 +278,32 @@ public final class ControlPlaneComponentTests {
             check(f.dispatcher.dispatchPending()==0);
             check(f.builds.get()==0);
         });
+        test("AF-REQ-015 append-only release transition history survives rollback",()->{
+            Fixture f=new Fixture();f.start();f.build();
+            f.eval(true,false,true,AgentStore.Risk.HIGH,SPEC1,"0.1");
+            f.approvals.add("release:approve");
+            f.cp.release(COMMAND,TENANT,WF,"first");
+            AgentStore.Evidence e=f.evidence(true,false,true,AgentStore.Risk.HIGH,SPEC2);
+            AgentStore.Version second=f.store.registerCandidate(new AgentStore.Metadata(TENANT,
+                "agent-01","artifact://agents/a2",SPEC2,Map.of("t",TOOL),MODEL,
+                "artifact://a2a/card-v2",e),"candidate:second");
+            check(second.version()==2);
+            f.store.promote(TENANT,"agent-01",second.version(),"second-release",
+                Set.of("release:approve"),false);
+            check(f.store.active(TENANT,"agent-01").orElseThrow().version()==2);
+            check(f.store.rollback(TENANT,"agent-01",2,"second-rollback").restored().orElseThrow().version()==1);
+            check(f.store.active(TENANT,"agent-01").orElseThrow().version()==1);
+            check(f.store.history(TENANT,"agent-01").size()==7);
+            check(f.store.history(TENANT,"agent-01").stream().anyMatch(t ->
+                t.to()==AgentStore.Channel.ROLLED_BACK && t.version()==2));
+        });
+        test("AF-REQ-020 AgentStore releases isolated per tenant",()->{
+            Fixture f=new Fixture();f.auto=true;f.start();f.build();
+            f.eval(true,false,true,AgentStore.Risk.LOW,SPEC1,"0.1");
+            check(f.store.active("other-tenant","agent-01").isEmpty());
+            check(f.store.history("other-tenant","agent-01").isEmpty());
+            check(f.store.versions("other-tenant","agent-01").isEmpty());
+        });
         System.out.println("COMPONENT TESTS PASSED: "+run.get());
     }
 }
