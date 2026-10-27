@@ -40,7 +40,7 @@ public final class Workflow {
     String idempotencyKey;
     RequestIdentity requestFingerprint;
     record RequestIdentity(String tenantId, String workflowId, String taskSnapshotId,
-                           Protocol.Limits limits) { }
+                           Protocol.Limits limits, String correlationId) { }
     String taskSnapshotId;
     String snapshotDigest;
     String snapshotRevision;
@@ -81,7 +81,7 @@ public final class Workflow {
         correlationId = req.correlationId(); limits = req.limits(); startedAt = Instant.now();
     }
     static RequestIdentity fingerprint(Protocol.Start r) {
-        return new RequestIdentity(r.tenantId(), r.workflowId(), r.taskSnapshotId(), r.limits());
+        return new RequestIdentity(r.tenantId(), r.workflowId(), r.taskSnapshotId(), r.limits(), r.correlationId());
     }
     Workflow copy() {
         Workflow w = new Workflow();
