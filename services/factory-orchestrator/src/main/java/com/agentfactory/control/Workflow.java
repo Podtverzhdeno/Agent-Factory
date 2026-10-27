@@ -51,6 +51,8 @@ public final class Workflow {
     BigDecimal spentUsd = BigDecimal.ZERO;
     int repairs;
     int trainingAttempts;
+    String trainingIdempotencyKey;
+    String trainingRightsRef;
     String agentId;
     String specRef;
     String specDigest;
@@ -86,6 +88,7 @@ public final class Workflow {
         w.snapshotRevision=snapshotRevision; w.datasetRef=datasetRef; w.policyRef=policyRef;
         w.correlationId=correlationId; w.limits=limits; w.state=state; w.startedAt=startedAt;
         w.spentUsd=spentUsd; w.repairs=repairs; w.trainingAttempts=trainingAttempts;
+        w.trainingIdempotencyKey=trainingIdempotencyKey; w.trainingRightsRef=trainingRightsRef;
         w.agentId=agentId; w.specRef=specRef; w.specDigest=specDigest;
         w.baselineRef=baselineRef; w.baselineDigest=baselineDigest;
         w.toolDigests=new HashMap<>(toolDigests); w.modelRouteDigest=modelRouteDigest;
@@ -103,7 +106,17 @@ public final class Workflow {
         pendingOperationId = id;
         return id;
     }
-    boolean hasPendingActions() { return actions.stream().anyMatch(a -> !a.delivered && a.attempts < 5); }
+    boolean hasPendingActions() {
+        return actions.stream().anyMatch(a -> !a.delivered && a.attempts < 5
+            && a.operationId.equals(pendingOperationId) && actionAllowed(a.type));
+    }
+    boolean actionAllowed(ActionType type) {
+        return switch (type) {
+            case BUILD -> state == State.BUILDING;
+            case EVALUATE -> state == State.TESTING || state == State.RE_TESTING;
+            case OPTIMIZE, SOUP -> state == State.OPTIMIZING;
+        };
+    }
     public View view() {
         return new View(tenantId, workflowId, taskSnapshotId, state, agentId, specRef, specDigest,
             repairs, trainingAttempts, spentUsd, candidateVersion, releasedVersion, pendingOperationId, errorCode,
