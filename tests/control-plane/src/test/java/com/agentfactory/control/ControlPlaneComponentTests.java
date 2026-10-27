@@ -67,7 +67,7 @@ public final class ControlPlaneComponentTests {
         }
         Workflow.View eval(boolean passed,boolean veto,boolean holdout,AgentStore.Risk risk, String digest, String cost) {
             return cp.onEvaluation(EVENTS,new EvaluationFinished(header("eval-"+UUID.randomUUID()),
-                "evaluation-"+UUID.randomUUID(),digest,evidence(passed,veto,holdout,risk,digest),
+                "evaluation-1",digest,evidence(passed,veto,holdout,risk,digest),
                 new BigDecimal(cost),null,false));
         }
         Workflow.View optimize(String cost) {
@@ -212,6 +212,14 @@ public final class ControlPlaneComponentTests {
         test("AF-REQ-020 authorization precedes idempotency lookup",()->{
             Fixture f=new Fixture();f.start();
             error("UNAUTHORIZED_TENANT_OR_SCOPE",()->f.cp.start(actor("tenant-b","factory:start"), f.request(WF)));
+        });
+        test("AF-REQ-014 mismatched evidence run id rejected",()->{
+            Fixture f=new Fixture();f.start();f.build();
+            AgentStore.Evidence e=f.evidence(true,false,true,AgentStore.Risk.LOW,SPEC1);
+            Workflow.View out=f.cp.onEvaluation(EVENTS,new EvaluationFinished(f.header("bad-run-id"),
+                "different-evaluation-run",SPEC1,e,new BigDecimal("0.1"),null,false));
+            check(out.errorCode().equals("SPEC_VERSION_MISMATCH"));
+            check(f.store.active(TENANT,"agent-01").isEmpty());
         });
         System.out.println("COMPONENT TESTS PASSED: "+run.get());
     }
