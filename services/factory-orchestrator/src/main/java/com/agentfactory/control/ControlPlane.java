@@ -316,7 +316,10 @@ public final class ControlPlane {
     /** Release and its AgentStore update must share the parent workflow transaction. */
     private Workflow.View promoteVerified(String tenant, String id, String operation,
                                           boolean auto, Workflow w) {
-        if (w.state==Workflow.State.RELEASED) return w.view();
+        if (w.state==Workflow.State.RELEASED) {
+            require(Objects.equals(w.releaseOperationKey,operation), "IDEMPOTENCY_CONFLICT");
+            return w.view();
+        }
         require(auto || approvals.approved(tenant,id,"release:approve"),"HUMAN_APPROVAL_REQUIRED");
         require(w.state==Workflow.State.VERIFIED && w.lastEvidence!=null && w.lastEvidence.complete(),"QUALITY_GATE_BLOCKED");
         require(Objects.equals(w.specDigest,w.lastEvidence.specDigest()) &&
@@ -331,6 +334,7 @@ public final class ControlPlane {
         require(v.version()==w.candidateVersion, "CANDIDATE_VERSION_MISMATCH");
         AgentStore.Version released=store.promote(tenant,w.agentId,v.version(),operation,signedApprovals,auto);
         w.releasedVersion=released.version();
+        w.releaseOperationKey=operation;
         w.state=Workflow.State.RELEASED;
         w.pendingOperationId=null;
         return w.view();
@@ -338,10 +342,14 @@ public final class ControlPlane {
     public Workflow.View rollback(Principal actor, String tenant, String workflowId, String idempotencyKey) {
         authorize(actor,tenant,"factory:rollback"); required(idempotencyKey);
         return ledger.transact(tenant,workflowId,w -> {
-            if (w.state==Workflow.State.ROLLED_BACK) return w.view();
+            if (w.state==Workflow.State.ROLLED_BACK) {
+                require(Objects.equals(w.rollbackOperationKey,idempotencyKey), "IDEMPOTENCY_CONFLICT");
+                return w.view();
+            }
             require(approvals.approved(tenant,workflowId,"rollback:approve"),"ROLLBACK_APPROVAL_REQUIRED");
             require(w.state==Workflow.State.RELEASED,"RELEASE_NOT_ACTIVE");
             store.rollback(tenant,w.agentId,w.releasedVersion,"rollback:"+idempotencyKey);
+            w.rollbackOperationKey=idempotencyKey;
             w.state=Workflow.State.ROLLED_BACK;
             w.pendingOperationId=null;
             return w.view();
