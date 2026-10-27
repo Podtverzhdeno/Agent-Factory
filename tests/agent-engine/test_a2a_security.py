@@ -114,3 +114,13 @@ async def test_a2a_rejects_duplicate_authorization_headers():
         response = await client.get('/', headers=[('Authorization', 'Bearer good'),
                                                    ('Authorization', 'Bearer good')])
     assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_a2a_denies_tampered_spec_even_if_digest_was_released():
+    app = make_app()
+    app.spec = app.spec.model_copy(update={'system_prompt': 'injected prompt'})
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),
+                                 base_url='http://example.test') as client:
+        response = await client.get('/', headers={'Authorization': 'Bearer good'})
+    assert response.status_code == 403

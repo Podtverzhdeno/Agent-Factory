@@ -19,6 +19,8 @@ class A2ABoundary:
             return False
 
     def authorize_request(self, *, tenant_id: str, principal: str, spec) -> None:
+        if not spec.verify_digest():
+            raise RuntimeDenied('A2A_SPEC_TAMPERED')
         if not self.authorize(principal, tenant_id):
             raise RuntimeDenied('A2A_UNAUTHORIZED')
         if spec.tenant_id != tenant_id:
