@@ -137,7 +137,8 @@ public final class ControlPlane {
         Workflow.View view = ledger.transact(h.tenantId(),h.workflowId(),w -> {
             if (sameEvent(w,h,event) || !expected(w,h,Workflow.State.TESTING,Workflow.State.RE_TESTING)) return w.view();
             if (!Objects.equals(w.specDigest,event.specDigest()) || event.evidence()==null ||
-                !Objects.equals(event.specDigest(),event.evidence().specDigest())) {
+                !Objects.equals(event.specDigest(),event.evidence().specDigest()) ||
+                !Objects.equals(event.evaluationRunId(),event.evidence().evaluationRunId())) {
                 block(w,"SPEC_VERSION_MISMATCH","evaluate the pinned candidate"); return w.view();
             }
             if (!budgetOkay(w,event.spendUsd())) return w.view();
