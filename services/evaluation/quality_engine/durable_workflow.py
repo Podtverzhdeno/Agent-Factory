@@ -14,6 +14,7 @@ from .datasets import DatasetVault
 from .evaluation import EvaluationEngine, EvaluationPolicy, EvaluationRequest, EvaluationResult, Finding
 from .execution_evidence import EvidenceCollector, EvidenceVerifier, collect_observations
 from .primitives import AccessDenied, InvalidEvidence, Principal
+from .lease_heartbeat import LeaseKeeper
 from .sql_jobs import SqlEvaluationJobStore, JobRecord
 
 
@@ -58,19 +59,20 @@ class DurableEvaluationWorkflow:
                                   lease_seconds=self._lease_seconds)
         if claim is None:
             return self.get(principal, evaluation_run_id)
-        try:
-            ds = self._vault.read(principal, claim.request.dataset_version_ref)
-            observations = collect_observations(self._collector, claim.request, ds.cases,
-                                                self._verifier, True)
-            result = self._engine.evaluate(principal, claim.request, observations, self._policy)
-            if result.passed and not result.independent_acceptance:
-                # Training success is never independent release evidence.
-                status, code, result = "BLOCKED", "INDEPENDENT_HOLDOUT_REQUIRED", None
-            else:
-                status, code = result.status, None
-        except (InvalidEvidence, AccessDenied):
-            status, code, result = "BLOCKED", "INVALID_EXECUTION_EVIDENCE", None
-        except Exception:
-            status, code, result = "BLOCKED", "EVIDENCE_COLLECTOR_UNAVAILABLE", None
+        with LeaseKeeper(self._store, principal, claim, self._lease_seconds, self._clock):
+            try:
+                ds = self._vault.read(principal, claim.request.dataset_version_ref)
+                observations = collect_observations(self._collector, claim.request, ds.cases,
+                                                    self._verifier, True)
+                result = self._engine.evaluate(principal, claim.request, observations, self._policy)
+                if result.passed and not result.independent_acceptance:
+                    # Training success is never independent release evidence.
+                    status, code, result = "BLOCKED", "INDEPENDENT_HOLDOUT_REQUIRED", None
+                else:
+                    status, code = result.status, None
+            except (InvalidEvidence, AccessDenied):
+                status, code, result = "BLOCKED", "INVALID_EXECUTION_EVIDENCE", None
+            except Exception:
+                status, code, result = "BLOCKED", "EVIDENCE_COLLECTOR_UNAVAILABLE", None
         return as_job(self._store.complete(principal, claim, now=self._clock(),
                                            status=status, result=result, error_code=code))
