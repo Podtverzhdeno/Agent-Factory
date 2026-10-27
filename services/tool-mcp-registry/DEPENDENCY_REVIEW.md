@@ -1,8 +1,8 @@
 # Dependency support gate — workstream 03
 
-**Review date:** 2026-10-27. **Status: RELEASE BLOCKED.**
+**Review date:** 2026-10-27. **Status: MIGRATION PREPARED; MAVEN VERIFICATION AND RELEASE BLOCKED.**
 
-The module POM currently pins Spring Boot `3.4.7`. The Spring Boot 3.4 branch is outside its OSS security-support period (ended 2025-12-31); extended commercial support is not established for this project. See the vendor's support policy: https://github.com/spring-projects/spring-boot/wiki/Supported-Versions ; release status: https://endoflife.date/spring-boot ; advisories: https://spring.io/security/ .
+The module POM now targets Spring Boot `4.1.2` (GA October 23, 2026); the previous baseline was `3.4.7`. The Spring Boot 3.4 branch is outside its OSS security-support period (ended 2025-12-31); extended commercial support is not established for this project. See the vendor's support policy: https://github.com/spring-projects/spring-boot/wiki/Supported-Versions ; release status: https://endoflife.date/spring-boot ; advisories: https://spring.io/security/ .
 
 **Risk:** vulnerability fixes may no longer reach the pinned public patch line. The module uses Spring MVC and Spring Security resource-server features. This is a support-policy finding, *not* a claim that any particular listed CVE has been proven exploitable in this specific module.
 
@@ -14,4 +14,4 @@ The module POM currently pins Spring Boot `3.4.7`. The Spring Boot 3.4 branch is
 4. Run the standalone Java security and contract suites, tenant authorization tests and production-candidate dependency audit again on the *same commit*. Record actual CI URLs and commit SHA.
 5. Complete ADR-0002, durable audit and tenant storage review, endpoint/JWKS attestation, and Builder/Runtime interoperability before changing PR Draft to reviewable.
 
-This document intentionally **does not silently upgrade** the parent POM without Maven and HTTP/Jackson/Security test execution. The service stays fail-closed and not deployed.
+The supported-version dependency update, Web MVC starters, Jackson 3 configuration and MVC test import migration are prepared. **Do not mark the migration complete without running Maven/JUnit on the exact commit.** Service deployment remains blocked pending owner ADR and security review.
