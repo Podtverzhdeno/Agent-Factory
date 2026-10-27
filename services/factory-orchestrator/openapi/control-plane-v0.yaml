@@ -1,0 +1,132 @@
+openapi: 3.0.3
+info:
+  title: Agent Factory Control Plane (PROPOSED)
+  version: 0.1.0
+  description: >
+    Workstream 01 JWT-protected adapter contract. This is not a ratified deployable
+    service boundary. JSON schemas are provided in Java Protocol records and
+    CONTRACTS_V0.md pending owner approval.
+servers:
+  - url: https://control-plane.example.invalid
+security:
+  - bearerAuth: []
+paths:
+  /v1/workflows:
+    post:
+      summary: Explicitly command an authorized build
+      operationId: startWorkflow
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Start'
+      responses:
+        '202':
+          description: Workflow accepted, action queued for explicit dispatch
+        '403':
+          description: Invalid tenant or missing scope
+        '409':
+          description: Idempotency mismatch, unready snapshot or exhausted limits
+  /v1/workflows/{workflowId}:
+    get:
+      summary: Read tenant-authorized workflow state
+      parameters:
+        - $ref: '#/components/parameters/workflowId'
+        - $ref: '#/components/parameters/tenantId'
+      responses:
+        '200':
+          description: Current workflow view
+        '403':
+          description: Forbidden
+  /v1/workflows/{workflowId}/release:
+    post:
+      summary: Publish verified immutable AgentSpec after approvals and evidence
+      parameters:
+        - $ref: '#/components/parameters/workflowId'
+        - $ref: '#/components/parameters/tenantId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IdempotentAction'
+      responses:
+        '200':
+          description: Released or duplicate of already released operation
+        '409':
+          description: Required holdout, approvals or safety checks absent
+  /v1/workflows/{workflowId}/rollback:
+    post:
+      summary: Explicit authorized rollback retaining version history
+      parameters:
+        - $ref: '#/components/parameters/workflowId'
+        - $ref: '#/components/parameters/tenantId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IdempotentAction'
+      responses:
+        '200':
+          description: Rollback result
+  /internal/events/build:
+    post:
+      summary: Authenticated Builder completion (never an implicit build command)
+      responses:
+        '200':
+          description: Accepted/duplicate/stale event, current workflow state
+  /internal/events/evaluation:
+    post:
+      summary: Authenticated independent evaluator completion
+      responses:
+        '200':
+          description: Evaluated and quality-gated state
+  /internal/events/optimization:
+    post:
+      summary: Authenticated GEPARD completion
+      responses:
+        '200':
+          description: Optimizer candidate tracked or blocked
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    workflowId:
+      in: path
+      name: workflowId
+      required: true
+      schema: { type: string }
+    tenantId:
+      in: query
+      name: tenantId
+      required: true
+      schema: { type: string }
+  schemas:
+    Limits:
+      type: object
+      required: [maxRepairs, maxUsd, deadline]
+      properties:
+        maxRepairs: { type: integer, minimum: 0, maximum: 10 }
+        maxUsd: { type: number, exclusiveMinimum: 0 }
+        deadline: { type: string, format: date-time }
+    Start:
+      type: object
+      required: [tenantId, workflowId, taskSnapshotId, idempotencyKey, correlationId, limits]
+      properties:
+        tenantId: { type: string }
+        workflowId: { type: string }
+        taskSnapshotId: { type: string }
+        idempotencyKey: { type: string }
+        correlationId: { type: string }
+        limits:
+          $ref: '#/components/schemas/Limits'
+    IdempotentAction:
+      type: object
+      required: [idempotencyKey]
+      properties:
+        idempotencyKey: { type: string }
