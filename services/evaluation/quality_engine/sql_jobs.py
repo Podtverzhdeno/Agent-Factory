@@ -147,6 +147,32 @@ class SqlEvaluationJobStore:
             return Claim(EvaluationRequest(**json.loads(row["request_json"])),
                          run_id, worker_id, row["attempt"])
 
+    def renew_lease(self, principal: Principal, claim: Claim, *,
+                    now: float, lease_seconds: float = 30.0) -> float:
+        """Extend a live lease only for the same fenced worker attempt.
+
+        An expired, completed or transferred claim cannot be resurrected.
+        The worker must separately enforce durable external-effect idempotency.
+        """
+        _check(principal, claim.request.tenant_id)
+        if (not isfinite(now) or not isfinite(lease_seconds)
+                or not 0 < lease_seconds <= 3600):
+            raise ValueError("bounded finite lease required")
+        next_until = now + lease_seconds
+        with self.engine.begin() as conn:
+            updated = conn.execute(update(jobs).where(and_(
+                jobs.c.tenant_id == principal.tenant_id,
+                jobs.c.run_id == claim.run_id,
+                jobs.c.status == "RUNNING",
+                jobs.c.lease_owner == claim.worker_id,
+                jobs.c.attempt == claim.attempt,
+                jobs.c.lease_until > now,
+                jobs.c.lease_until <= next_until,
+            )).values(lease_until=next_until))
+            if updated.rowcount != 1:
+                raise InvalidEvidence("stale or non-extensible evaluation lease")
+        return next_until
+
     def complete(self, principal: Principal, claim: Claim, *, now: float,
                  status: str, result: EvaluationResult | None = None,
                  error_code: str | None = None) -> JobRecord:
