@@ -9,7 +9,7 @@ from quality_engine.sql_vault import SqlDatasetVault, metadata
 def sql():
     engine = create_engine("sqlite+pysqlite:///:memory:")
     metadata.create_all(engine)
-    yield SqlDatasetVault(engine)
+    yield SqlDatasetVault(engine, require_encryption=False)
     engine.dispose()
 
 
@@ -60,7 +60,7 @@ def test_sql_vault_survives_new_repository_instance(tmp_path):
     engine = create_engine(f"sqlite+pysqlite:///{path}")
     metadata.create_all(engine)
     owner = Principal("tenant", "evaluation")
-    SqlDatasetVault(engine).register(owner, Dataset(
+    SqlDatasetVault(engine, require_encryption=False).register(owner, Dataset(
         "tenant", "v1", "holdout", (Case("a", {"ok": True}),)))
-    assert SqlDatasetVault(engine).read(owner, "v1").cases[0].expected_artifact == {"ok": True}
+    assert SqlDatasetVault(engine, require_encryption=False).read(owner, "v1").cases[0].expected_artifact == {"ok": True}
     engine.dispose()
