@@ -1,6 +1,7 @@
 package com.agentfactory.api;
 
 import com.agentfactory.control.ControlPlaneComponentTests;
+import com.agentfactory.control.EventIdentityTests;
 import com.agentfactory.control.JdbcTransactionScopeTests;
 import org.junit.jupiter.api.Test;
 
@@ -12,6 +13,11 @@ final class ControlPlaneComponentSuiteTest {
     @Test
     void componentScenariosMustPassBeforeMavenBuildSucceeds() {
         ControlPlaneComponentTests.main(new String[0]);
+    }
+
+    @Test
+    void eventContentIdentityMustBeStable() {
+        EventIdentityTests.main(new String[0]);
     }
 
     @Test
