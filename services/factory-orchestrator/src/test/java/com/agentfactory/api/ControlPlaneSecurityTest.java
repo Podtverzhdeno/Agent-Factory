@@ -35,6 +35,8 @@ final class ControlPlaneSecurityTest {
             .thenReturn(jwt("reader-a", "tenant-a", "factory:read"));
         when(jwtDecoder.decode("wrong-producer"))
             .thenReturn(jwt("wrong-producer", "tenant-a", "factory:events:evaluation"));
+        when(jwtDecoder.decode("starter-a"))
+            .thenReturn(jwt("starter-a", "tenant-a", "factory:start"));
     }
 
     private static Jwt jwt(String token, String tenant, String scope) {
@@ -69,6 +71,30 @@ final class ControlPlaneSecurityTest {
                 .param("tenantId", "tenant-a")
                 .header("Authorization", "Bearer reader-a"))
             .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void malformedStartIsBadRequestNotInternalServerError() throws Exception {
+        http.perform(post("/v1/workflows")
+                .header("Authorization", "Bearer starter-a")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void workflowBodyCannotSelectAnotherTenant() throws Exception {
+        http.perform(post("/v1/workflows")
+                .header("Authorization", "Bearer starter-a")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"tenantId\":\"tenant-b\","
+                    + "\"workflowId\":\"wf-forged\","
+                    + "\"taskSnapshotId\":\"snap\","
+                    + "\"correlationId\":\"c\","
+                    + "\"idempotencyKey\":\"k\","
+                    + "\"limits\":{\"maxRepairs\":2,\"maxUsd\":1,"
+                    + "\"deadline\":\"2099-01-01T00:00:00Z\"}}"))
+            .andExpect(status().isForbidden());
     }
 
     @Test
