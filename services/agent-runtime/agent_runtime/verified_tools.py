@@ -6,11 +6,11 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
+from agent_builder import AgentSpec, ToolBinding
 from jsonschema import Draft202012Validator, SchemaError, ValidationError
 from pydantic import BaseModel, ConfigDict, Field
 
 from .core import RuntimeDenied, ToolGateway
-from agent_builder import AgentSpec, ToolBinding
 
 
 class ToolPolicy(BaseModel):

@@ -1,7 +1,6 @@
 """Contract-level tenant/version checkpoint isolation without fake LangGraph compliance claims."""
 
 import pytest
-
 from agent_builder import digest
 from agent_runtime import (
     Decision,

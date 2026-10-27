@@ -1,7 +1,6 @@
 """Graph contract/idempotency proof with fake compiled-graph port (not SDK)."""
 
 import pytest
-
 from agent_runtime import (
     Decision,
     EffectLedger,

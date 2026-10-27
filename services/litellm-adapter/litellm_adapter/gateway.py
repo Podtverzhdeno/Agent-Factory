@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 from collections.abc import Callable
-
-import math
 from urllib.parse import urlsplit
 
 import httpx
-
 from agent_runtime.core import Decision, RuntimeDenied
 
 

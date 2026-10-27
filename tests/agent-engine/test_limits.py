@@ -1,7 +1,6 @@
 """Input bounds, memory retention and expiry regression tests."""
 
 import pytest
-
 from agent_runtime import (
     Decision,
     EffectLedger,
