@@ -65,10 +65,12 @@ class SignedRuntimeAudit:
         if not spec.verify_digest() or spec.artifact_digest not in runtime.approved_spec_digests:
             raise ValueError("only a pinned immutable AgentSpec may produce audit evidence")
         self.runtime = runtime
+        self._gateway = runtime.gateway
         self.spec = spec
         self._private_key = private_key
         self._key_id = key_id
         self._records: dict[tuple[str, str], dict] = {}
+        self._requests: dict[tuple[str, str], str] = {}
 
     async def run_public_case(self, *, tenant_id: str, evaluation_run_id: str,
                               case_id: str, dataset_version_ref: str,
@@ -82,19 +84,22 @@ class SignedRuntimeAudit:
         if not isinstance(request, str) or not request:
             raise RuntimeDenied("INVALID_AUDIT_REQUEST")
         run_id = f"{evaluation_run_id}:{case_id}"
+        if len("eval:" + run_id) > 128:
+            raise RuntimeDenied("INVALID_AUDIT_IDENTITY")
         key = (tenant_id, run_id)
+        request_fingerprint = json.dumps(
+            {"request": request, "dataset_version_ref": dataset_version_ref},
+            sort_keys=True, separators=(",", ":"))
         if key in self._records:
-            # Replays return precisely the original signed evidence, never
-            # rerun the business operation or sign a different dataset claim.
-            saved = self._records[key]
-            if saved["envelope"]["dataset_version_ref"] != dataset_version_ref:
+            # Replays must be byte-for-byte the same job, not simply reuse IDs.
+            if self._requests[key] != request_fingerprint:
                 raise RuntimeDenied("AUDIT_IDEMPOTENCY_CONFLICT")
-            return saved
+            return self._records[key]
         began = time.monotonic()
         result = await self.runtime.run(
             self.spec, tenant_id=tenant_id, run_id=run_id,
             thread_id=run_id, request=request, trace_id="eval:" + run_id)
-        events = self.runtime.gateway.take_evidence(tenant_id, run_id)
+        events = self._gateway.take_evidence(tenant_id, run_id)
         if len(events) != len(result.tool_effect_refs):
             raise RuntimeDenied("AUDIT_TOOL_EVIDENCE_MISMATCH")
         completed = result.status == "COMPLETED"
@@ -132,6 +137,7 @@ class SignedRuntimeAudit:
         signed = {"envelope": envelope, "key_id": self._key_id,
                   "signature_hex": self._private_key.sign(canonical).hex()}
         self._records[key] = signed
+        self._requests[key] = request_fingerprint
         return signed
 
     def lookup(self, tenant_id: str, run_id: str) -> dict | None:
