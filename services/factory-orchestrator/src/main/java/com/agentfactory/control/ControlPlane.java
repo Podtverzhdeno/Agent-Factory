@@ -252,13 +252,14 @@ public final class ControlPlane {
                                      String rightsRef, String idempotencyKey) {
         authorize(actor,tenant,"factory:training");
         required(idempotencyKey);
-        require(goodRef(rightsRef) && approvals.approved(tenant,workflowId,"training:approve"),"TRAINING_RIGHTS_OR_APPROVAL_MISSING");
+        require(goodRef(rightsRef), "TRAINING_RIGHTS_OR_APPROVAL_MISSING");
         return ledger.transact(tenant,workflowId,w -> {
             if (Objects.equals(w.trainingIdempotencyKey,idempotencyKey) &&
                 w.trainingIdempotencyKey != null) {
                 require(Objects.equals(w.trainingRightsRef,rightsRef),"IDEMPOTENCY_CONFLICT");
                 return w.view();
             }
+            require(approvals.approved(tenant,workflowId,"training:approve"),"TRAINING_RIGHTS_OR_APPROVAL_MISSING");
             require(w.state==Workflow.State.VERIFIED, "TRAINING_REQUIRES_VERIFIED_BASELINE");
             require(w.trainingAttempts<1 && clock.now().isBefore(w.limits.deadline()),"TRAINING_BUDGET_EXHAUSTED");
             w.trainingIdempotencyKey=idempotencyKey;
@@ -304,12 +305,12 @@ public final class ControlPlane {
 
     public Workflow.View release(Principal actor, String tenant, String workflowId, String idempotencyKey) {
         authorize(actor,tenant,"factory:release"); required(idempotencyKey);
-        require(approvals.approved(tenant,workflowId,"release:approve"),"HUMAN_APPROVAL_REQUIRED");
         return promote(tenant,workflowId,"manual:"+idempotencyKey,false);
     }
     private Workflow.View promote(String tenant, String id, String operation, boolean auto) {
         return ledger.transact(tenant,id,w -> {
             if (w.state==Workflow.State.RELEASED) return w.view();
+            require(auto || approvals.approved(tenant,id,"release:approve"),"HUMAN_APPROVAL_REQUIRED");
             require(w.state==Workflow.State.VERIFIED && w.lastEvidence!=null && w.lastEvidence.complete(),"QUALITY_GATE_BLOCKED");
             require(Objects.equals(w.specDigest,w.lastEvidence.specDigest()) &&
                 w.spentUsd.compareTo(w.limits.maxUsd())<=0 && clock.now().isBefore(w.limits.deadline()),"RELEASE_CONSTRAINT_FAILED");
@@ -330,9 +331,9 @@ public final class ControlPlane {
     }
     public Workflow.View rollback(Principal actor, String tenant, String workflowId, String idempotencyKey) {
         authorize(actor,tenant,"factory:rollback"); required(idempotencyKey);
-        require(approvals.approved(tenant,workflowId,"rollback:approve"),"ROLLBACK_APPROVAL_REQUIRED");
         return ledger.transact(tenant,workflowId,w -> {
             if (w.state==Workflow.State.ROLLED_BACK) return w.view();
+            require(approvals.approved(tenant,workflowId,"rollback:approve"),"ROLLBACK_APPROVAL_REQUIRED");
             require(w.state==Workflow.State.RELEASED,"RELEASE_NOT_ACTIVE");
             store.rollback(tenant,w.agentId,w.releasedVersion,"rollback:"+idempotencyKey);
             w.state=Workflow.State.ROLLED_BACK;
