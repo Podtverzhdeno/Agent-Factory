@@ -125,6 +125,12 @@ final class JdbcPersistenceIntegrationTest {
             .get(TENANT,"wf-01").view().revision());
         assertEquals(DIGEST,new JdbcAgentStore(tx(),codec())
             .active(TENANT,"agent-01").orElseThrow().specDigest());
+        var restarted=orchestrator(new JdbcWorkflowLedger(tx(),codec()),
+            new JdbcAgentStore(tx(),codec()),true);
+        var releaseActor=new Protocol.Principal("releaser",TENANT,Set.of("factory:release"));
+        var duplicateWithDifferentKey=assertThrows(IllegalStateException.class,()->
+            restarted.release(releaseActor,TENANT,"wf-01","unexpected-manual-key"));
+        assertEquals("IDEMPOTENCY_CONFLICT",duplicateWithDifferentKey.getMessage());
     }
 
     @Test void workflowAndInboxOutboxSurviveFreshAdapterInstance() {
