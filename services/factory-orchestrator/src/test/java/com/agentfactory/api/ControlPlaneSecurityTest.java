@@ -52,6 +52,12 @@ final class ControlPlaneSecurityTest {
     }
 
     @Test
+    void publicLivenessDoesNotRevealTenantData() throws Exception {
+        http.perform(get("/healthz"))
+            .andExpect(status().isOk());
+    }
+
+    @Test
     void noJwtCannotReadWorkflow() throws Exception {
         http.perform(get("/v1/workflows/w1").param("tenantId", "tenant-a"))
             .andExpect(status().isUnauthorized());
