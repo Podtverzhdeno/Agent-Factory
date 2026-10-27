@@ -40,3 +40,10 @@ Updated 2026-10-27. Workstream branch: agent/05-quality-engine. PR #2.
 
 **Status: COMPONENT VERIFIED; CROSS-SERVICE/PRODUCTION INTEGRATION BLOCKED.**
 Never mark main project-wide requirements fully closed from these test doubles or skipped tests.
+
+
+## Security review addendum — encryption-by-default
+
+`SqlDatasetVault` fails at construction without an injected tenant cipher unless explicitly configured `require_encryption=False` for isolated tests. AES-256-GCM authenticates tenant/version/case in AAD. Wrong key, tampered ciphertext and swapped record identity are rejected. This is application encryption, not a replacement for KMS, key rotation, PostgreSQL IAM, backup controls or mTLS.
+
+The latest strict local run remains **81 passed, 1 skipped** using `pytest -q tests/quality-engine -W error::ResourceWarning`, with no reported warnings. The skipped real PostgreSQL test is not counted as passed.
