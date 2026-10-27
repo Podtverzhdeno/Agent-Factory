@@ -11,3 +11,20 @@ Supported evidence: precise structured output artifacts; required authorized too
 Benchmark: paired immutable cases, required model capability/processing region, conservative one-sided bound on candidate loss frequency, successful-operation cost including model, retry, tool and fallback. Requires enough independent cases and policy-defined noninferiority threshold. A synthetic pass is not production proof.
 
 Requirements: AF-REQ-008/009/019/020/028/042/043/048. Remaining: authenticated endpoints, persistent vault, streamed callbacks, real agent execution, verified tool side effects, model-provider billing/reconciliation, evaluator/optimizer separate deployment and full E2E.
+
+
+## New contract-first application adapter
+
+- `quality_engine.primitives`: identities and hashing
+- `quality_engine.datasets`: immutable test fixtures and isolated holdout vault
+- `quality_engine.evaluation`: pure business and ReAct/memory scoring
+- `quality_engine.model_benchmark`: paired non-inferiority and cost comparison
+- `quality_engine.application`: stateful idempotent evaluation workflow and trusted `EvidenceCollector` protocol
+- `quality_engine.api`: proposed FastAPI adapter. **A trusted identity dependency is mandatory**; do not expose it using a caller-controlled tenant header. `POST /internal/evaluations` returns 202 QUEUED, a worker separately processes evidence, and `GET /internal/evaluations/{run_id}` shows state to an authorized tenant.
+- `quality_engine.core`: compatibility facade to preserve existing imports while allowing modular domain design.
+
+The execution collector receives only `PublicRunCase(case_id,input_ref)`, never evaluator gold labels. It returns `EvidenceEnvelope` tied to a pinned candidate/dataset/tenant with audit trace reference; actual cryptographic trace provenance must be integrated later.
+
+Model Benchmark requires `BenchmarkEvidence` proving an independently owned holdout and separate baseline/candidate trace refs before returning PASS. References are not cryptographically attested in the component prototype, therefore release decisions remain external.
+
+Install optional HTTP extra `api` from the evaluation package and `test` for tests. No standalone process or production secret manager is configured in this PR.
