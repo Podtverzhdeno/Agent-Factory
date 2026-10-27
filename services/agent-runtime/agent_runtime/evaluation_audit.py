@@ -39,7 +39,10 @@ class EvidenceRecordingGateway(VerifiedToolGateway):
     async def execute(self, spec, binding, *, args: dict, run_id: str, step: int):
         result, effect_key = await super().execute(
             spec, binding, args=args, run_id=run_id, step=step)
-        proof = effect_key if any(e != "read" for e in binding.side_effects) else None
+        # A local idempotency reservation key is NOT an external business
+        # receipt. Until Registry/ERP supplies independently attestable proof,
+        # the Evaluation effect_proof field must remain absent (fail closed).
+        proof = None
         self._observed.setdefault((spec.tenant_id, run_id), []).append(
             VerifiedExecution(binding.tool_id, dict(result), proof))
         return result, effect_key
