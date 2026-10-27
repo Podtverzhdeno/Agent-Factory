@@ -56,7 +56,7 @@ class AuthenticatedA2AASGI:
         try:
             token = authorization[0][7:].decode('ascii')
             identity = self.authenticate(token) if token else None
-        except Exception:  # noqa: BLE001 - identity provider errors fail closed.  # noqa: BLE001 - identity provider errors fail closed.
+        except Exception:  # noqa: BLE001 - identity provider errors fail closed.
             identity = None
         if not isinstance(identity, A2AIdentity) or not identity.tenant_id or not identity.principal:
             await self._deny(send, 401)
@@ -69,7 +69,7 @@ class AuthenticatedA2AASGI:
         try:
             self.boundary.authorize_request(tenant_id=identity.tenant_id,
                 principal=identity.principal, spec=self.spec)
-        except Exception:
+        except Exception:  # noqa: BLE001 - release authority errors fail closed.
             # Identity and release authorities are external dependencies. Fail closed.
             await self._deny(send, 403)
             return
