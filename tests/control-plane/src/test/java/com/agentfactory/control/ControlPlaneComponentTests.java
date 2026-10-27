@@ -145,6 +145,25 @@ public final class ControlPlaneComponentTests {
             error("IDEMPOTENCY_CONFLICT",()->f.cp.start(COMMAND,new Start(TENANT,"different",SNAP,
                 "idem:"+WF,new Limits(2,new BigDecimal("5.00"),NOW.plusSeconds(3600)),"correlation:"+WF)));
         });
+        test("AF-REQ-015 replay remains stable past expiry and correlation mismatch conflicts",()->{
+            Fixture f=new Fixture();
+            Workflow.View accepted=f.start();
+            f.now.set(NOW.plusSeconds(3601));
+            Workflow.View replay=f.cp.start(COMMAND,f.request(WF));
+            check(replay.workflowId().equals(accepted.workflowId()));
+            check(replay.revision()==accepted.revision());
+            check(f.ledger.get(TENANT,WF).actions.size()==1);
+            error("IDEMPOTENCY_CONFLICT",()->f.cp.start(COMMAND,
+                new Start(TENANT,WF,SNAP,"idem:"+WF,
+                    new Limits(2,new BigDecimal("5.00"),NOW.plusSeconds(3600)),
+                    "different-correlation")));
+            error("UNAUTHORIZED_TENANT_OR_SCOPE",()->f.cp.start(
+                actor("tenant-b","factory:start"),f.request(WF)));
+            error("TIME_BUDGET_EXHAUSTED",()->f.cp.start(COMMAND,
+                new Start(TENANT,"expired-new",SNAP,"idem:expired-new",
+                    new Limits(2,new BigDecimal("5.00"),NOW.plusSeconds(3600)),
+                    "expired-correlation")));
+        });
         test("AF-REQ-020 deny cross-tenant read and event injection",()->{
             Fixture f=new Fixture();f.start();
             error("UNAUTHORIZED_TENANT_OR_SCOPE",()->f.cp.get(actor("tenant-b","factory:read"),TENANT,WF));
