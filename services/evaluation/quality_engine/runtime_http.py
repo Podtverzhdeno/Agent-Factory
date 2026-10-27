@@ -76,7 +76,7 @@ def _memories(raw: object) -> tuple[MemoryRead, ...]:
 def decode_attested_evidence(raw: object) -> AttestedEvidence:
     signed = _exact(raw, {"envelope", "key_id", "signature_hex"})
     envelope = _exact(signed["envelope"], {"tenant_id", "agent_spec_digest",
-                        "dataset_version_ref", "case_id", "trace_ref", "observation"})
+                        "dataset_version_ref", "case_id", "trace_ref", "observation", "evaluation_run_id"})
     observed = _exact(envelope["observation"], {field.name for field in fields(ObservedRun)})
     artifact = observed["artifact"]
     if artifact is not None and not isinstance(artifact, dict):
@@ -98,6 +98,7 @@ def decode_attested_evidence(raw: object) -> AttestedEvidence:
         _str(envelope["tenant_id"]), _str(envelope["agent_spec_digest"]),
         _str(envelope["dataset_version_ref"]), _str(envelope["case_id"]),
         _str(envelope["trace_ref"]), observation,
+        _str(envelope["evaluation_run_id"]),
     )
     signature = _str(signed["signature_hex"])
     if len(signature) != 128:
