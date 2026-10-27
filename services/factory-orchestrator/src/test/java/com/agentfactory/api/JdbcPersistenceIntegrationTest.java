@@ -792,4 +792,43 @@ final class JdbcPersistenceIntegrationTest {
             assertEquals(2,evaluator.requests.size());
         }
     }
+
+    @Test void isolatedRailwayPocSchemaBootstrapIsTransactionalAndIdempotent() throws Exception {
+        // Run only on the disposable test database selected by prepareSchema().
+        // The production service is never connected to this JUnit suite.
+        try {
+            JdbcPocSchemaBootstrap.bootstrap(dataSource);
+            JdbcPocSchemaBootstrap.bootstrap(dataSource);
+            try (Connection c=dataSource.getConnection();var s=c.createStatement()) {
+                try(var rs=s.executeQuery(
+                    "SELECT COUNT(*) FROM cp_factory_poc.cp_schema_migration")) {
+                    assertTrue(rs.next());
+                    assertEquals(2,rs.getInt(1));
+                }
+                try(var rs=s.executeQuery(
+                    "SELECT COUNT(*) FROM information_schema.tables "
+                    + "WHERE table_schema='cp_factory_poc' "
+                    + "AND table_name IN ('cp_workflow','cp_agent_lock','cp_agent_version',"
+                    + "'cp_agent_operation','cp_agent_transition','cp_event_inbox')")) {
+                    assertTrue(rs.next());
+                    assertEquals(6,rs.getInt(1));
+                }
+            }
+        } finally {
+            try(Connection c=dataSource.getConnection();var s=c.createStatement()) {
+                s.execute("DROP SCHEMA IF EXISTS cp_factory_poc CASCADE");
+            }
+        }
+    }
+
+    @Test void brokenPocSchemaConnectionDoesNotExposeJdbcCredentials() throws Exception {
+        var broken=org.mockito.Mockito.mock(DataSource.class);
+        org.mockito.Mockito.when(broken.getConnection())
+            .thenThrow(new java.sql.SQLException(
+                "secret-token jdbc:postgresql://internal-account:5432/production"));
+        var error=assertThrows(IllegalStateException.class,
+            ()->JdbcPocSchemaBootstrap.bootstrap(broken));
+        assertEquals("POC_DATABASE_UNAVAILABLE",error.getMessage());
+        assertNull(error.getCause());
+    }
 }
