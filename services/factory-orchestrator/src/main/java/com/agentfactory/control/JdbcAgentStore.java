@@ -165,7 +165,7 @@ public final class JdbcAgentStore implements AgentStore {
             return released;
         });
     }
-    public record RollbackResult(String digest,Long restoredVersion) { }
+    public record RollbackResult(String digest,Version restoredSnapshot) { }
     @Override public Rollback rollback(String tenant,String agent,long n,String key) {
         Objects.requireNonNull(key);
         return tx.transaction(c -> {
@@ -175,11 +175,7 @@ public final class JdbcAgentStore implements AgentStore {
             if(prior!=null) {
                 require(prior.fingerprint().equals(fingerprint),"IDEMPOTENCY_CONFLICT");
                 RollbackResult saved=codec.read(prior.result(),RollbackResult.class);
-                return new Rollback(saved.digest(),Optional.ofNullable(saved.restoredVersion())
-                    .map(v -> {
-                        try { return version(c,tenant,agent,v); }
-                        catch(SQLException e) { throw new JdbcTransactionScope.PersistenceFailure(e); }
-                    }));
+                return new Rollback(saved.digest(),Optional.ofNullable(saved.restoredSnapshot()));
             }
             Version target=version(c,tenant,agent,n);
             require(target!=null,"VERSION_NOT_FOUND");
@@ -201,7 +197,7 @@ public final class JdbcAgentStore implements AgentStore {
             transition(c,tenant,agent,n,Channel.RELEASED,Channel.ROLLED_BACK,
                 key,target.evidence().evaluationRunId(),Set.of());
             recordOperation(c,tenant,"rollback",key,fingerprint,
-                new RollbackResult(target.specDigest(),restored.map(Version::version).orElse(null)));
+                new RollbackResult(target.specDigest(),restored.orElse(null)));
             return new Rollback(target.specDigest(),restored);
         });
     }
