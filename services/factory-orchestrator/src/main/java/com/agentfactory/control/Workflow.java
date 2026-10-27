@@ -7,7 +7,7 @@ import java.util.*;
 
 /** Local aggregate. All mutations require a WorkflowLedger transaction. */
 public final class Workflow {
-    public enum State { DRAFT, READY, BUILDING, TESTING, OPTIMIZING, RE_TESTING, VERIFIED, BLOCKED, RELEASED, ROLLED_BACK }
+    public enum State { DRAFT, READY, BUILDING, TESTING, OPTIMIZING, TRAINING, RE_TESTING, VERIFIED, BLOCKED, RELEASED, ROLLED_BACK }
     public enum ActionType { BUILD, EVALUATE, OPTIMIZE, SOUP }
 
     public record Audit(Instant occurredAt, State from, State to, String reason, String correlationId) { }
