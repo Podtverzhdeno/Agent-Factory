@@ -6,6 +6,7 @@ from collections.abc import Callable
 
 from .core import RuntimeDenied
 
+
 class A2ABoundary:
     def __init__(self, *, released_spec_digests: frozenset[str], authorize,
                  release_lookup: Callable[[str, str], bool] | None = None):

@@ -1,12 +1,15 @@
 """Tenant-scoped SQLite memory for synthetic tests; plaintext, not production."""
 from __future__ import annotations
+
 import json
 import sqlite3
 import time
 from contextlib import closing
 from pathlib import Path
 from typing import Callable
+
 from .core import RuntimeDenied
+
 
 class SqliteMemory:
     def __init__(self, path: str | Path, clock: Callable[[], float] = time.time):

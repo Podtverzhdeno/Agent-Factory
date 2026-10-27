@@ -1,11 +1,15 @@
 """Synthetic-only two-task B2B demo: XLSX RFQ and read-only supplier check."""
 from __future__ import annotations
+
 import json
 from pathlib import Path
-from openpyxl import Workbook, load_workbook
-from agent_builder import Builder, BuildCommand, Limits, TaskSnapshot, ToolManifest
+
+from openpyxl import load_workbook, Workbook
+
 from .core import Decision, EffectLedger, Runtime
 from .verified_tools import ToolPolicy, VerifiedToolGateway
+from agent_builder import BuildCommand, Builder, Limits, TaskSnapshot, ToolManifest
+
 
 SHA = 'sha256:' + 'b' * 64
 

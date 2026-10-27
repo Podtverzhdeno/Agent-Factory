@@ -1,11 +1,14 @@
 """Isolated official A2A SDK v1 adapter; no socket or release side effects."""
 from __future__ import annotations
+
 from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Protocol
-from agent_builder import AgentSpec
+
 from .a2a_adapter import A2ABoundary
 from .core import Runtime, RuntimeDenied
+from agent_builder import AgentSpec
+
 
 @dataclass(frozen=True)
 class A2AIdentity:

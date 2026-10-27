@@ -3,12 +3,15 @@
 Reserve *before* dispatch; uncertain and confirmed keys both block further calls.
 """
 from __future__ import annotations
+
 import asyncio
 import json
 import sqlite3
 from contextlib import closing
 from pathlib import Path
+
 from .core import RuntimeDenied
+
 
 class SqliteEffectLedger:
     def __init__(self, path: str | Path):

@@ -4,12 +4,15 @@ NOT a LangGraph checkpointer, not a production schema. Production DB ownership,
 retention and transactional outbox require ratified ADR-0002.
 """
 from __future__ import annotations
+
 import json
 import sqlite3
 from contextlib import closing
 from dataclasses import asdict
 from pathlib import Path
+
 from .core import RunResult, RuntimeDenied
+
 
 class SqliteRunStore:
     def __init__(self, path: str | Path):

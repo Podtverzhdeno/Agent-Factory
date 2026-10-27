@@ -1,8 +1,12 @@
 """Approved MCP client adapter. MCP is transport, NOT authority."""
 from __future__ import annotations
+
 from typing import Any, Literal, Mapping, Protocol
+
 from pydantic import BaseModel, ConfigDict, Field
+
 from .core import RuntimeDenied
+
 
 class MCPClientPort(Protocol):
     async def call_tool(self, *, name: str, arguments: dict[str, Any]) -> Any: ...
