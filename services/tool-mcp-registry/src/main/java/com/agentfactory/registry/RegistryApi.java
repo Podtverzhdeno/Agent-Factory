@@ -1,0 +1,61 @@
+package com.agentfactory.registry;
+
+import java.util.*;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.*;
+
+import static com.agentfactory.registry.ToolRegistry.*;
+
+/** Experimental REST boundary: tenant and grants come exclusively from validated JWT, never request JSON. */
+@RestController
+@RequestMapping("/v0/registry")
+public final class RegistryApi {
+    private final ToolRegistry registry;
+    public RegistryApi(ToolRegistry registry) { this.registry = registry; }
+
+    @PostMapping("/manifests")
+    public ResponseEntity<Map<String,String>> draft(@AuthenticationPrincipal Jwt jwt, @RequestBody Manifest manifest) {
+        registry.registerDraft(caller(jwt), manifest);
+        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("status","DRAFT","digest",manifest.manifestDigest()));
+    }
+    @PostMapping("/manifests/{toolId}/{version}/{operation}/approve")
+    public Map<String,String> approve(@AuthenticationPrincipal Jwt jwt, @PathVariable String toolId,
+                                      @PathVariable String version, @PathVariable String operation) {
+        registry.approve(caller(jwt),toolId,version,operation);
+        return Map.of("status","APPROVED");
+    }
+    @GetMapping("/manifests")
+    public List<Manifest> list(@AuthenticationPrincipal Jwt jwt) { return registry.listApproved(caller(jwt)); }
+
+    @PostMapping("/select")
+    public Selection select(@AuthenticationPrincipal Jwt jwt, @RequestBody SelectionRequest request) {
+        return registry.select(caller(jwt),request);
+    }
+    public record PayloadCheck(String toolId, String version, String operation, boolean input, Map<String,Object> payload) {}
+    @PostMapping("/payloads/validate")
+    public Map<String,Boolean> validate(@AuthenticationPrincipal Jwt jwt, @RequestBody PayloadCheck request) {
+        registry.validatePayload(caller(jwt),request.toolId(),request.version(),request.operation(),request.input(),request.payload());
+        return Map.of("valid",true);
+    }
+    private static Caller caller(Jwt jwt) {
+        if (jwt == null) throw new RegistryFailure("UNAUTHENTICATED","Bearer JWT required");
+        String tenant = jwt.getClaimAsString("tenant_id");
+        Object raw = jwt.getClaims().get("scope");
+        Set<String> scopes = raw instanceof String s && !s.isBlank() ? new HashSet<>(Arrays.asList(s.strip().split("\\s+"))) : Set.of();
+        return new Caller(jwt.getSubject(),tenant,scopes);
+    }
+    @ExceptionHandler(RegistryFailure.class)
+    public ResponseEntity<Map<String,Object>> onRegistryError(RegistryFailure error) {
+        HttpStatus status = switch (error.code) {
+            case "FORBIDDEN", "UNAUTHENTICATED" -> HttpStatus.FORBIDDEN;
+            case "NOT_FOUND" -> HttpStatus.NOT_FOUND;
+            case "VERSION_EXISTS", "IMMUTABLE" -> HttpStatus.CONFLICT;
+            default -> HttpStatus.UNPROCESSABLE_ENTITY;
+        };
+        return ResponseEntity.status(status).body(Map.of("code", error.code, "detail", error.getMessage(),
+            "retryable", false, "trace_id", UUID.randomUUID().toString(), "required_action", "Review registry policy or manifest"));
+    }
+}

@@ -1,0 +1,113 @@
+openapi: 3.0.3
+info:
+  title: Experimental Trusted Tool/MCP Registry
+  version: '0.1'
+  description: Draft API awaiting owner ADR-0002; never runs MCP servers
+servers:
+  - url: http://localhost:8080
+security:
+  - jwtBearer: []
+components:
+  securitySchemes:
+    jwtBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Validated issuer, audience, tenant_id and explicit scope claims
+  schemas:
+    ToolManifest:
+      type: object
+      additionalProperties: false
+      required: [schema_version, tool_id, version, operation, transport, capabilities, input_schema_ref, output_schema_ref, side_effects, required_scopes, risk_level, tenant_availability, endpoint_ref, health, provenance, description, manifest_digest]
+      properties:
+        schema_version: { type: string, enum: ['0.1'] }
+        tool_id: { type: string }
+        version: { type: string, pattern: '^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$' }
+        operation: { type: string }
+        transport: { type: string, enum: [MCP, LOCAL] }
+        capabilities: { type: array, items: { type: string }, minItems: 1 }
+        input_schema_ref: { type: string }
+        output_schema_ref: { type: string }
+        side_effects: { type: array, items: { type: string, enum: [READ, DRAFT_FILE, WRITE, PAYMENT, DESTRUCTIVE] } }
+        required_scopes: { type: array, items: { type: string } }
+        risk_level: { type: string, enum: [LOW, MEDIUM, HIGH, CRITICAL] }
+        tenant_availability: { type: array, items: { type: string } }
+        endpoint_ref: { type: string }
+        health: { type: string, enum: [HEALTHY, DEGRADED, UNKNOWN] }
+        provenance: { type: string }
+        description: { type: string }
+        manifest_digest: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+    SelectionRequest:
+      type: object
+      required: [required_capabilities, allowed_effects, max_risk, pinned_versions, expected_schemas]
+      properties:
+        required_capabilities: { type: array, items: { type: string } }
+        allowed_effects: { type: array, items: { type: string } }
+        max_risk: { type: string }
+        pinned_versions: { type: object, additionalProperties: { type: string } }
+        expected_schemas: { type: object, additionalProperties: { type: object } }
+    Error:
+      type: object
+      properties:
+        code: { type: string }
+        detail: { type: string }
+        retryable: { type: boolean }
+        trace_id: { type: string }
+        required_action: { type: string }
+paths:
+  /v0/registry/manifests:
+    post:
+      summary: Register draft (JWT scope registry:register)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ToolManifest' }
+      responses:
+        '201': { description: Draft created }
+        '403': { description: Permission denied }
+        '422': { description: Invalid manifest }
+    get:
+      summary: List tenant-visible, approved and explicitly scoped manifests
+      responses:
+        '200': { description: Authorized list }
+  /v0/registry/manifests/{toolId}/{version}/{operation}/approve:
+    post:
+      summary: Two-person approval (JWT scope registry:approve)
+      parameters:
+        - { name: toolId, in: path, required: true, schema: { type: string } }
+        - { name: version, in: path, required: true, schema: { type: string } }
+        - { name: operation, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: Version approved }
+        '403': { description: Unauthorized or self-approval }
+  /v0/registry/select:
+    post:
+      summary: Deterministic minimal authorized covering selection (JWT scope registry:lookup)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SelectionRequest' }
+      responses:
+        '200': { description: SELECTED or BLOCKED with typed denials and registry digest }
+        '403': { description: Unauthorized caller }
+  /v0/registry/payloads/validate:
+    post:
+      summary: Validate payload against pinned approved operation's input or output object shape
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tool_id, version, operation, input, payload]
+              properties:
+                tool_id: { type: string }
+                version: { type: string }
+                operation: { type: string }
+                input: { type: boolean }
+                payload: { type: object }
+      responses:
+        '200': { description: Shape valid }
+        '422': { description: Shape or policy mismatch }
