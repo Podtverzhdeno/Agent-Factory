@@ -36,3 +36,36 @@ Local HTTP adapters refuse non-202 or ambiguous receipts. A remote retry is safe
 - Team 05: independently running Evaluation/GEPARD, sealed holdout ACL, signed evaluation result, rejected spoofed attestation
 - Team 01: green exact-commit Java+Maven+Docker/PostgreSQL suite, restart/retry and real HTTP E2E, security review
 - Owner: explicit ADR-0002 GitHub ratification before promoting any PoC schema/wiring to production
+
+
+## Cross-branch code verification — 2026-10-27
+
+The proposed frozen v0 contract and current workstream branches are **not yet identical**:
+
+- **Evaluation, workstream 05:** `services/evaluation/quality_engine/api.py` defines a strict
+  `EvaluationRequestBody` with `tenant_id, agent_spec_ref, agent_spec_digest,
+  dataset_version_ref, policy_ref, idempotency_key, evaluation_run_id` and optional
+  `baseline_spec_ref`. The caller must allocate `evaluation_run_id`. Our
+  `RemoteHttpClients.evaluator` has been updated to send only these seven mandatory
+  fields, with the workflow operation ID as `evaluation_run_id`. The returned
+  `evaluation_run_id` must match. Correlation remains in a request header.
+  **Compatibility test added, not executed with Maven on this PR head.**
+- **Builder, workstream 04:** `services/agent-builder/agent_builder/handler.py`
+  exposes a Python `BuildHandler.build` method but explicitly says it is *not an
+  approved HTTP service*. Its `BuildCommand` requires `build_id`,
+  `capability_registry_revision`, and `model_route`, not present in
+  the current Orchestrator request. This is a real contract gap, **not a
+  successful live integration**. Do not activate the Builder remote profile until
+  service owners approve the command schema and the immutable READY Snapshot lookup.
+- **GEPARD, workstream 05:** `services/gepard-optimizer/gepard_optimizer/core.py`
+  exports a typed `OptimizerAdapter.propose`, but no approved
+  `/internal/optimizations` HTTP endpoint exists in that branch. The real backend
+  also needs separate train/validation refs, an approved prompt, and an allowlist of
+  optimization surfaces; the current draft REST DTO is not yet sufficient.
+- **Neither branch is a deployed service**, and real E2E / security attestations
+  remain blocked pending contract owners and ADR-0002. The local HTTP stubs test
+  transport mechanics, not proof of independent multi-service deployment.
+
+Resolution requires the service owners to publish tenant-authenticated v0.1
+HTTP endpoints and agree on exact request/receipt/event schemas. Workstream 01
+will only wire them after their documented compatibility and threat review.
