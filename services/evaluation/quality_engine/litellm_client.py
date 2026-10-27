@@ -11,6 +11,8 @@ from typing import Any
 
 import httpx
 
+from .secure_urls import validated_service_url
+
 
 @dataclass(frozen=True)
 class CompletionUsage:
@@ -28,8 +30,7 @@ class LiteLLMError(RuntimeError):
 class LiteLLMClient:
     def __init__(self, *, base_url: str, api_key: str, allowed_models: set[str],
                  transport: httpx.BaseTransport | None = None, timeout_seconds: float = 30):
-        if not base_url.startswith("https://") and not base_url.startswith("http://127.0.0.1:"):
-            raise ValueError("LiteLLM proxy URL must use TLS (except localhost)")
+        base_url = validated_service_url(base_url, label="LiteLLM proxy URL")
         if not api_key or not allowed_models or timeout_seconds <= 0:
             raise ValueError("gateway credentials, models and timeout required")
         self._models = frozenset(allowed_models)
