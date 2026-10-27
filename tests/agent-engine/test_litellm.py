@@ -101,3 +101,40 @@ async def test_invalid_history_denied_before_proxy_call(history):
         await g.decide(route='mock-model', prompt='safe', history=history,
                        tool_ids=(), trace_id='test')
     assert calls == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('bad_base_url', [
+    'http://127.0.0.1:5432@attacker.example',
+    'http://127.0.0.1:9999@attacker.example/path',
+    'http://127.0.0.1:invalid',
+    'http://127.0.0.1:70000',
+    'http://127.0.0.1:9999?redirect=attacker',
+    'http://127.0.0.1:9999#fragment',
+    'https://username:password@proxy.example',
+    'https://',
+    'http://proxy.example:9000',
+])
+async def test_litellm_rejects_credential_leaking_proxy_urls(bad_base_url):
+    async with httpx.AsyncClient(transport=httpx.MockTransport(
+            lambda _: pytest.fail('proxy request must not happen'))) as client:
+        with pytest.raises(ValueError, match='proxy must use HTTPS'):
+            LiteLLMGateway(base_url=bad_base_url, allowed_routes=frozenset({'model'}),
+                           tenant_key_provider=lambda _: 'sensitive-token', tenant_id='tenant',
+                           http_client=client)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('valid_base_url', [
+    'https://proxy.example',
+    'https://proxy.example:443/v1',
+    'http://127.0.0.1:9999',
+])
+async def test_litellm_accepts_expected_proxy_url_authorities(valid_base_url):
+    async with httpx.AsyncClient(transport=httpx.MockTransport(
+            lambda _: httpx.Response(200))) as client:
+        gateway = LiteLLMGateway(base_url=valid_base_url,
+                                 allowed_routes=frozenset({'model'}),
+                                 tenant_key_provider=lambda _: 'token', tenant_id='tenant',
+                                 http_client=client)
+        assert gateway.base_url == valid_base_url
