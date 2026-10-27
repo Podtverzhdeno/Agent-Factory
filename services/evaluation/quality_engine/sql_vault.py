@@ -5,13 +5,12 @@ at startup; production authentication and migrations remain infrastructure-owned
 """
 from __future__ import annotations
 
-from copy import deepcopy
 from dataclasses import asdict
 from typing import Any
 
 from sqlalchemy import (
     Column, ForeignKeyConstraint, Integer, MetaData, String, Table,
-    Text, UniqueConstraint, and_, select
+    Text, and_, select
 )
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError
