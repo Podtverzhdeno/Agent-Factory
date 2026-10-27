@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import math
 import re
+from urllib.parse import urlsplit
 from collections.abc import Callable
 import httpx
 from agent_runtime.core import Decision, RuntimeDenied
@@ -11,7 +12,26 @@ class LiteLLMGateway:
     def __init__(self, *, base_url: str, allowed_routes: frozenset[str],
                  tenant_key_provider: Callable[[str], str], tenant_id: str,
                  http_client: httpx.AsyncClient):
-        if not base_url.startswith('https://') and not base_url.startswith('http://127.0.0.1:'):
+        # Parse the actual URL authority, not a string prefix: the latter accepts
+        # http://127.0.0.1:8080@external-host and leaks the tenant proxy token.
+        if not isinstance(base_url, str):
+            raise ValueError('invalid proxy URL')
+        try:
+            parsed = urlsplit(base_url)
+            port = parsed.port  # Also rejects invalid/out-of-range ports.
+            valid = (
+                bool(parsed.hostname)
+                and parsed.username is None and parsed.password is None
+                and not parsed.query and not parsed.fragment
+                and (
+                    parsed.scheme == 'https'
+                    or (parsed.scheme == 'http' and parsed.hostname == '127.0.0.1'
+                        and port is not None)
+                )
+            )
+        except ValueError:
+            valid = False
+        if not valid:
             raise ValueError('proxy must use HTTPS (local loopback fake allowed)')
         self.base_url = base_url.rstrip('/')
         self.allowed_routes = allowed_routes
