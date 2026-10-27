@@ -34,3 +34,13 @@
 3. Run Maven/JUnit, integration against a signed local JWKS issuer, concurrency and fault injection; performance and security review.
 4. Wire Builder using pinned `registry_revision` and selected manifests; revalidate live permission/effect checks at runtime. Explicit human approval/idempotency for consequential effects.
 5. Implement metrics, retention, backup/restore, rollback and independent production threat review. No release or check-off of T00/T21 before evidence.
+
+### AF-REQ-020: Autonomous consequential-effect hard veto (2026-10-27)
+
+**GIVEN** an independently verified `PAYMENT` or `DESTRUCTIVE` manifest is approved for one tenant,
+**AND** a caller possesses its explicit tool scopes,
+**AND** the task declares `max_risk=CRITICAL` and explicitly permits those effects,
+**WHEN** the Registry v0 candidate matcher is queried,
+**THEN** the candidate MUST be rejected with `EFFECT_NOT_ALLOWED` and MUST NOT be bound into an autonomous AgentSpec.
+
+This rule restricts **automatic selection**, not recordkeeping or explicit human-controlled future payment infrastructure. It is a safety hard veto, independent of client-provided task policy. Evidence: standalone `RegistrySelfTest` payment-authorized negative case; Builder/Runtime requires separate human-approved protocol and ADR before any consequential effects.
