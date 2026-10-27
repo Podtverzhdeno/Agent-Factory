@@ -24,7 +24,7 @@ artifact = pom.find('./m:artifactId', ns)
 assert artifact is not None and artifact.text == 'tool-mcp-registry'
 version = pom.find('./m:parent/m:version', ns)
 assert version is not None and version.text == '4.1.2'
-# Static dependency verification does not prove that Maven resolves or builds.
+# Dependency major-line migration is a static preflight, NOT a Maven/HTTP test.
 java = pom.find('./m:properties/m:java.version', ns)
 assert java is not None and int(java.text) >= 21
 
@@ -53,6 +53,20 @@ for relative in referenced:
     assert (ROOT / relative).is_file(), f'Test runner references missing source: {relative}'
 for test_file in (ROOT / 'tests' / 'tool-registry').glob('Registry*Test.java'):
     assert test_file.name in runner, f'Test runner skips security/component test: {test_file.name}'
+
+# Supported dependency-line adapter wiring must not regress to removed Boot 3 types.
+config = (DOMAIN / 'RegistryJsonConfig.java').read_text(encoding='utf-8')
+assert 'org.springframework.boot.jackson.autoconfigure.JsonMapperBuilderCustomizer' in config
+assert 'tools.jackson.databind.PropertyNamingStrategies' in config
+assert 'FAIL_ON_UNKNOWN_PROPERTIES, true' in config
+app = (DOMAIN / 'RegistryApplication.java').read_text(encoding='utf-8')
+assert 'new ToolRegistry(Map.of(), Set.of(), Set.of())' in app, 'Trust roots must default empty'
+registry = (DOMAIN / 'ToolRegistry.java').read_text(encoding='utf-8')
+assert 'verifiedProvenanceRefs.contains(m.provenance())' in registry
+for test in (DOMAIN.parent.parent.parent / 'test' / 'java' / 'com' / 'agentfactory' / 'registry').glob('*.java'):
+    source = test.read_text(encoding='utf-8')
+    assert 'org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc' not in source
+    assert 'com.fasterxml.jackson.databind.ObjectMapper' not in source
 
 assert 'anyRequest().denyAll()' in (DOMAIN / 'RegistrySecurity.java').read_text(encoding='utf-8')
 print(f'PASS: Java domain architecture boundary ({len(DOMAINS)} modules), '
