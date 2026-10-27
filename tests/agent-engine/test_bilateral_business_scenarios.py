@@ -32,7 +32,7 @@ def bilateral_specs():
 
 @pytest.mark.asyncio
 async def test_bilateral_scenario_two_independent_tenant_pinned_agents():
-    _, buyer, supplier = bilateral_specs()
+    _, _buyer, supplier = bilateral_specs()
     assert buyer.tenant_id == 'buyer' and supplier.tenant_id == 'supplier'
     assert buyer.agent_id != supplier.agent_id
     assert buyer.artifact_digest != supplier.artifact_digest

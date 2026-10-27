@@ -44,7 +44,7 @@ async def test_pinned_spec_with_payment_effect_blocked_at_runtime():
 
 @pytest.mark.asyncio
 async def test_model_tenant_mismatch_denied_before_inference():
-    spec, gateway, tools = fixture()
+    spec, gateway, _tools = fixture()
     model = ScriptedModel([Decision(kind='final', text='must not run')])
     model.tenant_id = 'seller'
     runtime = Runtime(model, gateway, approved_spec_digests=frozenset({spec.artifact_digest}))

@@ -44,8 +44,8 @@ class FakeCompiledGraph:
 async def test_graph_result_loaded_without_replaying_graph(tmp_path):
     spec, runtime = setup_runtime(tmp_path)
     graph = FakeCompiledGraph()
-    kw = dict(tenant_id='buyer', thread_id='thread', run_id='run-001',
-              request='read', trace_id='tr-1')
+    kw = {'tenant_id':'buyer', 'thread_id':'thread', 'run_id':'run-001',
+          'request':'read', 'trace_id':'tr-1'}
     original = await invoke_graph(graph, runtime, spec, **kw)
     assert graph.calls == 1
     spec2, runtime2 = setup_runtime(tmp_path)

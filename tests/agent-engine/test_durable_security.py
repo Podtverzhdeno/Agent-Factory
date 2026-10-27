@@ -21,10 +21,10 @@ def spec():
                  Registry([manifest('render', ['draft'], ['draft_file'], ['draft:write'])]))
 
 def policy(binding, **overrides):
-    data = dict(tenant_id='buyer', tool_id=binding.tool_id, version=binding.version,
-                manifest_digest=binding.digest, scopes=frozenset(binding.granted_scopes),
-                effect_mode=binding.side_effects[0], input_schema={'type':'object'},
-                output_schema={'type':'object'})
+    data = {'tenant_id':'buyer', 'tool_id':binding.tool_id, 'version':binding.version,
+            'manifest_digest':binding.digest, 'scopes':frozenset(binding.granted_scopes),
+            'effect_mode':binding.side_effects[0], 'input_schema':{'type':'object'},
+            'output_schema':{'type':'object'}}
     data.update(overrides)
     return ToolPolicy(**data)
 

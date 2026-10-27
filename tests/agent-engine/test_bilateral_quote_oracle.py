@@ -70,7 +70,7 @@ def test_invalid_supplier_quote_fails_independent_oracle(change,error):
 
 
 def test_supplier_draft_cannot_pass_only_with_task_completed():
-    rfq,events,quote=fixture()
+    rfq,events,_quote=fixture()
     assert evaluate_verified(rfq,events,None,now=NOW).code == 'MISSING_BUSINESS_ARTIFACT'
 
 

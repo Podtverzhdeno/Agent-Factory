@@ -155,7 +155,7 @@ async def test_external_effect_is_never_replayed_after_unknown_result():
 async def test_budget_steps_and_spec_tamper():
     s = build(task('limits', ['read'], ['read'], ['read']),
               Registry([manifest('read.tool', ['read'], ['read'], ['read'])]))
-    runtime, tools = invoke(s, [Decision(kind='final', text='done', estimated_usd=1.0)])
+    runtime, _tools = invoke(s, [Decision(kind='final', text='done', estimated_usd=1.0)])
     res = await runtime.run(s, tenant_id='buyer', run_id='r', thread_id='t', request='r', trace_id='tr')
     assert res.error_code == 'BUDGET_EXCEEDED'
     tampered = s.model_copy(update={'model_route': 'unapproved'})
