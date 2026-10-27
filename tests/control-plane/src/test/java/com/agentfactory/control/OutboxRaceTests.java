@@ -75,6 +75,27 @@ public final class OutboxRaceTests {
         check(afterTransition.pendingOperationId.equals(afterTransition.actions.get(1).operationId));
         check(afterTransition.errorCode==null);
 
+        var permanentDenial=pending();
+        AtomicInteger unauthorizedCalls=new AtomicInteger();
+        var deniedRelay=withBuilder(permanentDenial,command -> {
+            unauthorizedCalls.incrementAndGet();
+            throw new Protocol.RemoteCommandFailure("REMOTE_UNAUTHORIZED",false);
+        });
+        check(deniedRelay.dispatchPending()==0);
+        check(deniedRelay.dispatchPending()==0);
+        check(unauthorizedCalls.get()==1);
+        check("REMOTE_UNAUTHORIZED".equals(permanentDenial.get(TENANT,WORKFLOW).errorCode));
+
+        var transientFailure=pending();
+        AtomicInteger transientCalls=new AtomicInteger();
+        var failingRelay=withBuilder(transientFailure,command -> {
+            transientCalls.incrementAndGet();
+            throw new Protocol.RemoteCommandFailure("REMOTE_UNAVAILABLE",true);
+        });
+        for(int i=0;i<5;i++) check(failingRelay.dispatchPending()==0);
+        check(transientCalls.get()==5);
+        check("OUTBOX_DELIVERY_EXHAUSTED".equals(transientFailure.get(TENANT,WORKFLOW).errorCode));
+
         var ordinary=pending();
         AtomicInteger calls=new AtomicInteger();
         var relay=withBuilder(ordinary,command -> {
@@ -84,6 +105,6 @@ public final class OutboxRaceTests {
         check(relay.dispatchPending()==1);
         check(relay.dispatchPending()==0);
         check(calls.get()==1 && ordinary.get(TENANT,WORKFLOW).actions.getFirst().delivered);
-        System.out.println("OUTBOX RACE TESTS PASSED: 4");
+        System.out.println("OUTBOX RACE TESTS PASSED: 6");
     }
 }
