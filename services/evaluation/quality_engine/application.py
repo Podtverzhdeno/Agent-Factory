@@ -102,6 +102,8 @@ class EvaluationWorkflow:
         job = self.get(principal, evaluation_run_id)
         key = (principal.tenant_id, evaluation_run_id)
         with self._lock:
+            # Re-read under lock: another worker may have claimed the job.
+            job = self._jobs[key]
             if job.status in ("PASSED", "FAILED", "BLOCKED"):
                 return job
             if job.status != "QUEUED":
