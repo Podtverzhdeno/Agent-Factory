@@ -66,8 +66,11 @@ class VerifiedToolGateway(ToolGateway):
             async def call(self, **kwargs):
                 output = await self.inner.call(**kwargs)
                 try:
-                    json.dumps(output, allow_nan=False, ensure_ascii=True)
-                except (ValueError, TypeError, OverflowError) as exc:
+                    encoded = json.dumps(output, allow_nan=False, ensure_ascii=False)
+                    if len(encoded.encode('utf-8')) > 32768:
+                        raise RuntimeDenied('TOOL_OUTPUT_TOO_LARGE')
+                except (ValueError, TypeError, OverflowError, RecursionError,
+                        UnicodeError) as exc:
                     raise RuntimeDenied('INVALID_TOOL_OUTPUT') from exc
                 try:
                     Draft202012Validator(policy.output_schema).validate(output)

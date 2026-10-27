@@ -2,6 +2,7 @@
 from __future__ import annotations
 import asyncio
 import json
+import os
 from typing import Any, TypedDict
 from .core import RunResult, RuntimeDenied, authorize_spec_for_runtime
 from agent_builder import digest
@@ -125,6 +126,10 @@ def build_graph(runtime, spec, checkpointer=None):
 
 def postgres_checkpointer(uri: str):
     """Official LangGraph async context manager; caller does saver.setup() and TLS provisioning."""
+    # Checkpoint bytes are database-originated and may be tampered with after a
+    # credential compromise. Never enable permissive module deserialization.
+    if os.environ.get('LANGGRAPH_STRICT_MSGPACK', '').lower() != 'true':
+        raise RuntimeDenied('UNSAFE_CHECKPOINT_DESERIALIZATION')
     from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
     return AsyncPostgresSaver.from_conn_string(uri)
 
