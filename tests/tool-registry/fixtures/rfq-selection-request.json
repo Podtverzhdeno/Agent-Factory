@@ -1,0 +1,14 @@
+{
+  "required_capabilities": [
+    "read_xlsx",
+    "catalog_lookup",
+    "write_xlsx"
+  ],
+  "allowed_effects": [
+    "read",
+    "draft_file"
+  ],
+  "max_risk": "low",
+  "pinned_versions": {},
+  "expected_schemas": {}
+}

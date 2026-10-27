@@ -18,12 +18,12 @@ public class RegistryApplication {
     ToolRegistry registry() {
         // These are sample shape definitions and non-resolvable fixture refs, not automatically approved tools.
         return new ToolRegistry(Map.of(
-            "artifact://schemas/file-input", new Shape(Map.of("file", FieldType.STRING), Set.of("file"), false),
-            "artifact://schemas/rows", new Shape(Map.of("rows", FieldType.ARRAY), Set.of("rows"), false),
-            "artifact://schemas/lookup-input", new Shape(Map.of("sku", FieldType.STRING), Set.of("sku"), false),
-            "artifact://schemas/lookup-output", new Shape(Map.of("items", FieldType.ARRAY), Set.of("items"), false),
-            "artifact://schemas/write-input", new Shape(Map.of("rows", FieldType.ARRAY), Set.of("rows"), false),
-            "artifact://schemas/file-output", new Shape(Map.of("draft_file_ref", FieldType.STRING), Set.of("draft_file_ref"), false)
+            "artifact://schemas/file-input", new Shape(Map.of("file", FieldSpec.scalar(FieldType.STRING)), Set.of("file"), false),
+            "artifact://schemas/rows", new Shape(Map.of("rows", FieldSpec.array(FieldSpec.object(new Shape(Map.of("sku", FieldSpec.scalar(FieldType.STRING), "quantity", FieldSpec.scalar(FieldType.NUMBER)), Set.of("sku","quantity"), false)))), Set.of("rows"), false),
+            "artifact://schemas/lookup-input", new Shape(Map.of("sku", FieldSpec.scalar(FieldType.STRING)), Set.of("sku"), false),
+            "artifact://schemas/lookup-output", new Shape(Map.of("items", FieldSpec.array(FieldSpec.object(new Shape(Map.of("sku", FieldSpec.scalar(FieldType.STRING), "price", FieldSpec.scalar(FieldType.NUMBER)), Set.of("sku","price"), false)))), Set.of("items"), false),
+            "artifact://schemas/write-input", new Shape(Map.of("rows", FieldSpec.array(FieldSpec.object(new Shape(Map.of("sku", FieldSpec.scalar(FieldType.STRING), "quantity", FieldSpec.scalar(FieldType.NUMBER)), Set.of("sku","quantity"), false)))), Set.of("rows"), false),
+            "artifact://schemas/file-output", new Shape(Map.of("draft_file_ref", FieldSpec.scalar(FieldType.STRING)), Set.of("draft_file_ref"), false)
         ), Set.of("artifact://approved/endpoints/xlsx", "artifact://approved/endpoints/catalog"));
     }
 }

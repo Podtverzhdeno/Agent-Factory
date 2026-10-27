@@ -27,6 +27,16 @@ public final class RegistryApi {
         registry.approve(caller(jwt),toolId,version,operation);
         return Map.of("status","APPROVED");
     }
+    @PostMapping("/manifests/{toolId}/{version}/{operation}/revoke")
+    public Map<String,String> revoke(@AuthenticationPrincipal Jwt jwt, @PathVariable String toolId,
+                                     @PathVariable String version, @PathVariable String operation) {
+        registry.revoke(caller(jwt), toolId, version, operation);
+        return Map.of("status", "REVOKED");
+    }
+    @GetMapping("/audit")
+    public List<AuditEvent> audit(@AuthenticationPrincipal Jwt jwt) {
+        return registry.auditTrail(caller(jwt));
+    }
     @GetMapping("/manifests")
     public List<Manifest> list(@AuthenticationPrincipal Jwt jwt) { return registry.listApproved(caller(jwt)); }
 
@@ -50,9 +60,11 @@ public final class RegistryApi {
     @ExceptionHandler(RegistryFailure.class)
     public ResponseEntity<Map<String,Object>> onRegistryError(RegistryFailure error) {
         HttpStatus status = switch (error.code) {
-            case "FORBIDDEN", "UNAUTHENTICATED" -> HttpStatus.FORBIDDEN;
+            case "FORBIDDEN", "SEPARATION_OF_DUTIES" -> HttpStatus.FORBIDDEN;
+            case "UNAUTHENTICATED" -> HttpStatus.UNAUTHORIZED;
             case "NOT_FOUND" -> HttpStatus.NOT_FOUND;
-            case "VERSION_EXISTS", "IMMUTABLE" -> HttpStatus.CONFLICT;
+            case "VERSION_EXISTS", "IMMUTABLE", "INVALID_STATE" -> HttpStatus.CONFLICT;
+            case "CAPACITY_EXCEEDED" -> HttpStatus.SERVICE_UNAVAILABLE;
             default -> HttpStatus.UNPROCESSABLE_ENTITY;
         };
         return ResponseEntity.status(status).body(Map.of("code", error.code, "detail", error.getMessage(),

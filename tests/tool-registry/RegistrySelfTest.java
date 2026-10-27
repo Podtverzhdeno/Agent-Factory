@@ -19,14 +19,14 @@ public final class RegistrySelfTest {
     static final String XLSX_ENDPOINT = "artifact://approved/endpoints/xlsx", CATALOG_ENDPOINT = "artifact://approved/endpoints/catalog", PAY_ENDPOINT = "artifact://approved/endpoints/payments";
     static ToolRegistry fixture() {
         Map<String, Shape> schemas = Map.of(
-            FILE_IN, new Shape(Map.of("file", FieldType.STRING), Set.of("file"), false),
-            ROWS, new Shape(Map.of("rows", FieldType.ARRAY), Set.of("rows"), false),
-            LOOKUP_IN, new Shape(Map.of("sku", FieldType.STRING), Set.of("sku"), false),
-            LOOKUP_OUT, new Shape(Map.of("items", FieldType.ARRAY), Set.of("items"), false),
-            WRITE_IN, new Shape(Map.of("rows", FieldType.ARRAY), Set.of("rows"), false),
-            FILE_OUT, new Shape(Map.of("draft_file_ref", FieldType.STRING), Set.of("draft_file_ref"), false),
-            PAY_IN, new Shape(Map.of("amount", FieldType.NUMBER), Set.of("amount"), false),
-            PAY_OUT, new Shape(Map.of("receipt", FieldType.STRING), Set.of("receipt"), false));
+            FILE_IN, new Shape(Map.of("file", FieldSpec.scalar(FieldType.STRING)), Set.of("file"), false),
+            ROWS, new Shape(Map.of("rows", FieldSpec.array(FieldSpec.object(new Shape(Map.of("sku", FieldSpec.scalar(FieldType.STRING), "quantity", FieldSpec.scalar(FieldType.NUMBER)), Set.of("sku","quantity"), false)))), Set.of("rows"), false),
+            LOOKUP_IN, new Shape(Map.of("sku", FieldSpec.scalar(FieldType.STRING)), Set.of("sku"), false),
+            LOOKUP_OUT, new Shape(Map.of("items", FieldSpec.array(FieldSpec.object(new Shape(Map.of("sku", FieldSpec.scalar(FieldType.STRING), "price", FieldSpec.scalar(FieldType.NUMBER)), Set.of("sku","price"), false)))), Set.of("items"), false),
+            WRITE_IN, new Shape(Map.of("rows", FieldSpec.array(FieldSpec.object(new Shape(Map.of("sku", FieldSpec.scalar(FieldType.STRING), "quantity", FieldSpec.scalar(FieldType.NUMBER)), Set.of("sku","quantity"), false)))), Set.of("rows"), false),
+            FILE_OUT, new Shape(Map.of("draft_file_ref", FieldSpec.scalar(FieldType.STRING)), Set.of("draft_file_ref"), false),
+            PAY_IN, new Shape(Map.of("amount", FieldSpec.scalar(FieldType.NUMBER)), Set.of("amount"), false),
+            PAY_OUT, new Shape(Map.of("receipt", FieldSpec.scalar(FieldType.STRING)), Set.of("receipt"), false));
         return new ToolRegistry(schemas, Set.of(XLSX_ENDPOINT, CATALOG_ENDPOINT, PAY_ENDPOINT));
     }
     static final Caller author = new Caller("author", "tenant-a", Set.of("registry:register"));
