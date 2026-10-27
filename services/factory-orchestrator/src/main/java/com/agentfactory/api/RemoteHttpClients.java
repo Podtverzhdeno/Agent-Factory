@@ -72,24 +72,24 @@ public final class RemoteHttpClients {
                     int status=response.getStatusCode().value();
                     if(status!=202) {
                         // No raw remote response body or credentials in error messages.
-                        if(status==401 || status==403) throw new IllegalStateException("REMOTE_UNAUTHORIZED");
+                        if(status==401 || status==403) throw new Protocol.RemoteCommandFailure("REMOTE_UNAUTHORIZED",false);
                         if(status==409 || status==400 || status==422)
-                            throw new IllegalStateException("REMOTE_COMMAND_REJECTED");
-                        throw new IllegalStateException("REMOTE_UNAVAILABLE");
+                            throw new Protocol.RemoteCommandFailure("REMOTE_COMMAND_REJECTED",false);
+                        throw new Protocol.RemoteCommandFailure("REMOTE_UNAVAILABLE",true);
                     }
                     JsonNode body;
                     try { body=mapper.readTree(response.getBody()); }
-                    catch(Exception e) { throw new IllegalStateException("REMOTE_RECEIPT_INVALID",e); }
+                    catch(Exception e) { throw new Protocol.RemoteCommandFailure("REMOTE_RECEIPT_INVALID",false); }
                     if(body==null || body.path(acceptedIdField).asText("").isBlank())
-                        throw new IllegalStateException("REMOTE_RECEIPT_INVALID");
+                        throw new Protocol.RemoteCommandFailure("REMOTE_RECEIPT_INVALID",false);
                     // v0.1 services may return a separate build/evaluation ID. If an
                     // operation_id is also echoed, it must match this exact command.
                     if (body.hasNonNull("operation_id") &&
                         !operationId.equals(body.path("operation_id").asText("")))
-                        throw new IllegalStateException("REMOTE_RECEIPT_MISMATCH");
+                        throw new Protocol.RemoteCommandFailure("REMOTE_RECEIPT_MISMATCH",false);
                     String remoteStatus=body.path("status").asText("");
                     if(!Set.of("QUEUED","RUNNING","ACCEPTED").contains(remoteStatus.toUpperCase(Locale.ROOT)))
-                        throw new IllegalStateException("REMOTE_RECEIPT_INVALID");
+                        throw new Protocol.RemoteCommandFailure("REMOTE_RECEIPT_INVALID",false);
                     return new Protocol.CommandReceipt(operationId,true);
                 });
         }
