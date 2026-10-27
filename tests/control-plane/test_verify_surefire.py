@@ -53,7 +53,8 @@ class SurefireEvidenceGateTests(unittest.TestCase):
         self.assertTrue(any("JdbcPersistenceIntegrationTest" in p for p in problems))
 
     def test_skipped_postgres_fails(self) -> None:
-        emit_report(self.path, "JdbcPersistenceIntegrationTest", 15, skipped=15)
+        minimum = gate.REQUIRED["JdbcPersistenceIntegrationTest"]
+        emit_report(self.path, "JdbcPersistenceIntegrationTest", minimum, skipped=minimum)
         self.assertFalse(gate.verify(self.path)[0])
 
     def test_reduced_suite_fails(self) -> None:
@@ -67,7 +68,9 @@ class SurefireEvidenceGateTests(unittest.TestCase):
     def test_false_green_inflated_tests_count_fails(self) -> None:
         report = self.path / "TEST-com.agentfactory.api.JdbcPersistenceIntegrationTest.xml"
         content = report.read_text(encoding="utf-8")
-        report.write_text(content.replace('tests="14"', 'tests="15"'), encoding="utf-8")
+        minimum = gate.REQUIRED["JdbcPersistenceIntegrationTest"]
+        report.write_text(content.replace(
+            f'tests="{minimum}"', f'tests="{minimum + 1}"'), encoding="utf-8")
         success, problems = gate.verify(self.path)
         self.assertFalse(success)
         self.assertTrue(any("contains" in item for item in problems))
