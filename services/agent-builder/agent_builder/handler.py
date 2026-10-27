@@ -75,7 +75,8 @@ class BuildHandler:
                         tenant_id=tenant_id, operation_id=operation_id,
                         code="UNEXPECTED_BUILD_EXCEPTION")
             raise
-        audit_event("builder", "build.finished", result.status,
+        audit_event("builder", "build.finished",
+                    "COMPLETED" if result.status == "ASSEMBLED" else "BLOCKED",
                     tenant_id=tenant_id, operation_id=operation_id,
                     code=result.error_code,
                     duration_ms=max(0, int((time.monotonic() - started) * 1000)))

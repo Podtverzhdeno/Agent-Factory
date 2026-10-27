@@ -143,6 +143,8 @@ async def test_builder_audits_success_replay_and_idempotency_conflict(caplog):
     events = [r["event"] for r in _records(caplog)]
     assert events.count("build.started") == 3
     assert events.count("build.finished") == 2
+    finished = [r for r in _records(caplog) if r["event"] == "build.finished"]
+    assert all(row["outcome"] == "COMPLETED" for row in finished)
     assert "build.replayed" in events
     assert "build.denied" in events
     assert first.status == "ASSEMBLED"
