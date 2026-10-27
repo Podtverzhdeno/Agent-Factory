@@ -41,10 +41,16 @@ class PostgresEffectLedger:
                 raise RuntimeDenied('EFFECT_REPLAY_REQUIRES_RECONCILIATION')
 
     async def finish(self, key: str, result: dict) -> None:
-        from psycopg.types.json import Jsonb
-        payload = json.dumps(result, ensure_ascii=True)
-        if len(payload) > 16000:
+        if not isinstance(result, dict):
+            raise RuntimeDenied('INVALID_EFFECT_RESULT')
+        try:
+            payload = json.dumps(result, ensure_ascii=False, allow_nan=False)
+            size = len(payload.encode('utf-8'))
+        except (TypeError, ValueError, RecursionError, UnicodeError, OverflowError) as exc:
+            raise RuntimeDenied('INVALID_EFFECT_RESULT') from exc
+        if size > 32768:
             raise RuntimeDenied('EFFECT_RESULT_TOO_LARGE')
+        from psycopg.types.json import Jsonb
         async with await self._connect() as conn:
             cursor = await conn.execute("""UPDATE agent04_candidate_effect_ledger
                 SET state='CONFIRMED', result_json=%s
