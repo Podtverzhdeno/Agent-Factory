@@ -39,6 +39,15 @@ required = {
 artifacts = {v.text for v in project.findall('m:dependencies/m:dependency/m:artifactId', ns)}
 checks['current Boot 4 modular starters'] = required <= artifacts
 checks['no deprecated OAuth2 starter'] = 'spring-boot-starter-oauth2-resource-server' not in artifacts
+
+plugins = project.findall('m:build/m:plugins/m:plugin', ns)
+surefire = next((p for p in plugins if p.findtext('m:artifactId', namespaces=ns) == 'maven-surefire-plugin'), None)
+checks['Maven fails on absent JUnit tests'] = (surefire is not None and
+    surefire.findtext('m:configuration/m:failIfNoTests', namespaces=ns) == 'true')
+app_properties = (module / 'src/main/resources/application.properties').read_text()
+checks['Railway injected PORT supported'] = 'server.port=${PORT:8080}' in app_properties
+checks['graceful process shutdown'] = 'server.shutdown=graceful' in app_properties
+
 failures = [label for label, passed in checks.items() if not passed]
 if failures:
     for label in failures:
