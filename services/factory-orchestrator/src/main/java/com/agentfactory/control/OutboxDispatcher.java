@@ -30,14 +30,17 @@ public final class OutboxDispatcher {
                     Protocol.CommandReceipt receipt = deliver(w,action);
                     if (!receipt.accepted() || !Objects.equals(receipt.operationId(),action.operationId))
                         throw new IllegalStateException("REMOTE_RECEIPT_MISMATCH");
-                    ledger.transact(w.tenantId,w.workflowId,active -> {
+                    boolean acknowledged = ledger.transact(w.tenantId,w.workflowId,active -> {
+                        if (!stillPending(active,action)) return false;
                         active.actions.stream().filter(a->a.operationId.equals(action.operationId))
                             .forEach(a->{ a.delivered=true; a.lastError=null; });
-                        return null;
+                        return true;
                     });
-                    delivered.incrementAndGet();
+                    if (acknowledged) delivered.incrementAndGet();
                 } catch (RuntimeException exception) {
                     ledger.transact(w.tenantId,w.workflowId,active -> {
+                        // A stale failed request must never poison a newer or terminal state.
+                        if (!stillPending(active,action)) return null;
                         active.actions.stream().filter(a->a.operationId.equals(action.operationId))
                             .forEach(a->{ a.attempts++; a.lastError=exception.getClass().getSimpleName();
                                 if(a.attempts>=5 && active.state!=Workflow.State.RELEASED &&
@@ -54,6 +57,11 @@ public final class OutboxDispatcher {
             }
         }
         return delivered.get();
+    }
+    private static boolean stillPending(Workflow active, Workflow.Action sent) {
+        return Objects.equals(active.pendingOperationId,sent.operationId) &&
+            matchesPhase(active.state,sent.type) && active.actions.stream().anyMatch(a ->
+                a.operationId.equals(sent.operationId) && !a.delivered && a.attempts < 5);
     }
     private static boolean matchesPhase(Workflow.State state, Workflow.ActionType type) {
         return switch (type) {
