@@ -1,8 +1,11 @@
 """Typed contract-first build handler. Not an approved HTTP service."""
 from __future__ import annotations
+
 import asyncio
 from typing import Literal, Protocol
+
 from pydantic import BaseModel, ConfigDict, Field
+
 from .core import AgentSpec, BuildCommand, BuildError, Builder, TaskSnapshot, digest
 
 class TaskPort(Protocol):
