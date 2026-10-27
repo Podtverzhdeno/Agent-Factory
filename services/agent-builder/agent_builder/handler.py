@@ -70,7 +70,7 @@ class BuildHandler:
                         code=exc.code,
                         duration_ms=max(0, int((time.monotonic() - started) * 1000)))
             raise
-        except Exception:  # noqa: BLE001 - sanitize unexpected failure before re-raising.
+        except Exception:
             audit_event("builder", "build.denied", "FAILED",
                         tenant_id=tenant_id, operation_id=operation_id,
                         code="UNEXPECTED_BUILD_EXCEPTION")

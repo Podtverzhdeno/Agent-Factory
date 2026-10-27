@@ -158,7 +158,7 @@ class ToolGateway:
                         operation_id=run_id, tool_id=binding.tool_id, code=exc.code,
                         duration_ms=max(0, int((time.monotonic() - started) * 1000)))
             raise
-        except Exception:  # noqa: BLE001 - redact unexpected tool failure.
+        except Exception:
             audit_event("tool", "tool.denied", "FAILED", tenant_id=spec.tenant_id,
                         operation_id=run_id, tool_id=binding.tool_id,
                         code="UNEXPECTED_TOOL_EXCEPTION")
@@ -241,7 +241,7 @@ class Runtime:
                         operation_id=run_id, trace_id=trace_id, code=exc.code,
                         duration_ms=max(0, int((time.monotonic() - started) * 1000)))
             raise
-        except Exception:  # noqa: BLE001 - never include external exception details.
+        except Exception:
             audit_event("runtime", "run.denied", "FAILED", tenant_id=tenant_id,
                         operation_id=run_id, trace_id=trace_id,
                         code="UNEXPECTED_RUNTIME_EXCEPTION")

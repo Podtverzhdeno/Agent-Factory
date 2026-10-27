@@ -5,7 +5,7 @@ import logging
 
 import httpx
 import pytest
-from agent_builder import BuildHandler, Builder, BuildError, InMemoryAgentSpecStore
+from agent_builder import Builder, BuildError, BuildHandler, InMemoryAgentSpecStore
 from agent_builder.audit import audit_event
 from agent_runtime import Decision, RuntimeDenied
 from test_a2a_security import make_app
