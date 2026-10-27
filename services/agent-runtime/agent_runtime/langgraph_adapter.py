@@ -1,4 +1,5 @@
 """LangGraph ReAct-style candidate harness; Postgres saver is a swappable adapter."""
+
 from __future__ import annotations
 
 import asyncio
@@ -7,7 +8,7 @@ import os
 from dataclasses import asdict
 from typing import Any, TypedDict
 
-from .core import authorize_spec_for_runtime, RunResult, RuntimeDenied
+from .core import RunResult, RuntimeDenied, authorize_spec_for_runtime
 from agent_builder import digest
 
 

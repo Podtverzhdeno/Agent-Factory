@@ -1,4 +1,5 @@
 """Contract-first, infrastructure-independent AgentSpec assembler (AF-REQ-005/006/029)."""
+
 from __future__ import annotations
 
 import hashlib

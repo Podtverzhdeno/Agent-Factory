@@ -1,4 +1,5 @@
 """Independent evidence-based quotation validator. No A2A transport dependencies."""
+
 from __future__ import annotations
 
 import hashlib

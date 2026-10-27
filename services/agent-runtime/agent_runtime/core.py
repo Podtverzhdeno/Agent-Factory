@@ -1,4 +1,5 @@
 """Sandbox candidate runtime. No auto-release, external network or implicit grants."""
+
 from __future__ import annotations
 
 import asyncio
@@ -10,7 +11,7 @@ from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from agent_builder import AgentSpec, digest, ToolBinding
+from agent_builder import AgentSpec, ToolBinding, digest
 
 
 class RuntimeDenied(Exception):
