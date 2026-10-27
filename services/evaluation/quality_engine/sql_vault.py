@@ -17,6 +17,7 @@ from sqlalchemy.exc import IntegrityError
 
 from .datasets import Case, Dataset
 from .primitives import AccessDenied, InvalidEvidence, Principal, digest
+from .gold_crypto import AesGcmGoldCipher
 
 
 metadata = MetaData()
@@ -66,8 +67,13 @@ class SqlDatasetVault:
     insertion but same-split reuse is intentionally disallowed.
     """
 
-    def __init__(self, engine: Engine) -> None:
+    def __init__(self, engine: Engine, *, cipher: AesGcmGoldCipher | None = None,
+                 require_encryption: bool = False) -> None:
+        if require_encryption and cipher is None:
+            raise ValueError("encrypted gold storage requires tenant cipher")
         self._engine = engine
+        self._cipher = cipher
+        self._require_encryption = require_encryption
 
     def register(self, principal: Principal, dataset: Dataset) -> None:
         if principal.role != "evaluation" or principal.tenant_id != dataset.tenant_id:
@@ -86,7 +92,8 @@ class SqlDatasetVault:
                 conn.execute(cases.insert(), [
                     dict(tenant_id=dataset.tenant_id, version=dataset.version,
                          case_id=case.case_id,
-                         payload=json.dumps(asdict(case), sort_keys=True, allow_nan=False))
+                         payload=self._encrypt(dataset.tenant_id, dataset.version, case.case_id,
+                             json.dumps(asdict(case), sort_keys=True, allow_nan=False)))
                     for case in dataset.cases
                 ])
                 conn.execute(fingerprints.insert(), [
@@ -96,6 +103,24 @@ class SqlDatasetVault:
                 ])
         except IntegrityError as exc:
             raise InvalidEvidence("version duplicate or dataset material reused") from exc
+
+
+    def _encrypt(self, tenant: str, version: str, case_id: str, raw: str) -> str:
+        if self._cipher is not None:
+            return self._cipher.seal(tenant=tenant, version=version, case_id=case_id, plaintext=raw)
+        if self._require_encryption:
+            raise InvalidEvidence("encrypted gold required")
+        return raw
+
+    def _decrypt(self, tenant: str, version: str, case_id: str, raw: str) -> str:
+        if raw.startswith(AesGcmGoldCipher.PREFIX):
+            if self._cipher is None:
+                raise InvalidEvidence("encrypted gold requires authorized tenant key")
+            return self._cipher.open(tenant=tenant, version=version, case_id=case_id,
+                                     ciphertext=raw)
+        if self._require_encryption:
+            raise InvalidEvidence("plaintext gold forbidden in encrypted repository")
+        return raw
 
     def read(self, principal: Principal, version: str) -> Dataset:
         if principal.role not in ("evaluation", "optimizer"):
@@ -109,16 +134,16 @@ class SqlDatasetVault:
                 raise AccessDenied("dataset unavailable")
             if row["split"] != "tune" and principal.role != "evaluation":
                 raise AccessDenied("holdout/validation evaluator-only")
-            records = conn.execute(select(cases.c.payload).where(and_(
+            records = conn.execute(select(cases.c.case_id, cases.c.payload).where(and_(
                 cases.c.tenant_id == principal.tenant_id,
                 cases.c.version == version,
-            )).order_by(cases.c.case_id)).scalars().all()
+            )).order_by(cases.c.case_id)).all()
         import json
         parsed: list[Case] = []
         tuple_fields = ("required_tool_calls", "required_effect_proofs",
                         "required_graph_events", "required_memory_keys")
-        for record in records:
-            fields: dict[str, Any] = json.loads(record)
+        for case_id, record in records:
+            fields: dict[str, Any] = json.loads(self._decrypt(principal.tenant_id, version, case_id, record))
             for name in tuple_fields:
                 fields[name] = tuple(fields.get(name, ()))
             parsed.append(Case(**fields))
