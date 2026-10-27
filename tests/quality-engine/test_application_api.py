@@ -4,7 +4,7 @@ from dataclasses import replace
 import pytest
 from fastapi.testclient import TestClient
 
-from quality_engine.application import EvaluationWorkflow
+from quality_engine.application import EvaluationWorkflow, EvidenceEnvelope
 from quality_engine.api import create_app
 from quality_engine.core import (
     AccessDenied, Case, Dataset, DatasetVault, EvaluationRequest,
@@ -21,9 +21,12 @@ class FakeEvidenceCollector:
         if self.fail:
             raise RuntimeError("sensitive-credential-from-upstream")
         self.calls.append((request.agent_spec_ref, case.case_id))
-        return ObservedRun(case.case_id, case.expected_artifact,
-                           (ToolCall("lookup", effect_proof="proof:read"),),
-                           graph_events=("tool.call", "tool.result"))
+        observation = ObservedRun(case.case_id, case.expected_artifact,
+                                  (ToolCall("lookup", effect_proof="proof:read"),),
+                                  graph_events=("tool.call", "tool.result"))
+        return EvidenceEnvelope(request.tenant_id, request.agent_spec_digest,
+                                request.dataset_version_ref, case.case_id,
+                                "trace://signed-reference", observation)
 
 
 @pytest.fixture
@@ -111,3 +114,25 @@ def test_http_forbidden_principal_and_safe_notfound(workflow):
     assert client.post("/internal/evaluations", json=vars(req())).status_code == 403
     assert client.get("/internal/evaluations/run:1").status_code == 404
     assert TestClient(create_app(wf, lambda: owner)).get("/internal/evaluations/nope").status_code == 404
+
+
+def test_forged_tenant_or_agent_digest_cannot_pass(workflow):
+    wf, owner, _ = workflow
+    class ForgedEvidence(FakeEvidenceCollector):
+        def collect(self, request, case):
+            return replace(super().collect(request, case), agent_spec_digest="sha256:another-tenant")
+    wf._collector = ForgedEvidence()
+    wf.submit(owner, req())
+    blocked = wf.process(owner, "run:1")
+    assert blocked.status == "BLOCKED"
+    assert blocked.error_code == "INVALID_EXECUTION_EVIDENCE"
+
+
+def test_missing_audit_provenance_is_blocked(workflow):
+    wf, owner, _ = workflow
+    class NoTrace(FakeEvidenceCollector):
+        def collect(self, request, case):
+            return replace(super().collect(request, case), trace_ref="")
+    wf._collector = NoTrace()
+    wf.submit(owner, req())
+    assert wf.process(owner, "run:1").status == "BLOCKED"
