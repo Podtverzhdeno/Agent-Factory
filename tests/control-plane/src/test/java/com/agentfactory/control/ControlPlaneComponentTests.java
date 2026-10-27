@@ -369,6 +369,15 @@ public final class ControlPlaneComponentTests {
             check(f.dispatcher.dispatchPending()==1);
             check(f.cp.onEvaluation(EVENTS,early).state()==Workflow.State.VERIFIED);
         });
+        test("AF-REQ-010 deadline sweep stops orphan workflows and suppresses outbox",()->{
+            Fixture f=new Fixture();f.start();
+            f.now.set(NOW.plusSeconds(4000));
+            check(f.cp.expireDueWorkflows()==1);
+            check(f.cp.expireDueWorkflows()==0);
+            check(f.get().errorCode().equals("TIME_BUDGET_EXHAUSTED"));
+            check(f.dispatcher.dispatchPending()==0);
+            check(f.builds.get()==0);
+        });
         System.out.println("COMPONENT TESTS PASSED: "+run.get());
     }
 }
