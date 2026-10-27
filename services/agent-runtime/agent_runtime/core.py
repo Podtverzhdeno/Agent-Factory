@@ -135,11 +135,12 @@ class Runtime:
     def __init__(self, model: ModelPort, gateway: ToolGateway,
                  memory: ThreadMemory | None = None, *,
                  approved_spec_digests: frozenset[str] = frozenset(),
-                 model_timeout_seconds: float = 30.0):
+                 model_timeout_seconds: float = 30.0, run_store=None):
         if not 0.01 <= model_timeout_seconds <= 120:
             raise ValueError('model timeout outside configured safety limits')
         self.model_timeout_seconds = model_timeout_seconds
         self.model, self.gateway = model, gateway
+        self.run_store = run_store
         self.memory = memory or ThreadMemory()
         self.approved_spec_digests = approved_spec_digests
         self._runs: dict[tuple[str, str], tuple[str, RunResult]] = {}
@@ -161,8 +162,11 @@ class Runtime:
         request_hash = digest({'agent': spec.artifact_digest, 'thread': thread_id, 'request': request})
         ident = (tenant_id, run_id)
         async with self._lock:
-            if ident in self._runs:
-                old_hash, old_result = self._runs[ident]
+            cached = self._runs.get(ident)
+            if cached is None and self.run_store is not None:
+                cached = self.run_store.load(tenant_id, run_id)
+            if cached is not None:
+                old_hash, old_result = cached
                 if old_hash != request_hash:
                     raise RuntimeDenied('RUN_IDEMPOTENCY_CONFLICT')
                 return old_result
@@ -211,5 +215,7 @@ class Runtime:
             result = RunResult(status='BLOCKED' if code else 'COMPLETED',
                 run_id=run_id, trace_id=trace_id, answer=answer if not code else '',
                 tool_effect_refs=tuple(effects), cost_usd=spent, steps=step, error_code=code)
+            if self.run_store is not None:
+                self.run_store.save(tenant_id, run_id, request_hash, result)
             self._runs[ident] = (request_hash, result)
             return result
