@@ -42,14 +42,15 @@ public final class RemoteHttpClients {
             this.tokens=Objects.requireNonNull(tokens);
             this.mapper=Objects.requireNonNull(mapper);
             String host=base.getHost();
+            String scheme=base.getScheme();
             boolean isLoopback=host!=null &&
                 (host.equalsIgnoreCase("localhost") || host.equals("127.0.0.1") || host.equals("[::1]"));
-            boolean approved=host!=null &&
-                allowedHosts.stream().anyMatch(allowed -> allowed.equalsIgnoreCase(host));
-            if (!approved || base.getUserInfo()!=null || base.getQuery()!=null ||
+            boolean approved=host!=null && allowedHosts!=null &&
+                allowedHosts.stream().anyMatch(allowed -> allowed!=null && allowed.equalsIgnoreCase(host));
+            if (!approved || scheme==null || base.getUserInfo()!=null || base.getQuery()!=null ||
                 base.getFragment()!=null || !(base.getPath().isEmpty() || base.getPath().equals("/")) ||
-                !(base.getScheme().equalsIgnoreCase("https") ||
-                  (testLoopbackHttp && isLoopback && base.getScheme().equalsIgnoreCase("http"))))
+                !(scheme.equalsIgnoreCase("https") ||
+                  (testLoopbackHttp && isLoopback && scheme.equalsIgnoreCase("http"))))
                 throw new IllegalArgumentException("REMOTE_ENDPOINT_NOT_ALLOWLISTED");
             var http=HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3))
                 .followRedirects(HttpClient.Redirect.NEVER).build();
