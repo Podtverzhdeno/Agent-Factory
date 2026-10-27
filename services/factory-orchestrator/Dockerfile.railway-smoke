@@ -1,0 +1,21 @@
+# Non-production Railway smoke build for workstream 01. ADR-0002 still pending.
+# Build context MUST be the repository root: the Maven POM references sibling modules.
+FROM maven:3.9.11-eclipse-temurin-21 AS build
+WORKDIR /workspace
+COPY services/agent-store/ services/agent-store/
+COPY services/factory-orchestrator/ services/factory-orchestrator/
+COPY tests/control-plane/ tests/control-plane/
+# Testcontainers needs Docker daemon; PostgreSQL E2E remains a separate hard gate.
+# Executing domain, JWT/Spring, and loopback HTTP suites in the build is mandatory.
+RUN mvn -B -ntp -f services/factory-orchestrator/pom.xml clean package \
+    -Dtest=ControlPlaneComponentSuiteTest,ControlPlaneSecurityTest,RemoteHttpIntegrationTest \
+    -DfailIfNoTests=true
+
+FROM eclipse-temurin:21-jre
+WORKDIR /opt/control-plane
+COPY --from=build /workspace/services/factory-orchestrator/target/factory-orchestrator-0.1.0-SNAPSHOT.jar /opt/control-plane/app.jar
+USER 10001:10001
+ENV SERVER_PORT=8080
+ENV SPRING_PROFILES_ACTIVE=railway-smoke
+EXPOSE 8080
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75.0", "-jar", "/opt/control-plane/app.jar"]
