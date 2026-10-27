@@ -38,6 +38,11 @@ public final class RegistryRegressionTest {
             "Pin one tool, keep otherwise authorized tools");
         reject("INVALID_TASK", () -> registry.select(user, pin("read_xlsx", Map.of("xlsx.read", "latest"))));
         reject("INVALID_TASK", () -> registry.select(user, task()));
+        reject("INVALID_TASK", () -> registry.select(user, null));
+        reject("INVALID_MANIFEST", () -> registry.registerDraft(author, null));
+        reject("INVALID_TASK", () -> registry.approve(reviewer, null, "1.0.0", "execute"));
+        reject("INVALID_TASK", () -> registry.revoke(reviewer, "xlsx.read", "latest", "execute"));
+        reject("INVALID_TASK", () -> registry.validatePayload(user, "xlsx.read", null, "execute", true, Map.of()));
 
         // Cannot publish an approved tool to another tenant through self-service registration.
         Manifest crossTenant = new Manifest("0.1", "shared.read", "1.0.0", "execute", Transport.MCP,

@@ -34,7 +34,8 @@ Executed with OpenJDK 21 and `javac -Xlint:all -Werror`:
 
 ```text
 PASS: 40 registry assertions across lifecycle, deterministic cover, tenant/scopes, risk/effects, schema, SSRF, versioning and injection
-PASS: 41 additional registry security and lifecycle assertions
+PASS: 46 additional registry security and lifecycle assertions
+PASS: 500 deterministic property cases agree with independent exhaustive cover oracle
 ```
 
 HTTP test command (**not run locally**):

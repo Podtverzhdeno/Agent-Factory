@@ -132,7 +132,7 @@ public final class ToolRegistry {
     }
     public synchronized void registerDraft(Caller caller, Manifest manifest) {
         require(caller, "registry:register");
-        Objects.requireNonNull(manifest, "manifest");
+        if (manifest == null) throw failure("INVALID_MANIFEST", "Manifest required");
         // Authorization precedes validation: avoid cross-tenant schema/endpoint side channels.
         if (!manifest.tenantAvailability().equals(Set.of(caller.tenantId())))
             throw failure("FORBIDDEN", "Only own-tenant registration is permitted");
@@ -146,6 +146,7 @@ public final class ToolRegistry {
     }
     public synchronized void approve(Caller caller, String toolId, String version, String operation) {
         require(caller, "registry:approve");
+        requireCoordinates(toolId, version, operation);
         Key key = new Key(caller.tenantId(), toolId, version, operation); Entry entry = records.get(key);
         if (entry == null) throw failure("NOT_FOUND", "Unknown manifest version");
         if (!entry.manifest().tenantAvailability().contains(caller.tenantId())) throw failure("FORBIDDEN", "Approver is not in manifest tenant allowlist");
@@ -160,6 +161,7 @@ public final class ToolRegistry {
     /** Revoke eligibility without mutating the historical approved manifest. */
     public synchronized void revoke(Caller caller, String toolId, String version, String operation) {
         require(caller, "registry:approve");
+        requireCoordinates(toolId, version, operation);
         Entry entry = records.get(new Key(caller.tenantId(), toolId, version, operation));
         if (entry == null) throw failure("NOT_FOUND", "Unknown manifest version");
         if (!entry.manifest().tenantAvailability().contains(caller.tenantId()))
@@ -182,6 +184,7 @@ public final class ToolRegistry {
     public synchronized void validatePayload(Caller caller, String toolId, String version, String operation,
                                              boolean input, Map<String, ?> payload) {
         require(caller, "registry:lookup");
+        requireCoordinates(toolId, version, operation);
         Entry entry = records.get(new Key(caller.tenantId(), toolId, version, operation));
         if (entry == null || entry.status() != Status.APPROVED) throw failure("NOT_APPROVED", "Approved version required");
         Manifest m = entry.manifest();
@@ -201,6 +204,7 @@ public final class ToolRegistry {
     }
     public synchronized Selection select(Caller caller, SelectionRequest request) {
         require(caller, "registry:lookup");
+        if (request == null) throw failure("INVALID_TASK", "Selection request required");
         if (request.requiredCapabilities().isEmpty() || request.requiredCapabilities().stream().anyMatch(c -> !IDENTIFIER.matcher(c).matches()))
             throw failure("INVALID_TASK", "Explicit capabilities required");
         if (request.requiredCapabilities().size() > MAX_CAPABILITIES ||
@@ -355,6 +359,10 @@ public final class ToolRegistry {
         return Collections.unmodifiableSet(ordered);
     }
     private static Key key(String tenant, Manifest m) { return new Key(tenant, m.toolId(), m.version(), m.operation()); }
+    private static void requireCoordinates(String toolId, String version, String operation) {
+        if (!valid(toolId) || !valid(operation) || version == null || !SEMVER.matcher(version).matches())
+            throw failure("INVALID_TASK", "Well-formed tool ID, version and operation required");
+    }
     private static boolean valid(String s) { return s != null && IDENTIFIER.matcher(s).matches(); }
     private static boolean blank(String s) { return s == null || s.isBlank(); }
     private static String nonNull(String s) { return s == null ? "" : s; }

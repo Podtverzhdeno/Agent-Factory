@@ -21,9 +21,9 @@
 
 | Task | Pure-Java checks | HTTP tests | Gate |
 |---|---|---|---|
-| Registration / immutable version | duplicate, maker-checker, digest, cross-tenant and revoked state | register/approve/revoke | Java verified, HTTP pending Maven |
+| Registration / immutable version | duplicate, maker-checker, digest, cross-tenant and revoked state, malformed call coordinates | register/approve/revoke | Java verified, HTTP pending Maven |
 | Security / allowlist | SSRF, injected description, risk lowering, permissions, tenant isolation | mock JWT roles, decoder config | Java verified, HTTP pending Maven |
-| Minimal covering set | exact 3-tool RFQ, 30 alternatives, conflicting operation versions, partial version pinning | `/select` with scoped JWT | Java verified, HTTP pending Maven |
+| Minimal covering set | exact 3-tool RFQ, 30 alternatives, 500 randomized exhaustive-oracle comparisons, conflicting operation versions, partial version pinning | `/select` with scoped JWT | Java verified, HTTP pending Maven |
 | Typed schemas | wrong types, nested arrays, required/unknown properties, size/numeric bounds | `/payloads/validate` (pending) | Java verified, HTTP pending Maven |
 | PostgreSQL/attestation/deployment | blocked | blocked | OWNER ADR-0002 pending |
 
