@@ -22,4 +22,24 @@ class RegistryHttpTest {
         int listStatus = mvc.perform(get("/v0/registry/manifests")).andReturn().getResponse().getStatus();
         assertThat(listStatus).isIn(401,403);
     }
+
+    @Autowired ToolRegistry registry;
+
+    @Test void emptyTrustRootsRejectSyntheticRegistration() {
+        ToolRegistry.Caller registrar = new ToolRegistry.Caller(
+            "registrar", "tenant-a", java.util.Set.of("registry:register"));
+        ToolRegistry.Manifest manifest = new ToolRegistry.Manifest(
+            "0.1", "xlsx.read", "1.0.0", "execute", ToolRegistry.Transport.MCP,
+            java.util.Set.of("read_xlsx"), "artifact://schemas/file-input",
+            "artifact://schemas/rows", java.util.Set.of(ToolRegistry.Effect.READ),
+            java.util.Set.of("xlsx:read"), ToolRegistry.Risk.LOW,
+            java.util.Set.of("tenant-a"), "artifact://approved/endpoints/xlsx",
+            ToolRegistry.Health.HEALTHY, "trusted:synthetic",
+            "Synthetic read-only tool", "").withComputedDigest();
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> registry.registerDraft(registrar, manifest))
+            .isInstanceOf(ToolRegistry.RegistryFailure.class)
+            .hasFieldOrPropertyWithValue("code", "INVALID_SCHEMA");
+    }
 }
