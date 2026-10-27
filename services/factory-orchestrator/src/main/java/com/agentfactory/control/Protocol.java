@@ -34,10 +34,6 @@ public final class Protocol {
     public record OptimizationFinished(Header header, boolean success, String baseSpecDigest,
                                        String candidateSpecRef, String candidateSpecDigest,
                                        BigDecimal spendUsd, String failureCode, boolean retryable) { }
-    /** Completion of the separately approved training command; not a GEPARD outcome. */
-    public record TrainingFinished(Header header, boolean success, String baseSpecDigest,
-                                   String candidateSpecRef, String candidateSpecDigest,
-                                   BigDecimal spendUsd, String failureCode, boolean retryable) { }
     public record SoupFinished(Header header, boolean success, String baseSpecDigest,
                                String candidateSpecRef, String candidateSpecDigest,
                                String modelRouteDigest, BigDecimal spendUsd,
