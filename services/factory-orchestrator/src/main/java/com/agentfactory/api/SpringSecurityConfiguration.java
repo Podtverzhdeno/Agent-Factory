@@ -15,7 +15,10 @@ public class SpringSecurityConfiguration {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers(HttpMethod.POST, "/internal/events/**").hasAuthority("SCOPE_factory:events")
+                                .requestMatchers(HttpMethod.POST, "/internal/events/build").hasAuthority("SCOPE_factory:events:build")
+                .requestMatchers(HttpMethod.POST, "/internal/events/evaluation").hasAuthority("SCOPE_factory:events:evaluation")
+                .requestMatchers(HttpMethod.POST, "/internal/events/optimization").hasAuthority("SCOPE_factory:events:optimization")
+                .requestMatchers(HttpMethod.POST, "/internal/events/soup").hasAuthority("SCOPE_factory:events:soup")
                 .requestMatchers("/v1/workflows/**").authenticated()
                 .anyRequest().denyAll())
             .oauth2ResourceServer(oauth -> oauth.jwt(jwt -> {}))
