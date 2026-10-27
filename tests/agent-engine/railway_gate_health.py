@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import os
-
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit
 

@@ -1,5 +1,4 @@
 import pytest
-
 from agent_runtime import MCPBackend, MCPBinding, RuntimeDenied
 
 

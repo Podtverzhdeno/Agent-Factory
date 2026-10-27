@@ -4,10 +4,9 @@ import json
 
 import httpx
 import pytest
-from pydantic import ValidationError
-
 from agent_runtime import RuntimeDenied
 from litellm_adapter import LiteLLMGateway
+from pydantic import ValidationError
 from test_engine import manifest
 
 

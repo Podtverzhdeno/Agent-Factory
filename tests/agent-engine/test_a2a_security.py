@@ -2,16 +2,15 @@
 
 import httpx
 import pytest
-from starlette.applications import Starlette
-from starlette.responses import PlainTextResponse
-from starlette.routing import Route
-
 from agent_runtime import A2ABoundary
 from agent_runtime.official_a2a import (
     A2AIdentity,
     AuthenticatedA2AASGI,
     current_a2a_identity,
 )
+from starlette.applications import Starlette
+from starlette.responses import PlainTextResponse
+from starlette.routing import Route
 from test_engine import Registry, build, manifest, task
 
 
@@ -50,8 +49,8 @@ async def test_a2a_revoked_spec_denies_valid_token():
         assert (await client.get('/', headers={'Authorization': 'Bearer good'})).status_code == 403
 
 def test_sdk_factory_rejects_unreleased_spec_before_import():
-    from agent_runtime.official_a2a import create_official_a2a_app
     from agent_runtime import RuntimeDenied
+    from agent_runtime.official_a2a import create_official_a2a_app
     spec = build(task('read', ['read'], ['read'], []),
                  Registry([manifest('read', ['read'], ['read'], [])]))
     with pytest.raises(RuntimeDenied, match='A2A_NOT_RELEASED'):
@@ -150,9 +149,16 @@ async def test_a2a_single_principal_scope_blocks_authorized_other_principal():
 
 
 def test_official_a2a_factory_requires_principal_scope_even_before_sdk_import():
+    from agent_runtime import (
+        Decision,
+        EffectLedger,
+        Runtime,
+        RuntimeDenied,
+        ToolPolicy,
+        VerifiedToolGateway,
+    )
     from agent_runtime.official_a2a import create_official_a2a_app
-    from agent_runtime import Decision, Runtime, RuntimeDenied, ToolPolicy, VerifiedToolGateway, EffectLedger
-    from test_engine import ScriptedModel, FakeTools
+    from test_engine import FakeTools, ScriptedModel
     spec = build(task('read', ['read'], ['read'], []),
                  Registry([manifest('read', ['read'], ['read'], [])]))
     b = spec.selected_tools[0]

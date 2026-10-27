@@ -8,9 +8,15 @@ import pytest
 @pytest.mark.asyncio
 async def test_real_langgraph_inmemory_graph():
     pytest.importorskip('langgraph')
-    from langgraph.checkpoint.memory import InMemorySaver
+    from agent_runtime import (
+        Decision,
+        EffectLedger,
+        Runtime,
+        ToolPolicy,
+        VerifiedToolGateway,
+    )
     from agent_runtime.langgraph_adapter import build_graph, invoke_graph
-    from agent_runtime import Runtime, Decision, VerifiedToolGateway, ToolPolicy, EffectLedger
+    from langgraph.checkpoint.memory import InMemorySaver
     from test_engine import FakeTools, Registry, ScriptedModel, build, manifest, task
     spec = build(task('read',['read'],['read'],['read']),
                  Registry([manifest('read',['read'],['read'],['read'])]))
@@ -36,10 +42,11 @@ async def test_real_postgres_saver_initialization():
     dsn = os.getenv('AGENT_ENGINE_TEST_PG_DSN')
     if not dsn:
         pytest.skip('AGENT_ENGINE_TEST_PG_DSN required for real PostgreSQL test')
-    from uuid import uuid4
     from typing import TypedDict
+    from uuid import uuid4
+
     from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-    from langgraph.graph import StateGraph, START, END
+    from langgraph.graph import END, START, StateGraph
 
     class State(TypedDict):
         counter: int
@@ -68,10 +75,22 @@ async def test_official_a2a_sdk_client_server_smoke():
     import httpx
     from a2a.client import A2ACardResolver, ClientConfig, create_client
     from a2a.helpers import new_text_message
-    from a2a.types import (AgentCard, AgentCapabilities, AgentInterface,
-                           AgentSkill, Role, SendMessageRequest)
-    from agent_runtime import (A2ABoundary, Runtime, Decision,
-                               VerifiedToolGateway, ToolPolicy, EffectLedger)
+    from a2a.types import (
+        AgentCapabilities,
+        AgentCard,
+        AgentInterface,
+        AgentSkill,
+        Role,
+        SendMessageRequest,
+    )
+    from agent_runtime import (
+        A2ABoundary,
+        Decision,
+        EffectLedger,
+        Runtime,
+        ToolPolicy,
+        VerifiedToolGateway,
+    )
     from agent_runtime.official_a2a import A2AIdentity, create_official_a2a_app
     from test_engine import FakeTools, Registry, ScriptedModel, build, manifest, task
     spec = build(task('read',['read'],['read'],['read']),

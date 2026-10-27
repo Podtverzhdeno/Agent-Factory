@@ -10,7 +10,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-
 TARGETS = (
     "services/agent-builder",
     "services/agent-runtime",
