@@ -100,7 +100,7 @@ No other service database is accessed.
   isolated PostgreSQL datasource configured with `spring.datasource.jdbc-url`,
   `spring.datasource.username`, `spring.datasource.password`.
 - **Schema migration is not automatically applied to production.** The test suite applies
-  V1 to an ephemeral PostgreSQL Testcontainer. Production migrations, DDL ownership,
+  forward-only V1 then V2 to an ephemeral PostgreSQL Testcontainer. Production migrations, DDL ownership,
   database topology and deployment still await ADR-0002 owner ratification.
 - WorkflowLedger and AgentStore must share **one** `JdbcTransactionScope` instance.
   A nested SQL/domain failure marks the transaction rollback-only; a caught nested exception
@@ -108,7 +108,7 @@ No other service database is accessed.
 - Metadata request fingerprints use canonical SHA-256, stable across map/set ordering,
   JSON codecs and process restarts. Stored row identities are checked after deserialization.
 - The proof-of-concept relies on row locking and replay-safe command IDs. It **does not**
-  implement distributed command leases, actual Builder/Evaluation/GEPARD connectors, live
+  implement distributed command leases, production-approved Builder/Evaluation/GEPARD endpoints, live
   runtime switching or broker-level exactly-once effects.
 
 ### Strict acceptance commands
@@ -126,3 +126,15 @@ the PostgreSQL integration test report is absent or skipped.
 The exact PR head's full component suite, Spring MockMvc JWT suite and PostgreSQL
 Testcontainers suite are **not yet executed in this environment**: Maven, Docker and
 GitHub checkout network are unavailable. Do not interpret passing SDD validation as Maven PASS.
+
+## New: direct HTTP and tenant-wide PostgreSQL inbox
+
+- Typed outbound HTTP clients for Builder (`/internal/builds`), Evaluation (`/internal/evaluations`) and GEPARD (`/internal/optimizations`) are implemented in `RemoteHttpClients`. They use Java HTTP transport via Spring RestClient, strict HTTP 202 receipts, client/service tokens injected by port, idempotency and correlation headers, HTTPS host allowlist and disabled redirects.
+- `RemoteProofOfConceptConfiguration` is enabled only with `remote-poc` profile **and** `factory.remote.enabled=true`. It requires explicit HTTPS endpoints, `factory.remote.allowlisted-hosts` and a separately provisioned `RemoteHttpClients.ServiceTokens` bean; no unauthenticated fallback is provided.
+- `RemoteHttpIntegrationTest` exercises the complete Builder → Evaluation FAIL → GEPARD → Evaluation PASS → gated release workflow across three distinct synthetic HTTP servers, plus denied outbound metadata-service/network access. It is **not** a successful test against the independently deployed 04/05 services.
+- Forward-only V2 migration adds `cp_event_inbox` with `PRIMARY KEY(tenant_id,event_id)`. `JdbcWorkflowLedger` inserts event fingerprints in the **same transaction** as workflow state/outbox changes, rejecting reuse across distinct workflows. `JdbcPersistenceIntegrationTest` adds the cross-workflow collision scenario.
+- `JdbcAgentStore` persists the exact historical rollback response, so repeating a rollback ID is stable even after further version changes.
+- Proposed compatibility updates are in `CONTRACT_CHANGE_REQUEST.md` for the owner and upstream service leads. Frozen shared contracts remain unchanged.
+
+### Reproducible local acceptance
+Run `bash tests/control-plane/run-acceptance.sh` on the exact PR SHA with **JDK 21, Maven, Docker and access to Maven Central**. It executes the full core and Spring Boot suites, including real PostgreSQL via Testcontainers, and refuses to pass if these are skipped. Java full-suite PASS, Spring/JWT PASS, PostgreSQL PASS and real 04/05 interoperability **have not been observed** on the current PR SHA in this environment.
