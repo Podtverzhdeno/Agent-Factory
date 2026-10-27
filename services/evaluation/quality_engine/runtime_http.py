@@ -17,6 +17,7 @@ from .attestation import AttestedEvidence
 from .evaluation import EvaluationRequest, MemoryRead, ObservedRun, ToolCall
 from .execution_evidence import EvidenceEnvelope, PublicRunCase
 from .primitives import InvalidEvidence
+from .secure_urls import validated_service_url
 
 
 def _exact(raw: object, required: set[str]) -> dict:
@@ -115,8 +116,7 @@ class RuntimeEvidenceHTTPCollector:
     def __init__(self, *, base_url: str, service_token: str,
                  transport: httpx.BaseTransport | None = None,
                  timeout_seconds: float = 20, max_bytes: int = 1_048_576):
-        if not base_url.startswith("https://") and not base_url.startswith("http://127.0.0.1:"):
-            raise ValueError("Runtime endpoint must use TLS except loopback")
+        base_url = validated_service_url(base_url, label="Runtime endpoint")
         if not service_token or not 0 < timeout_seconds <= 120 or not 1024 <= max_bytes <= 10_000_000:
             raise ValueError("bounded Runtime authentication configuration required")
         self._client = httpx.Client(
