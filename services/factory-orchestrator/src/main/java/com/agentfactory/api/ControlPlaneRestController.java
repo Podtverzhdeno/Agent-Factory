@@ -75,6 +75,11 @@ public class ControlPlaneRestController {
                                          @RequestBody Protocol.EvaluationFinished event) {
         return control.onEvaluation(principal(jwt),event);
     }
+    @PostMapping("/internal/events/soup")
+    public Workflow.View soupEvent(@AuthenticationPrincipal Jwt jwt,
+                                   @RequestBody Protocol.SoupFinished event) {
+        return control.onSoup(principal(jwt),event);
+    }
     @PostMapping("/internal/events/optimization")
     public Workflow.View optimizationEvent(@AuthenticationPrincipal Jwt jwt,
                                            @RequestBody Protocol.OptimizationFinished event) {
