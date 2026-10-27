@@ -156,3 +156,30 @@ pending-operation guard added above.
   to `RemoteHttpIntegrationTest`, and all PostgreSQL Testcontainers scenarios.
 - **Unverified:** Maven/Spring/JWT integration on current GitHub head,
   real team 04/05 endpoints and owner approval for ADR-0002.
+
+## Evaluation branch compatibility proof — 2026-10-27
+
+The current workstream 05 FastAPI `EvaluationRequestBody` has `extra="forbid"`,
+requires `evaluation_run_id` on submission and has seven mandatory JSON keys.
+
+- `EvaluationHttpPayload.from` is an explicit, pure Java HTTP DTO mapper. It
+  excludes internal operation/correlation/baseline-digest properties and sets
+  `evaluation_run_id` from the exact command operation ID.
+- `RemoteHttpClients.evaluator` uses this mapper and refuses a 202 receipt
+  carrying a different `evaluation_run_id`.
+- The local strict DTO suite `EvaluationHttpPayloadTests`: **5/5 PASS**
+  with OpenJDK 21 / `javac -Xlint:all -Werror`.
+- Re-ran an isolated mounted JDK subset: **36/36 component, 6/6 outbox races,
+  5/5 Evaluation DTO contract = 47/47 PASS**. These are local mounted source
+  results, **not a full checkout and test of the current GitHub head**.
+- `RemoteHttpIntegrationTest` now validates the strict seven-field JSON shape,
+  authenticating header and that mismatched evaluation receipt run IDs fail.
+  This Maven test is **not executed locally**.
+- Upstream Builder branch has a typed Python handler but no approved HTTP server.
+  The GEPARD branch has an optimization adapter but no approved HTTP endpoint.
+  Do not assert real upstream HTTP E2E. See `CONTRACT_CHANGE_REQUEST.md` for
+  owner-facing compatibility blockers.
+
+The full Spring Boot/JWT/Maven and PostgreSQL Testcontainers acceptance gates
+remain open. Local Maven and Docker binaries are unavailable; the GitHub workflow
+currently covers SDD only. ADR-0002 remains `PENDING OWNER DECISION`.
