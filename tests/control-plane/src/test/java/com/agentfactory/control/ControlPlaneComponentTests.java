@@ -159,9 +159,11 @@ public final class ControlPlaneComponentTests {
                 check(f.ledger.get(TENANT,WF).actions.size()==1);
                 check(f.dispatcher.dispatchPending()==1);
                 check(f.builds.get()==1);
-            } catch(java.util.concurrent.ExecutionException | InterruptedException exception) {
+            } catch(InterruptedException interrupted) {
                 Thread.currentThread().interrupt();
-                throw new AssertionError("Concurrent idempotency failed",exception);
+                throw new AssertionError("Concurrent idempotency test interrupted",interrupted);
+            } catch(java.util.concurrent.ExecutionException failed) {
+                throw new AssertionError("Concurrent idempotency failed",failed);
             } finally {
                 pool.shutdownNow();
             }
