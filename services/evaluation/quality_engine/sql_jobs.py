@@ -156,6 +156,9 @@ class SqlEvaluationJobStore:
         if status == "PASSED" and (result is None or not result.passed or result.hard_veto
                                     or not result.independent_acceptance or result.status != "PASSED"):
             raise InvalidEvidence("unverified quality result cannot be PASSED")
+        if result is not None and (result.status != status
+                                   or result.passed != (status == "PASSED")):
+            raise InvalidEvidence("job status disagrees with signed evaluator verdict")
         if result is not None and (result.tenant_id != principal.tenant_id
                                     or result.evaluation_run_id != claim.run_id
                                     or result.agent_spec_digest != claim.request.agent_spec_digest
