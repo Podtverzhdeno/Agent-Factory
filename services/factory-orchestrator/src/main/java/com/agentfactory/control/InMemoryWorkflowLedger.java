@@ -56,6 +56,11 @@ public final class InMemoryWorkflowLedger implements Ports.WorkflowLedger {
             e.getValue().state!=Workflow.State.ROLLED_BACK)
             .map(Map.Entry::getKey).toList();
     }
+    @Override public synchronized List<Ports.Key> withUndeliveredEvents() {
+        return workflows.entrySet().stream().filter(e ->
+            e.getValue().publishedAuditCount < e.getValue().audit.size())
+            .map(Map.Entry::getKey).toList();
+    }
     @Override public synchronized List<Ports.Key> withUndeliveredActions() {
         return workflows.entrySet().stream().filter(e -> e.getValue().hasPendingActions())
             .map(Map.Entry::getKey).toList();
