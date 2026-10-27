@@ -87,3 +87,33 @@ New verified fixes:
 - Added Ed25519 verification-only Runtime audit adapter, tenant-bound public keys, forged signature detection and full signed-audit-to-durable-workflow smoke test. Production Runtime audit producer/key rotation/mTLS remain cross-team work.
 
 The historical phase used local mocks and SQLite. The later TCP test above exercises a real loopback connection to a synthetic Runtime, not a deployed cross-service producer.
+
+
+## 27 October 2026 — authenticated URL authority hardening (current source)
+
+**Change:** centralized `secure_urls.validated_service_url` is now used by both
+`RuntimeEvidenceHTTPCollector` and `LiteLLMClient`. Former
+`base_url.startswith("http://127.0.0.1:")` checks could approve a URL such as
+`http://127.0.0.1:8080@attacker.example`. HTTPX would send the bearer token
+to `attacker.example`, not to local loopback.
+
+**Policy:** authenticated outbound clients now parse and normalize their URL
+with HTTPX before constructing an HTTP client; allow HTTPS or the exact
+`127.0.0.1` literal over HTTP, never a URL username/password, query,
+fragment, invalid port, whitespace/control characters or other plaintext host.
+Redirect following remains disabled by the Runtime evidence collector.
+
+**Tests added:** `test_authenticated_url_security.py` parametrizes
+22 forbidden URLs and 6 permitted URLs for each of two authenticated clients:
+**56 new test instances**. The identical URL validation logic was separately
+executed locally with HTTPX 0.28.1 and pytest 9: **28 passed** (22 denied,
+6 permitted). This is a standalone validator smoke test, **not** execution
+of all 56 new tests against the GitHub workstream head.
+
+**Acceptance still open:** execute
+`python -m pytest -q tests/quality-engine -W error::ResourceWarning` on the
+exact new PR revision with dependencies installed. GitHub SDD validation
+does not run this suite. Live Runtime producer/mTLS, PostgreSQL, Kafka,
+LiteLLM spending, DSPy/GEPA and owner ADR-0002 approval remain unverified.
+TLS validation is necessary but is not a substitute for pinned service
+identity, trusted DNS, network egress controls or certificate policy.
