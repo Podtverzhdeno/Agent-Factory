@@ -13,6 +13,7 @@ public final class Workflow {
     public record Audit(Instant occurredAt, State from, State to, String reason, String correlationId) { }
     List<Audit> audit = new ArrayList<>();
     long candidateVersion;
+    long publishedAuditCount;
 
     public static final class Action {
         String operationId;
@@ -100,6 +101,7 @@ public final class Workflow {
         for (Action action: actions) w.actions.add(action.copy());
         w.inbox=new HashMap<>(inbox); w.revision=revision;
         w.audit=new ArrayList<>(audit); w.candidateVersion=candidateVersion;
+        w.publishedAuditCount=publishedAuditCount;
         return w;
     }
     String enqueue(ActionType type, String specRef, String digest) {
