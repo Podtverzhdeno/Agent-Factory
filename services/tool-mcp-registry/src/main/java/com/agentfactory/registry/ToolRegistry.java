@@ -239,6 +239,11 @@ public final class ToolRegistry {
             else if (!caller.scopes().containsAll(m.requiredScopes())) reason = DenialCode.MISSING_PERMISSION;
             else if (!request.allowedEffects().containsAll(m.sideEffects())) reason = DenialCode.EFFECT_NOT_ALLOWED;
             else if (m.riskLevel().ordinal() > request.maxRisk().ordinal()) reason = DenialCode.RISK_NOT_ALLOWED;
+            // Registry v0 is not a payment or destructive-action authorization boundary.
+            // Even an explicit scope and permissive task policy cannot promote these
+            // effects into autonomous Builder/Runtime selections.
+            else if (m.sideEffects().contains(Effect.PAYMENT) || m.sideEffects().contains(Effect.DESTRUCTIVE))
+                reason = DenialCode.EFFECT_NOT_ALLOWED;
             else if (m.health() != Health.HEALTHY) reason = DenialCode.UNHEALTHY;
             else if (!verifiedEndpointRefs.contains(m.endpointRef())) reason = DenialCode.ENDPOINT_UNVERIFIED;
             else if (request.pinnedVersions().containsKey(m.toolId()) &&
