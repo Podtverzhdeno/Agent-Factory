@@ -86,12 +86,23 @@ public class ControlPlaneRestController {
         return control.onOptimization(principal(jwt),event);
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    ResponseEntity<Map<String,String>> invalidRequest(IllegalArgumentException error) {
+        return ResponseEntity.badRequest().body(Map.of("code","INVALID_REQUEST","retryable","false"));
+    }
+
+    @ExceptionHandler(java.util.NoSuchElementException.class)
+    ResponseEntity<Map<String,String>> missingWorkflow(java.util.NoSuchElementException error) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(Map.of("code","WORKFLOW_NOT_FOUND","retryable","false"));
+    }
+
     @ExceptionHandler(IllegalStateException.class)
     ResponseEntity<Map<String,String>> businessError(IllegalStateException error) {
         String raw = error.getMessage();
         String code = raw != null && raw.matches("[A-Z0-9_]{2,80}") ? raw : "WORKFLOW_REJECTED";
-        HttpStatus status = code.startsWith("UNAUTHORIZED") || code.equals("UNAUTHENTICATED")
-            ? HttpStatus.FORBIDDEN : HttpStatus.CONFLICT;
+        HttpStatus status = code.equals("UNAUTHENTICATED") ? HttpStatus.UNAUTHORIZED
+            : code.startsWith("UNAUTHORIZED") ? HttpStatus.FORBIDDEN : HttpStatus.CONFLICT;
         boolean retryable = code.equals("EVENT_AWAITING_COMMAND_RECEIPT");
         return ResponseEntity.status(status).body(Map.of("code",code,"retryable",Boolean.toString(retryable)));
     }
