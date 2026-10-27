@@ -806,6 +806,12 @@ final class JdbcPersistenceIntegrationTest {
                     assertEquals(2,rs.getInt(1));
                 }
                 try(var rs=s.executeQuery(
+                    "SELECT boots FROM cp_factory_poc.cp_poc_restart_probe "
+                    + "WHERE probe_key='schema-liveness'")) {
+                    assertTrue(rs.next());
+                    assertEquals(2,rs.getLong(1));
+                }
+                try(var rs=s.executeQuery(
                     "SELECT COUNT(*) FROM information_schema.tables "
                     + "WHERE table_schema='cp_factory_poc' "
                     + "AND table_name IN ('cp_workflow','cp_agent_lock','cp_agent_version',"
