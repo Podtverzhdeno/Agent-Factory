@@ -99,6 +99,21 @@ final class JdbcPersistenceIntegrationTest {
         assertEquals(1,restored.withUndeliveredActions().size());
     }
 
+    @Test void pendingCommandStateSurvivesDispatchAndRestart() {
+        var first=new JdbcWorkflowLedger(tx(),codec());
+        orchestrator(first,new JdbcAgentStore(tx(),codec())).start(principal(),start());
+        var restored=new JdbcWorkflowLedger(tx(),codec());
+        var deliveries=new java.util.concurrent.atomic.AtomicInteger();
+        var relay=new OutboxDispatcher(restored,
+            c -> { deliveries.incrementAndGet(); return new Protocol.CommandReceipt(c.operationId(),true); },
+            c -> { throw new AssertionError("Unexpected Evaluation"); },
+            c -> { throw new AssertionError("Unexpected GEPARD"); },
+            c -> { throw new AssertionError("Unexpected Soup"); });
+        assertEquals(1,relay.dispatchPending());
+        assertEquals(1,deliveries.get());
+        assertTrue(new JdbcWorkflowLedger(tx(),codec()).withUndeliveredActions().isEmpty());
+    }
+
     @Test void workflowAndCandidateMutationRollbackTogetherOnFailure() {
         var scope=tx();var ledger=new JdbcWorkflowLedger(scope,codec());
         var store=new JdbcAgentStore(scope,codec());
