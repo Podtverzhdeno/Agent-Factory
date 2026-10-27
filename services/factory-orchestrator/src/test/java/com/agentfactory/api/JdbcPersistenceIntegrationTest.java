@@ -110,6 +110,25 @@ final class JdbcPersistenceIntegrationTest {
         assertEquals(0,store.versions(TENANT,"agent-01").size());
     }
 
+    @Test void caughtNestedSqlFailureCannotCommitAgentVersion() {
+        var scope=tx();
+        var store=new JdbcAgentStore(scope,codec());
+        var result=assertThrows(IllegalStateException.class,()->scope.transaction(c -> {
+            try {
+                scope.transaction(nested -> {
+                    assertSame(c,nested);
+                    store.registerCandidate(metadata(),"candidate-nested-failure");
+                    throw new java.sql.SQLException("injected failure after candidate registration");
+                });
+            } catch (JdbcTransactionScope.PersistenceFailure expected) {
+                // Test rollback-only propagation through a caught nested exception.
+            }
+            return null;
+        }));
+        assertEquals("TRANSACTION_MARKED_ROLLBACK_ONLY",result.getMessage());
+        assertTrue(new JdbcAgentStore(tx(),codec()).versions(TENANT,"agent-01").isEmpty());
+    }
+
     @Test void versionsAndReleaseRollbackPersistAcrossRestart() {
         var store=new JdbcAgentStore(tx(),codec());
         var candidate=store.registerCandidate(metadata(),"candidate-01");
