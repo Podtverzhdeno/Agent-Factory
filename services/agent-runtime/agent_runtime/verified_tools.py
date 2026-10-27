@@ -31,8 +31,9 @@ class VerifiedToolGateway(ToolGateway):
     """Registry-issued policies must be trusted; model text never grants permission."""
     verified = True
 
-    def __init__(self, tools, ledger, *, policies: Mapping[str, ToolPolicy]):
-        super().__init__(tools, ledger)
+    def __init__(self, tools, ledger, *, policies: Mapping[str, ToolPolicy],
+                 timeout_seconds: float = 15.0):
+        super().__init__(tools, ledger, timeout_seconds=timeout_seconds)
         self.policies = dict(policies)
         for policy in self.policies.values():
             _reject_remote_or_dynamic_refs(policy.input_schema)
@@ -71,5 +72,6 @@ class VerifiedToolGateway(ToolGateway):
                 return output
 
         # Validate external output BEFORE the effect reservation is confirmed.
-        gateway = ToolGateway(ValidatingPort(self.tools), self.ledger)
+        gateway = ToolGateway(ValidatingPort(self.tools), self.ledger,
+                              timeout_seconds=self.timeout_seconds)
         return await gateway.execute(spec, binding, args=args, run_id=run_id, step=step)

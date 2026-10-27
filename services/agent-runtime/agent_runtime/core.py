@@ -76,8 +76,11 @@ class EffectLedger:
 class ToolGateway:
     verified = False  # unverified fake port, denied by Runtime
 
-    def __init__(self, tools: ToolPort, ledger: EffectLedger):
+    def __init__(self, tools: ToolPort, ledger: EffectLedger, *, timeout_seconds: float = 15.0):
+        if not 0.01 <= timeout_seconds <= 60:
+            raise ValueError('tool timeout outside configured safety limits')
         self.tools, self.ledger = tools, ledger
+        self.timeout_seconds = timeout_seconds
 
     async def execute(self, spec: AgentSpec, binding: ToolBinding, *, args: dict,
                       run_id: str, step: int) -> tuple[dict, str]:
@@ -92,8 +95,12 @@ class ToolGateway:
                       'run': run_id, 'step': step, 'tool': binding.tool_id, 'args': args})
         if effect:
             await self.ledger.reserve(key)
-        result = await self.tools.call(tenant_id=spec.tenant_id, tool_id=binding.tool_id,
-                                       args=args, idempotency_key=key)
+        try:
+            result = await asyncio.wait_for(self.tools.call(tenant_id=spec.tenant_id,
+                tool_id=binding.tool_id, args=args, idempotency_key=key),
+                timeout=self.timeout_seconds)
+        except TimeoutError as exc:
+            raise RuntimeDenied('TOOL_TIMEOUT_UNCERTAIN') from exc
         if not isinstance(result, dict):
             raise RuntimeDenied('INVALID_TOOL_RESULT')
         if effect:

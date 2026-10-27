@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any, TypedDict
 from .core import RunResult, RuntimeDenied
+from agent_builder import digest
 
 class GraphState(TypedDict, total=False):
     tenant_id: str
@@ -35,6 +36,8 @@ def build_graph(runtime, spec, checkpointer=None):
             return {'terminal_error': 'SPEC_OR_TENANT_DENIED'}
         if spec.artifact_digest not in runtime.approved_spec_digests:
             return {'terminal_error': 'SPEC_NOT_PINNED'}
+        if not getattr(runtime.gateway, 'verified', False):
+            return {'terminal_error': 'UNVERIFIED_TOOL_GATEWAY'}
         step = state.get('steps', 0) + 1
         if step > spec.limits.max_steps:
             return {'steps': step, 'terminal_error': 'MAX_STEPS_EXCEEDED'}
@@ -113,3 +116,25 @@ def postgres_checkpointer(uri: str):
     """Official LangGraph async context manager; caller does saver.setup() and TLS provisioning."""
     from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
     return AsyncPostgresSaver.from_conn_string(uri)
+
+async def invoke_graph(graph, runtime, spec, *, tenant_id: str, thread_id: str,
+                       run_id: str, request: str, trace_id: str) -> dict:
+    """Bind checkpoint identity to tenant, agent and version, never raw user thread.
+
+    This does not provide exactly-once effects; an independent durable effect
+    ledger and business-side reconciliation remain mandatory.
+    """
+    if tenant_id != spec.tenant_id or not spec.verify_digest():
+        raise RuntimeDenied('SPEC_OR_TENANT_DENIED')
+    if spec.artifact_digest not in runtime.approved_spec_digests:
+        raise RuntimeDenied('SPEC_NOT_PINNED')
+    if not getattr(runtime.gateway, 'verified', False):
+        raise RuntimeDenied('UNVERIFIED_TOOL_GATEWAY')
+    checkpoint_id = digest({'tenant': tenant_id, 'agent': spec.agent_id,
+                            'version': spec.agent_spec_version, 'thread': thread_id})
+    state = {'tenant_id': tenant_id, 'thread_id': thread_id, 'run_id': run_id,
+             'request': request, 'trace_id': trace_id}
+    final = await graph.ainvoke(state, config={'configurable': {'thread_id': checkpoint_id}})
+    if not isinstance(final, dict) or not isinstance(final.get('result'), dict):
+        raise RuntimeDenied('INVALID_GRAPH_RESULT')
+    return final['result']

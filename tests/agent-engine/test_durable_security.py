@@ -113,3 +113,23 @@ async def test_runtime_denies_unverified_gateway():
     with pytest.raises(RuntimeDenied, match='UNVERIFIED_TOOL_GATEWAY'):
         await runtime.run(s, tenant_id='buyer', run_id='run', thread_id='t',
                           request='test', trace_id='tr')
+
+@pytest.mark.asyncio
+async def test_tool_timeout_keeps_effect_uncertain():
+    s = spec()
+    b = s.selected_tools[0]
+    class HangingTools:
+        def __init__(self):
+            self.calls = 0
+        async def call(self, **kwargs):
+            self.calls += 1
+            await asyncio.sleep(0.2)
+            return {'ok':True}
+    tools = HangingTools()
+    gateway = VerifiedToolGateway(tools, EffectLedger(),
+        policies={'render':policy(b)}, timeout_seconds=0.01)
+    with pytest.raises(RuntimeDenied, match='TOOL_TIMEOUT_UNCERTAIN'):
+        await gateway.execute(s,b,args={},run_id='r',step=1)
+    with pytest.raises(RuntimeDenied, match='EFFECT_REPLAY_REQUIRES_RECONCILIATION'):
+        await gateway.execute(s,b,args={},run_id='r',step=1)
+    assert tools.calls == 1

@@ -52,7 +52,7 @@ status read-only. Same Builder/Runtime source, distinct pinned AgentSpecs.
 4. PostgreSQL transactional effect ledger/outbox + business-side external
    idempotency key reconciliation. SQLite adapter is **not** production.
 5. Authenticated Registry grants, approved per-tool schema sourcing, real
-   MCP transport, egress isolation, tool timeouts and credentials.
+   MCP transport, egress isolation and credentials (local tool timeout enforced).
 6. True LiteLLM Proxy tenant quota/billing, model provenance and resilient
    failure handling. Tests use HTTP fake and no real provider.
 7. Full CI (ruff, pyright, dependency/license scan), production threat review,
