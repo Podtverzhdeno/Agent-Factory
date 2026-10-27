@@ -1,11 +1,14 @@
 """LangGraph ReAct-style candidate harness; Postgres saver is a swappable adapter."""
 from __future__ import annotations
+
 import asyncio
 import json
 import os
 from typing import Any, TypedDict
-from .core import RunResult, RuntimeDenied, authorize_spec_for_runtime
+
 from agent_builder import digest
+
+from .core import RunResult, RuntimeDenied, authorize_spec_for_runtime
 
 class GraphState(TypedDict, total=False):
     tenant_id: str
