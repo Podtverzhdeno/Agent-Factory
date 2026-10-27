@@ -70,13 +70,16 @@ public final class ControlPlaneComponentTests {
                 "artifact://a2a/card-v1",null,false));
         }
         AgentStore.Evidence evidence(boolean passed,boolean veto,boolean holdout,AgentStore.Risk risk, String digest) {
-            return new AgentStore.Evidence("evaluation-1",digest,DATASET,SPEC1,"artifact://metrics/1",
+            String runId=ledger.byIdempotency(TENANT,"idem:"+WF)
+                .map(w -> w.pendingOperationId).orElse("evaluation-1");
+            return new AgentStore.Evidence(runId,digest,DATASET,SPEC1,"artifact://metrics/1",
                 "artifact://traces/1",holdout?"artifact://holdout/1":null,true,passed,veto,true,true,risk,Set.of());
         }
         Workflow.View eval(boolean passed,boolean veto,boolean holdout,AgentStore.Risk risk, String digest, String cost) {
             dispatcher.dispatchPending();
+            AgentStore.Evidence report=evidence(passed,veto,holdout,risk,digest);
             return cp.onEvaluation(EVENTS,new EvaluationFinished(header("eval-"+UUID.randomUUID()),
-                "evaluation-1",digest,evidence(passed,veto,holdout,risk,digest),
+                report.evaluationRunId(),digest,report,
                 new BigDecimal(cost),null,false));
         }
         Workflow.View optimize(String cost) {
@@ -85,7 +88,7 @@ public final class ControlPlaneComponentTests {
                 true,SPEC1,"artifact://agents/a2",SPEC2,new BigDecimal(cost),null,false));
         }
     }
-    private static final int EXPECTED_SCENARIOS = 48;
+    private static final int EXPECTED_SCENARIOS = 49;
 
     public static void main(String[] ignored) {
         int initialRunCount = run.get();
@@ -350,8 +353,28 @@ public final class ControlPlaneComponentTests {
             f.dispatcher.dispatchPending();
             Workflow.View out=f.cp.onEvaluation(EVENTS,new EvaluationFinished(f.header("bad-run-id"),
                 "different-evaluation-run",SPEC1,e,new BigDecimal("0.1"),null,false));
-            check(out.errorCode().equals("SPEC_VERSION_MISMATCH"));
+            check(out.errorCode().equals("EVALUATION_RUN_MISMATCH"));
             check(f.store.active(TENANT,"agent-01").isEmpty());
+        });
+        test("AF-REQ-014 self-consistent foreign Evaluation evidence cannot hijack a run",()->{
+            Fixture f=new Fixture();f.start();f.build();f.dispatcher.dispatchPending();
+            // A compromised publisher supplies its own matching event/evidence run,
+            // but it was never the ID allocated by this workflow's outbox.
+            AgentStore.Evidence nativeReport=f.evidence(true,false,true,AgentStore.Risk.LOW,SPEC1);
+            AgentStore.Evidence foreign=new AgentStore.Evidence(
+                "foreign-evaluation-run",nativeReport.specDigest(),
+                nativeReport.datasetRef(),nativeReport.baselineDigest(),
+                nativeReport.metricsRef(),nativeReport.traceRef(),
+                nativeReport.holdoutEvidenceRef(),nativeReport.independent(),
+                nativeReport.passed(),nativeReport.safetyVeto(),
+                nativeReport.toolsAudited(),nativeReport.businessValidated(),
+                nativeReport.risk(),nativeReport.flags());
+            Workflow.View out=f.cp.onEvaluation(EVENTS,new EvaluationFinished(
+                f.header("foreign-run"),"foreign-evaluation-run",SPEC1,foreign,
+                new BigDecimal("0.1"),null,false));
+            check(out.state()==Workflow.State.BLOCKED);
+            check("EVALUATION_RUN_MISMATCH".equals(out.errorCode()));
+            check(f.store.versions(TENANT,"agent-01").isEmpty());
         });
         test("AF-REQ-001 early completion cannot bypass direct Builder receipt",()->{
             Fixture f=new Fixture();f.start();
@@ -372,7 +395,7 @@ public final class ControlPlaneComponentTests {
             Fixture f=new Fixture();f.start();f.build();f.dispatcher.dispatchPending();
             AgentStore.Evidence e=f.evidence(false,false,true,AgentStore.Risk.LOW,SPEC1);
             Workflow.View v=f.cp.onEvaluation(EVENTS,new EvaluationFinished(f.header("missing-tool"),
-                "evaluation-1",SPEC1,e,new BigDecimal("0.1"),"MISSING_CAPABILITY",false));
+                e.evaluationRunId(),SPEC1,e,new BigDecimal("0.1"),"MISSING_CAPABILITY",false));
             check(v.state()==Workflow.State.BLOCKED);
             check(v.errorCode().equals("MISSING_CAPABILITY"));
             check(f.opts.get()==0);
@@ -428,7 +451,7 @@ public final class ControlPlaneComponentTests {
             Fixture f=new Fixture();f.start();f.build();f.dispatcher.dispatchPending();
             error("UNAUTHORIZED_TENANT_OR_SCOPE",()->f.cp.onEvaluation(
                 actor(TENANT,"factory:events:build"),
-                new EvaluationFinished(f.header("forged-evaluation"),"evaluation-1",SPEC1,
+                new EvaluationFinished(f.header("forged-evaluation"),f.get().pendingOperationId(),SPEC1,
                     f.evidence(true,false,true,AgentStore.Risk.LOW,SPEC1),
                     new BigDecimal("0.1"),null,false)));
             check(f.get().state()==Workflow.State.TESTING);
@@ -479,7 +502,7 @@ public final class ControlPlaneComponentTests {
             Fixture f=new Fixture();f.start();f.dispatcher.dispatchPending();f.build();
             AgentStore.Evidence e=f.evidence(true,false,true,AgentStore.Risk.HIGH,SPEC1);
             EvaluationFinished early=new EvaluationFinished(f.header("eval-early"),
-                "evaluation-1",SPEC1,e,new BigDecimal("0.1"),null,false);
+                e.evaluationRunId(),SPEC1,e,new BigDecimal("0.1"),null,false);
             error("EVENT_AWAITING_COMMAND_RECEIPT",()->f.cp.onEvaluation(EVENTS,early));
             check(f.get().state()==Workflow.State.TESTING);
             check(f.dispatcher.dispatchPending()==1);
