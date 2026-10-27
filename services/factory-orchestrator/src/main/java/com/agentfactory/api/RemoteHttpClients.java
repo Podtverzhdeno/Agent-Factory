@@ -93,7 +93,8 @@ public final class RemoteHttpClients {
                     // Only Evaluation promises a caller-assigned run ID. Never accept
                     // a success receipt referencing somebody else's evaluation.
                     if ("evaluation_run_id".equals(acceptedIdField) &&
-                        !operationId.equals(body.path(acceptedIdField).asText("")))
+                        (!operationId.equals(body.path(acceptedIdField).asText("")) ||
+                         !tenant.equals(body.path("tenant_id").asText(""))))
                         throw new Protocol.RemoteCommandFailure("REMOTE_RECEIPT_MISMATCH",false);
                     // v0.1 services may return a separate build/evaluation ID. If an
                     // operation_id is also echoed, it must match this exact command.
