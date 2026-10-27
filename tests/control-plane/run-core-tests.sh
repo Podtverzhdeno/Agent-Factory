@@ -8,3 +8,4 @@ mapfile -t SOURCES < <(find "$ROOT/services/agent-store/src/main/java" "$ROOT/se
 javac -Xlint:all -Werror -encoding UTF-8 -d "$OUT" "${SOURCES[@]}"
 java -ea -cp "$OUT" com.agentfactory.control.ControlPlaneComponentTests
 java -ea -cp "$OUT" com.agentfactory.control.JdbcTransactionScopeTests
+java -ea -cp "$OUT" com.agentfactory.control.EventIdentityTests
