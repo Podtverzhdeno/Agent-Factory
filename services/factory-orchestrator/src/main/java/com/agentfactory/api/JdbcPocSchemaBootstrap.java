@@ -5,6 +5,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import javax.sql.DataSource;
+import java.util.logging.Logger;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -27,6 +28,7 @@ import org.springframework.jdbc.datasource.init.ScriptUtils;
 @ConditionalOnProperty(prefix = "factory.persistence", name = "bootstrap-poc-schema", havingValue = "true")
 public class JdbcPocSchemaBootstrap {
     static final String SCHEMA = "cp_factory_poc";
+    private static final Logger LOGGER = Logger.getLogger(JdbcPocSchemaBootstrap.class.getName());
     static final String V1 = "db/migration/V1__control_plane_poc.sql";
     static final String V2 = "db/migration/V2__tenant_event_inbox.sql";
 
@@ -49,7 +51,23 @@ public class JdbcPocSchemaBootstrap {
                 apply(c,s,1,V1);
                 apply(c,s,2,V2);
                 SchemaReadinessController.verifySchema(c);
+                // A synthetic, tenant-free marker verifies durability across
+                // *real service restarts*, never writes business workflow data.
+                s.execute("CREATE TABLE IF NOT EXISTS cp_poc_restart_probe "
+                    + "(probe_key TEXT PRIMARY KEY, boots BIGINT NOT NULL CHECK (boots >= 1))");
+                long boots;
+                try(var probe=c.prepareStatement(
+                    "INSERT INTO cp_poc_restart_probe(probe_key,boots) VALUES ('schema-liveness',1) "
+                    + "ON CONFLICT(probe_key) DO UPDATE "
+                    + "SET boots=cp_poc_restart_probe.boots+1 RETURNING boots")) {
+                    try(var result=probe.executeQuery()) {
+                        if(!result.next()) throw new IllegalStateException("POC_DURABILITY_PROBE_FAILED");
+                        boots=result.getLong(1);
+                    }
+                }
                 c.commit();
+                LOGGER.info("event=control_plane.persistence outcome=SCHEMA_VERIFIED"
+                    +" schema=cp_factory_poc migrations=2 boot_sequence="+boots);
             } catch (Exception failed) {
                 try { c.rollback(); } catch(SQLException ignored) { }
                 throw new IllegalStateException("POC_SCHEMA_BOOTSTRAP_FAILED");
