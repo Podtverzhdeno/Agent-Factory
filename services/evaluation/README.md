@@ -28,3 +28,12 @@ The execution collector receives only `PublicRunCase(case_id,input_ref)`, never 
 Model Benchmark requires `BenchmarkEvidence` proving an independently owned holdout and separate baseline/candidate trace refs before returning PASS. References are not cryptographically attested in the component prototype, therefore release decisions remain external.
 
 Install optional HTTP extra `api` from the evaluation package and `test` for tests. No standalone process or production secret manager is configured in this PR.
+
+
+## Durable evaluation and encryption-first storage
+
+The SQLAlchemy store includes immutable per-tenant gold datasets, evaluation job leases with fencing tokens, expired-worker BLOCKED reaping, and a transactional completion outbox. `DurableEvaluationWorkflow` requires verified runtime signatures before scoring. `OutboxPublisher` waits for a transport ACK before marking events sent. Delivery is at least once; consumers must de-duplicate by `event_id`. **Kafka and PostgreSQL were not contacted in the current environment.**
+
+`SqlDatasetVault` now defaults to **require_encryption=True**. A tenant-scoped AES-256-GCM key must be injected by trusted KMS infrastructure; associated data binds tenant, dataset version and case. Only isolated test fixtures may explicitly set `require_encryption=False`. No production secrets should be placed in source, AgentSpec or business files.
+
+For the real PostgreSQL opt-in test, see `POSTGRES_INTEGRATION.md`. For Runtime signed audit handoff see `CONTRACT_CHANGE_REQUEST.md` and Agent 04 PR #3.
