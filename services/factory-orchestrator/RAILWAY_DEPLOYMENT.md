@@ -59,3 +59,38 @@ routes still require validated service/user JWTs.
 
 A pending staged Railway config is a draft proposal only. No successful
 runtime deployment or production acceptance is claimed.
+
+## Follow-up: actual Railway smoke evidence and concurrent staging
+
+Railway project environment was re-inspected during ongoing parallel work.
+**This is observational evidence, not an approval to apply staged resources.**
+
+- The source was subsequently switched to `agent/01-control-plane` for
+  smoke checks by parallel work. The prior `main`/README-only failure is
+  historical, not evidence that the current branch has no application.
+- Smoke build `0685b3be-8ce4-44e8-af33-2317579921f9` at `9a69fbbf` failed
+  at Maven `testCompile`: duplicate local variable `before` in the
+  component test. The newer GitHub branch had already corrected it.
+- Smoke build `97a8668d-eb32-45af-b6e7-052038384564` at `797b543b`
+  compiled 26 main and 9 test Java sources, executed the component suite
+  (48 component scenarios, JDBC transaction 3, event identity 4, outbox race 7),
+  but **FAILED** because one HTTP JUnit test still expected
+  `IllegalStateException` after the protocol changed to
+  `RemoteCommandFailure`. That assertion has since been fixed in a
+  later GitHub revision.
+- A newer smoke build on `6e4f0ef0` was still `BUILDING` at the time of
+  inspection; **no successful deployment or full Maven acceptance was
+  confirmed**. The tested smoke image uses `Dockerfile.railway-smoke`,
+  distinct from the future `Dockerfile`.
+- A `Postgres` service, `postgres-volume` and
+  `agent04-integration-gate` appear as **staged-create** resources in
+  environment `production`. They are not live until their staged patch is
+  explicitly applied; Railway's staged patch may include changes from
+  other workers. Do not indiscriminately accept or discard that patch.
+- The future `Dockerfile` now compiles **and executes** targeted Spring/JWT/
+  HTTP JUnit suites during image build. Real PostgreSQL Testcontainers
+  checks still require the exact-SHA independent acceptance environment.
+
+The Railway project URL identifies **the intended hosting provider/project**
+selected by the owner; it is **not** evidence that service topology,
+database ownership, public access and ADR-0002 have been ratified.
