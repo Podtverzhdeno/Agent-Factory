@@ -29,6 +29,22 @@ final class RegistryTelemetry {
             + " selected_count=" + selectedCount + " denial_count=" + denialCount;
     }
 
+    /** Low-cardinality error grouping; never log free-text exception messages or unbounded codes. */
+    static String rejectionLine(UUID requestId, String code) {
+        if (requestId == null) throw new IllegalArgumentException("Missing correlation id");
+        String group = switch (code == null ? "" : code) {
+            case "FORBIDDEN", "SEPARATION_OF_DUTIES", "UNAUTHENTICATED", "MISSING_PERMISSION" -> "AUTHORIZATION";
+            case "NOT_FOUND", "NOT_APPROVED" -> "ABSENT";
+            case "VERSION_EXISTS", "IMMUTABLE", "INVALID_STATE" -> "CONFLICT";
+            case "ENDPOINT_UNVERIFIED", "UNTRUSTED_PROVENANCE", "INVALID_DIGEST" -> "TRUST";
+            case "SEARCH_LIMIT", "CAPACITY_EXCEEDED" -> "CAPACITY";
+            case "INVALID_SCHEMA", "INVALID_TASK", "INVALID_MANIFEST", "INVALID_SCOPES",
+                 "MALICIOUS_DESCRIPTION", "INVALID_VERSION", "INVALID_EFFECTS", "RISK_UNDERSTATED" -> "VALIDATION";
+            default -> "OTHER";
+        };
+        return "event=registry_rejection request_id=" + requestId + " category=" + group;
+    }
+
     /** Informational lifecycle logs are NOT an authoritative or durable audit record. */
     static String lifecycleLine(UUID requestId, LifecycleAction action) {
         if (requestId == null || action == null) throw new IllegalArgumentException("Invalid lifecycle metadata");
