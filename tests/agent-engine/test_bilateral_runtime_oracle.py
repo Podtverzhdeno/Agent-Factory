@@ -1,10 +1,11 @@
 """A model success message cannot substitute for a verified quote artifact."""
+
 import pytest
-from agent_runtime.bilateral_oracle import evaluate_quote
 
 from agent_runtime import Decision
-from test_bilateral_quote_oracle import fixture, NOW
-from test_engine import build, invoke, manifest, Registry, task
+from agent_runtime.bilateral_oracle import evaluate_quote
+from test_bilateral_quote_oracle import NOW, fixture
+from test_engine import Registry, build, invoke, manifest, task
 
 
 @pytest.mark.asyncio

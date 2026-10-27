@@ -1,4 +1,5 @@
 """Typed LiteLLM/OpenAI-compatible proxy adapter. No direct provider credentials."""
+
 from __future__ import annotations
 
 import json
@@ -7,8 +8,9 @@ from collections.abc import Callable
 
 import httpx
 import math
-from agent_runtime.core import Decision, RuntimeDenied
 from urllib.parse import urlsplit
+
+from agent_runtime.core import Decision, RuntimeDenied
 
 
 class LiteLLMGateway:

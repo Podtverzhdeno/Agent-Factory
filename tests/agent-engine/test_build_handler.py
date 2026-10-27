@@ -1,14 +1,15 @@
 """Builder command idempotency and tenant isolation (AF-REQ-005/006/029)."""
+
 import pytest
 
 from agent_builder import (
     BuildCommand,
-    Builder,
     BuildError,
     BuildHandler,
+    Builder,
     InMemoryAgentSpecStore,
 )
-from test_engine import manifest, Registry, task
+from test_engine import Registry, manifest, task
 
 
 class FakeSnapshotPort:

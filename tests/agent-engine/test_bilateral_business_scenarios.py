@@ -4,11 +4,12 @@ Scenarios are traced to AF-REQ-031/038 and AF-REQ-004/005/012/037.
 These fixtures prove isolation of independent Builder/Runtime instances;
 a separate SDK test must prove multi-turn A2A protocol conformance.
 """
+
 import pytest
 
 from agent_builder import BuildError
 from agent_runtime import A2ABoundary, Decision, RuntimeDenied
-from test_engine import build, invoke, manifest, Registry, task
+from test_engine import Registry, build, invoke, manifest, task
 
 
 def bilateral_specs():

@@ -1,4 +1,5 @@
 """Fail-closed version-pinned tool/MCP gateway with local JSON Schema validation."""
+
 from __future__ import annotations
 
 import json
