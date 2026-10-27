@@ -79,6 +79,22 @@ public final class RegistryTelemetryTest {
         String good = RegistryTelemetry.eventLine(id,"POST", "/v0/registry/manifests/tool.a/1.0.0/execute/approve",200,0);
         check(good.contains("route=manifests.approve") && !good.contains("tool.a"), "Do not log tool ID");
         check(RegistryTelemetry.eventLine(id, "POST\nBearer secret", "/v0/registry/select",404,1).contains("method=OTHER route=unmatched"), "Sanitize method");
+        var codes = new String[][] {
+            {"FORBIDDEN", "AUTHORIZATION"}, {"SEPARATION_OF_DUTIES", "AUTHORIZATION"},
+            {"NOT_FOUND", "ABSENT"}, {"VERSION_EXISTS", "CONFLICT"},
+            {"UNTRUSTED_PROVENANCE", "TRUST"}, {"CAPACITY_EXCEEDED", "CAPACITY"},
+            {"RISK_UNDERSTATED", "VALIDATION"}, {"UNKNOWN", "OTHER"},
+        };
+        for (String[] pair : codes) {
+            check(RegistryTelemetry.rejectionLine(id, pair[0]).equals(
+                    "event=registry_rejection request_id=" + id + " category=" + pair[1]),
+                "Error categories must be bounded and approved");
+        }
+        check(RegistryTelemetry.rejectionLine(id, "SECRET\nBearer:XYZ").endsWith("category=OTHER"),
+            "Malicious exception codes may never become log fields");
+        check(RegistryTelemetry.rejectionLine(id, null).endsWith("category=OTHER"),
+            "Absent error code must be safe");
+        rejects(() -> RegistryTelemetry.rejectionLine(null, "FORBIDDEN"));
         for (var action : RegistryTelemetry.LifecycleAction.values()) {
             String lifecycle = RegistryTelemetry.lifecycleLine(id, action);
             check(lifecycle.equals("event=registry_lifecycle request_id=" + id + " action=" + action.name()),
