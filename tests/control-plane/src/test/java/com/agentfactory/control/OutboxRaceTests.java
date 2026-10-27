@@ -59,6 +59,22 @@ public final class OutboxRaceTests {
         check(!succeeded.actions.getFirst().delivered);
         check("TIME_BUDGET_EXHAUSTED".equals(succeeded.errorCode));
 
+        var superseded=pending();
+        superseded.transact(TENANT,WORKFLOW,w -> {w.actions.getFirst().attempts=4;return null;});
+        check(withBuilder(superseded,command -> {
+            superseded.transact(TENANT,WORKFLOW,w -> {
+                w.state=Workflow.State.TESTING;
+                w.enqueue(Workflow.ActionType.EVALUATE,"artifact://agents/candidate","sha256:"+"a".repeat(64));
+                return null;
+            });
+            throw new IllegalStateException("old-builder-response");
+        }).dispatchPending()==0);
+        var afterTransition=superseded.get(TENANT,WORKFLOW);
+        check(afterTransition.state==Workflow.State.TESTING);
+        check(afterTransition.actions.getFirst().attempts==4);
+        check(afterTransition.pendingOperationId.equals(afterTransition.actions.get(1).operationId));
+        check(afterTransition.errorCode==null);
+
         var ordinary=pending();
         AtomicInteger calls=new AtomicInteger();
         var relay=withBuilder(ordinary,command -> {
@@ -68,6 +84,6 @@ public final class OutboxRaceTests {
         check(relay.dispatchPending()==1);
         check(relay.dispatchPending()==0);
         check(calls.get()==1 && ordinary.get(TENANT,WORKFLOW).actions.getFirst().delivered);
-        System.out.println("OUTBOX RACE TESTS PASSED: 3");
+        System.out.println("OUTBOX RACE TESTS PASSED: 4");
     }
 }
