@@ -70,7 +70,7 @@ public final class Workflow {
     String errorCode;
     String requiredAction;
     List<Action> actions = new ArrayList<>();
-    Map<String, Object> inbox = new HashMap<>();
+    Map<String, String> inbox = new HashMap<>();
     long revision;
 
     public Workflow() { }
