@@ -35,6 +35,7 @@ class BenchmarkPolicy:
     min_cases: int = 40
     max_quality_drop: float = 0.05
     min_savings_fraction: float = 0.1
+    min_absolute_success_rate: float = 0.95
     required_context_tokens: int = 1000
     region: str = "EU"
     needs_tools: bool = True
@@ -109,7 +110,9 @@ class BenchmarkEngine:
     def compare(self, baseline_model: ModelProfile, candidate_model: ModelProfile,
                 baseline: tuple[ModelRun, ...], candidate: tuple[ModelRun, ...],
                 policy: BenchmarkPolicy, *, evidence: BenchmarkEvidence | None = None) -> BenchmarkResult:
-        if not 0 < policy.alpha < 1 or not 0 <= policy.max_quality_drop < 1 or not 0 <= policy.min_savings_fraction < 1:
+        if (not 0 < policy.alpha < 1 or not 0 <= policy.max_quality_drop < 1
+                or not 0 <= policy.min_savings_fraction < 1
+                or not 0 <= policy.min_absolute_success_rate <= 1):
             raise ValueError("invalid benchmark policy")
         if not baseline or not candidate or len(baseline) != len(candidate):
             raise InvalidEvidence("paired model cases required")
@@ -139,6 +142,10 @@ class BenchmarkEngine:
             raise InvalidEvidence("negative cost or latency")
         b_success = sum(r.success and not r.hard_veto for r in baseline)
         c_success = sum(r.success and not r.hard_veto for r in candidate)
+        if b_success / len(baseline) < policy.min_absolute_success_rate:
+            reasons.append("UNSAFE_BASELINE_QUALITY")
+        if c_success / len(candidate) < policy.min_absolute_success_rate:
+            reasons.append("CANDIDATE_ABSOLUTE_QUALITY_LOW")
         losses = sum(b.success and not b.hard_veto and (not c.success or c.hard_veto)
                      for b, c in zip(baseline, candidate))
         upper = _loss_upper_bound(losses, len(baseline), policy.alpha)
@@ -156,7 +163,7 @@ class BenchmarkEngine:
             reasons.append("INSUFFICIENT_CASES")
         if not reasons:
             status: Literal["PASSED", "FAILED", "INCONCLUSIVE"] = "PASSED"
-        elif any(x in reasons for x in ("MODEL_CAPABILITY_MISMATCH", "SAFETY_HARD_VETO", "UNSAFE_BASELINE", "OBSERVED_QUALITY_REGRESSION", "SAME_MODEL", "NO_PROVEN_COST_SAVINGS")):
+        elif any(x in reasons for x in ("MODEL_CAPABILITY_MISMATCH", "SAFETY_HARD_VETO", "UNSAFE_BASELINE", "UNSAFE_BASELINE_QUALITY", "CANDIDATE_ABSOLUTE_QUALITY_LOW", "OBSERVED_QUALITY_REGRESSION", "SAME_MODEL", "NO_PROVEN_COST_SAVINGS")):
             status = "FAILED"
         else:
             status = "INCONCLUSIVE"
