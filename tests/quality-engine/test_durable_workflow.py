@@ -8,6 +8,7 @@ from quality_engine.core import Case, Dataset, EvaluationRequest, ObservedRun, P
 from quality_engine.durable_workflow import DurableEvaluationWorkflow
 from quality_engine.sql_jobs import SqlEvaluationJobStore, metadata as job_metadata
 from quality_engine.sql_vault import SqlDatasetVault, metadata as gold_metadata
+from quality_engine.gold_crypto import AesGcmGoldCipher
 
 
 class SignedCollector:
@@ -32,7 +33,7 @@ def create(tmp_path, bad=False):
     engine = create_engine(f"sqlite+pysqlite:///{tmp_path / 'eval.db'}")
     job_metadata.create_all(engine)
     gold_metadata.create_all(engine)
-    vault = SqlDatasetVault(engine)
+    vault = SqlDatasetVault(engine, cipher=AesGcmGoldCipher(lambda t: b"c"*32))
     owner = Principal("a", "evaluation")
     vault.register(owner, Dataset("a", "holdout-v1", "holdout", (
         Case("r1", {"verified": True}, ("catalog.lookup",), ("effect:1",),
@@ -71,7 +72,7 @@ def test_persisted_end_to_end_evaluation_and_outbox(scenario):
     assert collector.calls == 1
     events = store.pending_events(owner)
     assert len(events) == 1 and events[0].payload["passed"]
-    new = DurableEvaluationWorkflow(SqlDatasetVault(engine), SignedCollector(signer),
+    new = DurableEvaluationWorkflow(SqlDatasetVault(engine, cipher=AesGcmGoldCipher(lambda t: b"c"*32)), SignedCollector(signer),
                                     SqlEvaluationJobStore(engine), verifier=signer, clock=lambda: 100)
     assert new.get(owner, "run-1").result.independent_acceptance
     assert new.submit(owner, req).status == "PASSED"
