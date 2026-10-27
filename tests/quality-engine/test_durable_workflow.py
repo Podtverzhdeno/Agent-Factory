@@ -113,3 +113,34 @@ def test_tuning_dataset_never_sticks_as_running_or_publishes_pass(scenario):
     assert result.error_code == "INDEPENDENT_HOLDOUT_REQUIRED"
     assert store.get(owner, "train-run").status == "BLOCKED"
     assert [e.payload["passed"] for e in store.pending_events(owner)] == [False]
+
+
+def test_durable_fastapi_accept_poll_and_restart(scenario):
+    from fastapi.testclient import TestClient
+    from quality_engine.api import create_app
+    from dataclasses import asdict
+    engine, _, owner, signer, _, _, req, workflow = scenario
+    client = TestClient(create_app(workflow, lambda: owner))
+    payload = asdict(req)
+    response = client.post("/internal/evaluations", json=payload)
+    assert response.status_code == 202
+    assert response.json()["status"] == "QUEUED"
+    assert client.get("/internal/evaluations/run-1").json()["status"] == "QUEUED"
+    assert workflow.process(owner, "run-1").status == "PASSED"
+    fresh = DurableEvaluationWorkflow(
+        SqlDatasetVault(engine, cipher=AesGcmGoldCipher(lambda t: b"c" * 32)),
+        SignedCollector(signer), SqlEvaluationJobStore(engine),
+        verifier=signer, clock=lambda: 100)
+    restart_client = TestClient(create_app(fresh, lambda: owner))
+    assert restart_client.get("/internal/evaluations/run-1").json()["result"]["independent_acceptance"] is True
+    assert restart_client.post("/internal/evaluations", json=payload).status_code == 202
+
+
+def test_durable_fastapi_rejects_cross_tenant_http(scenario):
+    from fastapi.testclient import TestClient
+    from quality_engine.api import create_app
+    from dataclasses import asdict
+    _, _, owner, _, _, _, req, workflow = scenario
+    client = TestClient(create_app(workflow, lambda: Principal("other", "evaluation")))
+    assert client.post("/internal/evaluations", json=asdict(req)).status_code == 403
+    assert client.get("/internal/evaluations/run-1").status_code == 404
