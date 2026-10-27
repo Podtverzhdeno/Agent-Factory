@@ -8,6 +8,7 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.Set;
 import javax.sql.DataSource;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -15,18 +16,17 @@ import org.postgresql.ds.PGSimpleDataSource;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.datasource.init.ScriptUtils;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Actual PostgreSQL tests in an isolated container; no running Builder/Evaluator required.
- * A Docker-capable CI host must run this class; skipped locally if Docker is unavailable.
+ * Actual PostgreSQL integration tests, never skipped when Docker is unavailable.
+ * Uses Testcontainers locally, or a *localhost-only, disposable* PostgreSQL
+ * during the Railway Docker image build. No production database is permitted.
  */
-@Testcontainers(disabledWithoutDocker = true)
 final class JdbcPersistenceIntegrationTest {
-    @Container static final PostgreSQLContainer<?> PG = new PostgreSQLContainer<>("postgres:16-alpine")
+    private static final PostgreSQLContainer<?> PG = new PostgreSQLContainer<>("postgres:16-alpine")
         .withDatabaseName("control_plane_test").withUsername("factory_test").withPassword("synthetic_only");
+    private static boolean dockerPostgresStarted;
     private static DataSource dataSource;
     private static final Instant NOW=Instant.parse("2026-10-27T09:00:00Z");
     private static final String TENANT="tenant-a";
@@ -35,13 +35,32 @@ final class JdbcPersistenceIntegrationTest {
     private static final String MODEL="sha256:"+"c".repeat(64);
 
     @BeforeAll static void prepareSchema() throws Exception {
+        String localJdbc=System.getenv("CONTROL_PLANE_TEST_JDBC_URL");
         PGSimpleDataSource ds=new PGSimpleDataSource();
-        ds.setURL(PG.getJdbcUrl());ds.setUser(PG.getUsername());ds.setPassword(PG.getPassword());
+        if(localJdbc==null || localJdbc.isBlank()) {
+            PG.start();
+            dockerPostgresStarted=true;
+            ds.setURL(PG.getJdbcUrl());
+            ds.setUser(PG.getUsername());
+            ds.setPassword(PG.getPassword());
+        } else {
+            // This test TRUNCATES tables. Never run it against a remote/prod DB.
+            if(!localJdbc.matches("jdbc:postgresql://(127\\.0\\.0\\.1|localhost):[0-9]+/control_plane_test")) {
+                throw new IllegalStateException("UNSAFE_INTEGRATION_TEST_DATABASE_URL");
+            }
+            ds.setURL(localJdbc);
+            ds.setUser("factory_test");
+            ds.setPassword("synthetic_only");
+        }
         dataSource=ds;
         try(Connection c=dataSource.getConnection()) {
             ScriptUtils.executeSqlScript(c,new ClassPathResource("db/migration/V1__control_plane_poc.sql"));
             ScriptUtils.executeSqlScript(c,new ClassPathResource("db/migration/V2__tenant_event_inbox.sql"));
         }
+    }
+
+    @AfterAll static void stopContainerIfStarted() {
+        if(dockerPostgresStarted) PG.stop();
     }
     @BeforeEach void clearTables() throws Exception {
         try(Connection c=dataSource.getConnection();var s=c.createStatement()) {
