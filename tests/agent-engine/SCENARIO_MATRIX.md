@@ -15,9 +15,9 @@ Statuses: **COMPONENT** = a local mock-backed unit/contract test exists (current
 | B01 | Buyer supplies XLSX RFQ; catalog lookup produces correct draft (2 × $12 = $24) | 024–027, 029 | COMPONENT `test_synthetic_demo.py` | Real multi-sheet, units, provenance, macro safety absent |
 | B02 | Read-only approved supplier search yields evidence-backed response | 005, 007, 016 | COMPONENT `test_synthetic_demo.py` | Real connector authentication + source freshness |
 | B03 | Buyer A and supplier B approve independently; distinct AgentSpecs and scopes | 031, 038, 040 | CANDIDATE `test_bilateral_business_scenarios.py` | Orchestrator dispatch and real two-tenant storage |
-| B04 | Both parties exchange incomplete RFQ, clarification, quote Artifact, acceptance | 032, 037, 047 | GAP | Two independent official A2A SDK endpoints and protocol client/server |
-| B05 | Required SKU/quantity absent; ask for missing data, do not invent them | 024, 032 | GAP | Typed clarification state and user-confirmed continuation |
-| B06 | Supplier returns quotation with wrong currency, units or totals | 008, 037, 044 | GAP | Independent typed output/units oracle, not LLM self-assessment |
+| B04 | Both parties exchange incomplete RFQ, clarification, quote Artifact, acceptance | 032, 037, 047 | COMPONENT deterministic dialogue oracle (not A2A transport) | Two independent official A2A SDK endpoints and protocol client/server |
+| B05 | Required SKU/quantity absent; ask for missing data, do not invent them | 024, 032 | COMPONENT mock clarification sequence and forgery denial | Runtime-backed question/answer lifecycle and user-confirmed continuation |
+| B06 | Supplier returns quotation with wrong currency, units or totals | 008, 037, 044 | COMPONENT `test_bilateral_quote_oracle.py` (18 local cases, exact Decimal) | Bind oracle to verified ArtifactStore and signed trace; real A2A run |
 | B07 | Unknown/unapproved catalog MCP tool is suggested | 003–005, 029 | COMPONENT deny coverage | Real Registry signatures, MCP integration and audit |
 | B08 | One party requests another tenant's prompt, artifact or memory | 004, 031, 036, 043 | COMPONENT tenant denial | Shared artifact store permissions and trace redaction E2E |
 | B09 | User attempts live purchase/payment with only read/draft grants | 004, 009, 040 | COMPONENT denies | Human-approved consequential effect workflow in another milestone |
@@ -31,7 +31,7 @@ Statuses: **COMPONENT** = a local mock-backed unit/contract test exists (current
 | B17 | Cheaper model drops required tool invocation or lacks JSON support | 023, 048 | COMPONENT format checks; no business A/B proof | LiteLLM real proxy, per-model heldout non-inferiority |
 | B18 | Released AgentSpec revoked while A2A requests are in flight | 013, 045 | COMPONENT dynamic revocation tests | Signed AgentStore release lookup and task lifecycle policy |
 | B19 | Business owner revises SOP/template; agent must get new revision | 027, 030, 045 | COMPONENT AgentSpec digest/version | Upstream artifact event + downstream re-evaluation |
-| B20 | Correct A2A completion without verified quote Artifact | 008, 037, 042 | GAP | Independent artifact/effect business oracle must mark FAILED |
+| B20 | Correct A2A completion without verified quote Artifact | 008, 037, 042 | COMPONENT test asserts FAILED without quote | Real cross-service Artifact and effects oracle remains OPEN |
 | B21 | Model/router exceeds real budget under concurrent tenants | 007, 023, 048 | COMPONENT estimated-cost stop; real quota GAP | Database-backed LiteLLM hard spending limits |
 | B22 | Sealed evaluation output or near-duplicate leaks into optimization | 028, 035 | GAP | Independent holdout isolation and contamination checks |
 
@@ -70,10 +70,11 @@ protocol run.** The existing official SDK and Postgres tests remain optional
 and have not passed on the deployment branch. Never count a mocked case as
 independent business or production acceptance.
 
-**Platform state:** Railway `adequate-respect` contains a *staged* Postgres
-and isolated `agent04-integration-gate`; the current staged environment
-patch also contains changes to the production service from another workstream.
-Do not apply the entire patch without coordinated owner approval.
+**Platform state (latest read):** Railway `adequate-respect` now has a live PostgreSQL
+service and live `Agent-Factory` from workstream 01. `agent04-integration-gate`
+is deploying an older test revision and has not passed the strict gate. Do not
+infer that a running database or unrelated service is Agent 04 acceptance.
+Coordinate any deployments or cross-workstream configuration changes.
 
 ## Important infrastructure evidence
 
@@ -81,5 +82,23 @@ At SHA `0cd81ba`, Railway built the integration container but failed
 `compileall` because `agent_builder/core.py` contained a repeated and
 unterminated field definition at line 62. The issue is fixed on a newer
 branch commit `569a61f` but **no successful rebuild on that commit was
-observed**. The Railway service's source update is staged only. All new
-scenario tests on the current branch await an executable run.
+observed**. A subsequent test deployment targets `a1abf341` and emits Ruff failures;
+the latest scenario-oracle tests ran independently on a local synthetic fixture,
+**18 passed**. The complete Agent 04 suite and real official-SDK E2E remain
+unverified on the newest GitHub SHA.
+
+### B2B business oracle component evidence (2026-10-27)
+
+`test_bilateral_quote_oracle.py` uses immutable RFQ / Quote / Event records,
+exact `Decimal` prices and separate hard policy limits for the buyer and
+supplier. It denies forged clarification, duplicate offers, cross-tenant
+quote ownership, stale/missing catalog provenance, private-field disclosures,
+wrong units/currency/totals, missing quote and tampered artifact hash. It
+**never** trusts the generated success message. A standalone local invocation
+of this exact fixture reported **18 passed**.
+
+Important limits: SHA-256 checks structural integrity only, not signature,
+issuer authenticity or provenance verification against a trusted ArtifactStore.
+Events in this fixture are authored data, not intercepted official A2A SDK
+messages. Real tenant authorization, privacy-consent enforcement and the
+independent buyer/supplier release gates are still integration blockers.
