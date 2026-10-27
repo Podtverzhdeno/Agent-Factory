@@ -42,7 +42,11 @@ public interface AgentStore {
 
     record Metadata(String tenantId, String agentId, String specRef, String specDigest,
                     Map<String, String> toolDigests, String modelRouteDigest, String a2aCardRef,
-                    Evidence evidence) { }
+                    Evidence evidence) {
+        public Metadata {
+            toolDigests = Map.copyOf(toolDigests);
+        }
+    }
 
     record Rollback(String rolledBackSpecDigest, Optional<Version> restored) { }
 
