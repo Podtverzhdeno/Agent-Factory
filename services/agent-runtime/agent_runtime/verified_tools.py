@@ -1,9 +1,15 @@
 """Fail-closed version-pinned tool/MCP gateway with local JSON Schema validation."""
 from __future__ import annotations
-from typing import Any, Mapping
+
+import json
+from collections.abc import Mapping
+from typing import Any
+
 from jsonschema import Draft202012Validator, SchemaError, ValidationError
 from pydantic import BaseModel, ConfigDict, Field
+
 from agent_builder import AgentSpec, ToolBinding
+
 from .core import RuntimeDenied, ToolGateway
 
 class ToolPolicy(BaseModel):
