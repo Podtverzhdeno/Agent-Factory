@@ -33,12 +33,31 @@ async def test_real_postgres_saver_initialization():
     dsn = os.getenv('AGENT_ENGINE_TEST_PG_DSN')
     if not dsn:
         pytest.skip('AGENT_ENGINE_TEST_PG_DSN required for real PostgreSQL test')
+    from uuid import uuid4
+    from typing import TypedDict
     from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-    async with AsyncPostgresSaver.from_conn_string(dsn) as saver:
-        await saver.setup()
-        assert callable(getattr(saver, 'aget_tuple'))
-        assert callable(getattr(saver, 'aput'))
-    # Must not misrepresent lifecycle check as true process-kill recovery.
+    from langgraph.graph import StateGraph, START, END
+
+    class State(TypedDict):
+        counter: int
+
+    def compile_graph(saver):
+        graph = StateGraph(State)
+        graph.add_node('increment', lambda state: {'counter':state['counter']+1})
+        graph.add_edge(START,'increment')
+        graph.add_edge('increment',END)
+        return graph.compile(checkpointer=saver)
+
+    config={'configurable':{'thread_id':'af04-test-'+str(uuid4())}}
+    async with AsyncPostgresSaver.from_conn_string(dsn) as first:
+        await first.setup()
+        graph=compile_graph(first)
+        assert (await graph.ainvoke({'counter':1},config=config))['counter']==2
+    async with AsyncPostgresSaver.from_conn_string(dsn) as reopened:
+        graph=compile_graph(reopened)
+        checkpoint=await graph.aget_state(config)
+        assert checkpoint.values['counter']==2
+        assert (await graph.ainvoke({'counter':2},config=config))['counter']==3
 
 @pytest.mark.asyncio
 async def test_official_a2a_sdk_client_server_smoke():
