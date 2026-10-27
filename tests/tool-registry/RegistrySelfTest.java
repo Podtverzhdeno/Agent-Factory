@@ -27,7 +27,8 @@ public final class RegistrySelfTest {
             FILE_OUT, new Shape(Map.of("draft_file_ref", FieldSpec.scalar(FieldType.STRING)), Set.of("draft_file_ref"), false),
             PAY_IN, new Shape(Map.of("amount", FieldSpec.scalar(FieldType.NUMBER)), Set.of("amount"), false),
             PAY_OUT, new Shape(Map.of("receipt", FieldSpec.scalar(FieldType.STRING)), Set.of("receipt"), false));
-        return new ToolRegistry(schemas, Set.of(XLSX_ENDPOINT, CATALOG_ENDPOINT, PAY_ENDPOINT));
+        return new ToolRegistry(schemas, Set.of(XLSX_ENDPOINT, CATALOG_ENDPOINT, PAY_ENDPOINT),
+            Set.of("trusted:synthetic-fixture", "trusted:fixture", "trusted:synthetic"));
     }
     static final Caller author = new Caller("author", "tenant-a", Set.of("registry:register"));
     static final Caller reviewer = new Caller("reviewer", "tenant-a", Set.of("registry:approve"));
