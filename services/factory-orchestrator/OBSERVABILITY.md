@@ -120,3 +120,30 @@ accepted command is not resent after a restart and a single candidate
 persists as VERIFIED. This is strict **synthetic-peer** contract E2E, not
 proof that deployed Agent Engine, real GEPARD/Evaluation providers, JWT
 identity, or external effects have been tested together.
+
+## Local runtime readiness — `GET /readyz`
+
+The public **status-only** `/readyz` route is separate from `/healthz`,
+`/persistencez`, and `/schemaz` and never returns connection details or
+tenant data. It answers HTTP 503 `{"readiness":"unavailable"}` if:
+
+- running with `railway-smoke`, even if PostgreSQL and a relay are manually added;
+- either WorkflowLedger or AgentStore is in-memory (not JDBC);
+- an OutboxDispatcher for outbound commands is absent;
+- the PostgreSQL connection cannot be established and validated;
+- required V1/V2 schema tables or columns cannot be queried read-only.
+
+Only if **all** local checks pass does it return HTTP 200
+`{"readiness":"local-checks-passed"}`. Even HTTP 200 does **not**
+indicate real Builder/Evaluation/GEPARD availability, successful JWT service
+identity, evaluator attestations, effective A2A transactions or ADR approval.
+Do not repoint Railway's `/healthz` process liveness check to `/readyz`
+on the intentionally incomplete smoke service; the latter is supposed to
+return 503 until local integration wiring exists. Never use `/readyz` alone
+as the production go-live gate.
+
+`RuntimeReadinessControllerTest` exercises volatile storage, half-migrated
+configurations, relay absence, missing databases, SQL failures, no secret
+exposure and the fully configured local case. Spring MockMvc additionally
+verifies that anonymous `/readyz` traffic cannot cause a smoke instance
+to advertise readiness.
