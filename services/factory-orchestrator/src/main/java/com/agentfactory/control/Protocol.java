@@ -38,6 +38,10 @@ public final class Protocol {
     public record TrainingFinished(Header header, boolean success, String baseSpecDigest,
                                    String candidateSpecRef, String candidateSpecDigest,
                                    BigDecimal spendUsd, String failureCode, boolean retryable) { }
+    public record SoupFinished(Header header, boolean success, String baseSpecDigest,
+                               String candidateSpecRef, String candidateSpecDigest,
+                               String modelRouteDigest, BigDecimal spendUsd,
+                               String failureCode, boolean retryable) { }
     public record CommandReceipt(String operationId, boolean accepted) { }
     public record BuildCommand(String tenantId, String workflowId, String taskSnapshotId,
                                String snapshotDigest, String operationId, String idempotencyKey,
