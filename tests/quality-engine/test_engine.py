@@ -267,3 +267,14 @@ def test_negative_steps_are_invalid(ev):
     bad = ObservedRun("rfq-1", obs[0].artifact, obs[0].tool_calls, steps=-1, graph_events=("x",))
     with pytest.raises(InvalidEvidence):
         evaluate(ev, (bad, obs[1]))
+
+
+def test_binomial_cdf_stable_on_large_benchmark():
+    from quality_engine.model_benchmark import _loss_upper_bound
+    upper = _loss_upper_bound(4000, 100000, .05)
+    assert .04 < upper < .043
+
+
+def test_model_benchmark_large_sample_does_not_incorrectly_pass():
+    from quality_engine.model_benchmark import _loss_upper_bound
+    assert _loss_upper_bound(4000, 100000, .05) > .04
