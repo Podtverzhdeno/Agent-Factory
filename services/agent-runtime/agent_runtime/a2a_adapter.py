@@ -1,6 +1,9 @@
 """A2A security boundary only; do not invent an ad-hoc A2A wire protocol."""
 from __future__ import annotations
+
+import importlib.util
 from collections.abc import Callable
+
 from .core import RuntimeDenied
 
 class A2ABoundary:
@@ -15,7 +18,7 @@ class A2ABoundary:
             return artifact_digest in self.released_spec_digests
         try:
             return bool(self._release_lookup(tenant_id, artifact_digest))
-        except Exception:
+        except Exception:  # noqa: BLE001 - external release authority must fail closed.
             return False
 
     def authorize_request(self, *, tenant_id: str, principal: str, spec) -> None:
@@ -30,7 +33,6 @@ class A2ABoundary:
 
     def official_sdk_available(self) -> bool:
         try:
-            import a2a.server
-            return True
-        except ImportError:
+            return importlib.util.find_spec('a2a.server') is not None
+        except (ImportError, ModuleNotFoundError):
             return False
