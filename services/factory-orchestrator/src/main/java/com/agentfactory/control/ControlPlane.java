@@ -70,19 +70,15 @@ public final class ControlPlane {
             require(existing.equals(fingerprint), "EVENT_ID_COLLISION");
             return true;
         }
-        // Duplicate and stale events are registered atomically with the workflow state.
-        w.inbox.put(h.eventId(),fingerprint);
-        // Stale events must never clear a new undelivered action.
-        if (Objects.equals(w.pendingOperationId, h.operationId())) {
-            w.actions.stream().filter(a -> a.operationId.equals(h.operationId()))
-                .forEach(a -> a.delivered=true);
-        }
+        // Only a dispatch receipt may acknowledge a command.
+        // Early or stale events are not recorded until the matching action was dispatched.
         return false;
     }
     private boolean expected(Workflow w, Header h, Workflow.State... stages) {
         boolean stateAllowed = false;
         for (Workflow.State s : stages) if (w.state == s) stateAllowed=true;
-        return stateAllowed && Objects.equals(w.pendingOperationId,h.operationId());
+        return stateAllowed && Objects.equals(w.pendingOperationId,h.operationId()) &&
+            w.actions.stream().anyMatch(a -> a.operationId.equals(h.operationId()) && a.delivered);
     }
     private void block(Workflow w, String code, String action) {
         w.state=Workflow.State.BLOCKED; w.errorCode=code; w.requiredAction=action;
@@ -111,6 +107,7 @@ public final class ControlPlane {
         Header h=event.header();
         return ledger.transact(h.tenantId(),h.workflowId(),w -> {
             if (sameEvent(w,h,event) || !expected(w,h,Workflow.State.BUILDING)) return w.view();
+            w.inbox.put(h.eventId(),event.toString());
             if (!event.success()) {
                 block(w,AgentStore.filled(event.failureCode())?event.failureCode():"BUILD_FAILED","inspect build failure");
             } else if (!AgentStore.hash(event.specDigest()) || !goodRef(event.specRef()) ||
@@ -136,6 +133,7 @@ public final class ControlPlane {
         Header h=event.header();
         Workflow.View view = ledger.transact(h.tenantId(),h.workflowId(),w -> {
             if (sameEvent(w,h,event) || !expected(w,h,Workflow.State.TESTING,Workflow.State.RE_TESTING)) return w.view();
+            w.inbox.put(h.eventId(),event.toString());
             if (!Objects.equals(w.specDigest,event.specDigest()) || event.evidence()==null ||
                 !Objects.equals(event.specDigest(),event.evidence().specDigest()) ||
                 !Objects.equals(event.evaluationRunId(),event.evidence().evaluationRunId())) {
@@ -181,6 +179,7 @@ public final class ControlPlane {
         Header h=event.header();
         return ledger.transact(h.tenantId(),h.workflowId(),w -> {
             if (sameEvent(w,h,event) || !expected(w,h,Workflow.State.OPTIMIZING)) return w.view();
+            w.inbox.put(h.eventId(),event.toString());
             require(w.actions.stream().anyMatch(a -> a.operationId.equals(h.operationId()) &&
                 a.type == Workflow.ActionType.OPTIMIZE), "UNEXPECTED_OPTIMIZER_EVENT");
             if (!Objects.equals(w.specDigest,event.baseSpecDigest())) {
