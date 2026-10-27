@@ -133,3 +133,13 @@ def test_invalid_nonfinite_worker_clock_is_rejected(store):
     store.submit(a, req())
     with pytest.raises(ValueError):
         store.claim(a, run_id="run-1", worker_id="w", now=float("nan"))
+
+
+def test_a_failed_job_cannot_store_an_unrelated_pass_verdict(store):
+    a = Principal("a", "evaluation")
+    store.submit(a, req())
+    claim = store.claim(a, run_id="run-1", worker_id="w", now=10)
+    with pytest.raises(InvalidEvidence, match="disagrees"):
+        store.complete(a, claim, now=11, status="FAILED", result=accepted())
+    assert store.get(a, "run-1").status == "RUNNING"
+    assert store.pending_events(a) == ()
