@@ -68,7 +68,7 @@ class SqlDatasetVault:
     """
 
     def __init__(self, engine: Engine, *, cipher: AesGcmGoldCipher | None = None,
-                 require_encryption: bool = False) -> None:
+                 require_encryption: bool = True) -> None:
         if require_encryption and cipher is None:
             raise ValueError("encrypted gold storage requires tenant cipher")
         self._engine = engine
