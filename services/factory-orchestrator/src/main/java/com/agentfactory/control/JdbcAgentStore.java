@@ -66,7 +66,12 @@ public final class JdbcAgentStore implements AgentStore {
             "SELECT payload FROM cp_agent_version WHERE tenant_id=? AND agent_id=? AND version=?")) {
             st.setString(1,tenant);st.setString(2,agent);st.setLong(3,n);
             try(ResultSet rs=st.executeQuery()) {
-                return rs.next()?codec.read(rs.getString(1),Version.class):null;
+                if(!rs.next()) return null;
+                Version loaded=codec.read(rs.getString(1),Version.class);
+                require(loaded!=null && tenant.equals(loaded.tenantId()) &&
+                    agent.equals(loaded.agentId()) && n==loaded.version(),
+                    "STORED_AGENT_VERSION_IDENTITY_MISMATCH");
+                return loaded;
             }
         }
     }
@@ -76,7 +81,13 @@ public final class JdbcAgentStore implements AgentStore {
             bind(st,tenant,agent);
             List<Version> result=new ArrayList<>();
             try(ResultSet rs=st.executeQuery()) {
-                while(rs.next()) result.add(codec.read(rs.getString(1),Version.class));
+                while(rs.next()) {
+                    Version loaded=codec.read(rs.getString(1),Version.class);
+                    require(loaded!=null && tenant.equals(loaded.tenantId()) &&
+                        agent.equals(loaded.agentId()),
+                        "STORED_AGENT_VERSION_IDENTITY_MISMATCH");
+                    result.add(loaded);
+                }
             }
             return List.copyOf(result);
         }
