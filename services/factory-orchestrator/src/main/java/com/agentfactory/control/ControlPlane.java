@@ -167,10 +167,19 @@ public final class ControlPlane {
         return ledger.transact(h.tenantId(),h.workflowId(),w -> {
             if (sameEvent(w,h,event) || !expected(w,h,Workflow.State.TESTING,Workflow.State.RE_TESTING)) return w.view();
             w.inbox.put(h.eventId(),EventIdentity.sha256(event));
-            if (!Objects.equals(w.specDigest,event.specDigest()) || event.evidence()==null ||
-                !Objects.equals(event.specDigest(),event.evidence().specDigest()) ||
-                !Objects.equals(event.evaluationRunId(),event.evidence().evaluationRunId())) {
-                block(w,"SPEC_VERSION_MISMATCH","evaluate the pinned candidate"); return w.view();
+            // The Evaluation command allocates a run ID equal to its outbox
+            // operationId. A different (even internally consistent and attested)
+            // run is not evidence for this workflow operation.
+            if (!Objects.equals(h.operationId(),event.evaluationRunId()) ||
+                event.evidence()==null ||
+                !Objects.equals(h.operationId(),event.evidence().evaluationRunId())) {
+                block(w,"EVALUATION_RUN_MISMATCH","repeat the exact pinned evaluation run");
+                return w.view();
+            }
+            if (!Objects.equals(w.specDigest,event.specDigest()) ||
+                !Objects.equals(event.specDigest(),event.evidence().specDigest())) {
+                block(w,"SPEC_VERSION_MISMATCH","evaluate the pinned candidate");
+                return w.view();
             }
             if (!budgetOkay(w,event.spendUsd())) return w.view();
             AgentStore.Evidence e=event.evidence();
