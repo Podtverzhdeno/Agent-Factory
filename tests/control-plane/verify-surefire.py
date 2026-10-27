@@ -18,6 +18,7 @@ REQUIRED = {
     "JdbcPersistenceIntegrationTest": 17,
     "JdbcSpringWiringIntegrationTest": 3,
     "RemoteHttpIntegrationTest": 11,
+    "RemoteProofOfConceptConfigurationTest": 4,
     "PersistenceProbeControllerTest": 3,
 }
 
