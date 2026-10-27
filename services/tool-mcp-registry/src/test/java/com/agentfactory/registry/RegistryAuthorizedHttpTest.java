@@ -144,6 +144,45 @@ class RegistryAuthorizedHttpTest {
             .andExpect(status().isBadRequest());
     }
 
+    @Test void testBlockedSelectionProducesRedactedCorrelatedOutcomeLog() throws Exception {
+        var logger = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(RegistryApi.class);
+        var sink = new ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>();
+        sink.start();
+        logger.addAppender(sink);
+        try {
+            var response = mvc.perform(post("/v0/registry/select")
+                .with(caller("builder", "tenant-a", "registry:lookup"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"required_capabilities":["secret_project_capability_123"],
+                     "allowed_effects":["read"],"max_risk":"low",
+                     "pinned_versions":{},"expected_schemas":{}}
+                    """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.decision").value("BLOCKED"))
+                .andReturn().getResponse();
+            String correlationId = response.getHeader("X-Request-Id");
+            org.assertj.core.api.Assertions.assertThat(correlationId).isNotBlank();
+            org.assertj.core.api.Assertions.assertThat(java.util.UUID.fromString(correlationId).toString())
+                .isEqualTo(correlationId);
+            var events = sink.list.stream()
+                .map(ch.qos.logback.classic.spi.ILoggingEvent::getFormattedMessage)
+                .filter(s -> s.contains("event=registry_selection"))
+                .toList();
+            org.assertj.core.api.Assertions.assertThat(events).hasSize(1);
+            org.assertj.core.api.Assertions.assertThat(events.getFirst())
+                .contains("request_id=" + correlationId)
+                .contains("decision=BLOCKED selected_count=0")
+                .doesNotContain("secret_project_capability_123")
+                .doesNotContain("tenant-a")
+                .doesNotContain("builder")
+                .doesNotContain("Bearer");
+        } finally {
+            logger.detachAppender(sink);
+            sink.stop();
+        }
+    }
+
     @Test void testRegistrationCannotCrossTenantOrAcceptUnknownFields() throws Exception {
         Manifest other = new Manifest("0.1", "http.multi.tenant", "1.0.0", "execute", Transport.MCP,
             Set.of("read_xlsx"), "artifact://schemas/file-input", "artifact://schemas/rows",
