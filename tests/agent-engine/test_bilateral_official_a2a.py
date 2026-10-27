@@ -5,7 +5,6 @@ multi-turn negotiated RFQ or a verified commercial-offer business outcome.
 """
 import httpx
 import pytest
-
 from agent_runtime import (
     A2ABoundary,
     Decision,
@@ -81,8 +80,8 @@ async def test_two_tenants_real_a2a_sdk_clients_are_isolated():
 
     assert buyer_spec.verify_digest() and supplier_spec.verify_digest()
     assert buyer_spec.tenant_id != supplier_spec.tenant_id
-    assert set(b.tool_id for b in buyer_spec.selected_tools) == {'buyer.lookup'}
-    assert set(b.tool_id for b in supplier_spec.selected_tools) == {'supplier.lookup'}
+    assert {b.tool_id for b in buyer_spec.selected_tools} == {'buyer.lookup'}
+    assert {b.tool_id for b in supplier_spec.selected_tools} == {'supplier.lookup'}
 
     for app, tenant, other_tenant, runtime, tools in [
         (buyer_app, 'buyer', 'supplier', buyer_runtime, buyer_tools),
