@@ -96,7 +96,7 @@ async def test_external_release_revocation_takes_effect_without_restart():
 async def test_a2a_invalid_identity_resolver_response_fails_closed():
     app = make_app()
     # Deliberately inject a dynamically malformed identity provider.
-    setattr(app, 'authenticate', lambda token: {'tenant_id': 'buyer', 'principal': 'trusted'})
+    app.__dict__['authenticate'] = lambda token: {'tenant_id': 'buyer', 'principal': 'trusted'}
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),
                                  base_url='http://example.test') as client:
         response = await client.get('/', headers={'Authorization': 'Bearer good'})
