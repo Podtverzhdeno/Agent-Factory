@@ -5,7 +5,7 @@ import importlib.util
 import tempfile
 import unittest
 from pathlib import Path
-from xml.etree.ElementTree import Element, ElementTree
+from xml.etree.ElementTree import Element, ElementTree, SubElement
 
 SCRIPT = Path(__file__).with_name("verify-surefire.py")
 SPEC = importlib.util.spec_from_file_location("control_plane_surefire_gate", SCRIPT)
@@ -21,6 +21,14 @@ def emit_report(path: Path, suite: str, tests: int, skipped: int = 0,
         "name": name, "tests": str(tests), "skipped": str(skipped),
         "errors": str(errors), "failures": str(failures),
     })
+    for index in range(tests):
+        case = SubElement(root,"testcase", {"name": f"case_{index}"})
+        if index < skipped:
+            SubElement(case,"skipped")
+        elif index < skipped + failures:
+            SubElement(case,"failure")
+        elif index < skipped + failures + errors:
+            SubElement(case,"error")
     ElementTree(root).write(path / f"TEST-{name}.xml", encoding="utf-8")
 
 
@@ -54,6 +62,21 @@ class SurefireEvidenceGateTests(unittest.TestCase):
 
     def test_junit_failure_fails(self) -> None:
         emit_report(self.path, "RemoteHttpIntegrationTest", 8, failures=1)
+        self.assertFalse(gate.verify(self.path)[0])
+
+    def test_false_green_inflated_tests_count_fails(self) -> None:
+        report = self.path / "TEST-com.agentfactory.api.JdbcPersistenceIntegrationTest.xml"
+        content = report.read_text(encoding="utf-8")
+        report.write_text(content.replace('tests="14"', 'tests="15"'), encoding="utf-8")
+        success, problems = gate.verify(self.path)
+        self.assertFalse(success)
+        self.assertTrue(any("contains" in item for item in problems))
+
+    def test_skipped_testcase_cannot_hide_with_zero_suite_counter(self) -> None:
+        report = self.path / "TEST-com.agentfactory.api.JdbcPersistenceIntegrationTest.xml"
+        content = report.read_text(encoding="utf-8")
+        report.write_text(content.replace('<testcase name="case_0" />',
+            '<testcase name="case_0"><skipped /></testcase>'), encoding="utf-8")
         self.assertFalse(gate.verify(self.path)[0])
 
     def test_corrupted_xml_fails(self) -> None:
