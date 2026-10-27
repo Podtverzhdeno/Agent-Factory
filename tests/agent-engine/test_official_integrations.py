@@ -52,9 +52,12 @@ async def test_real_postgres_saver_initialization():
     class State(TypedDict):
         counter: int
 
+    def increment(state: State) -> dict[str, int]:
+        return {'counter': state['counter'] + 1}
+
     def compile_graph(saver):
         graph = StateGraph(State)
-        graph.add_node('increment', lambda state: {'counter':state['counter']+1})
+        graph.add_node('increment', increment)
         graph.add_edge(START,'increment')
         graph.add_edge('increment',END)
         return graph.compile(checkpointer=saver)
