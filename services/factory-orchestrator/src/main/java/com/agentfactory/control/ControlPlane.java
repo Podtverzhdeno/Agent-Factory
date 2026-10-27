@@ -100,18 +100,20 @@ public final class ControlPlane {
         }
         return true;
     }
-    private void verifyEventActor(Principal actor, Header h) {
-        require(h != null, "INVALID_EVENT_HEADER");
-        authorize(actor,h.tenantId(),"factory:events");
+    private void verifyEventActor(Principal actor, Header h, String scope) {
+        require(h != null && AgentStore.filled(h.tenantId()), "INVALID_EVENT_HEADER");
+        authorize(actor, h.tenantId(), scope);
     }
 
     public Workflow.View onBuild(Principal actor, BuildFinished event) {
-        verifyEventActor(actor,event.header());
+        verifyEventActor(actor,event.header(),"factory:events:build");
         Header h=event.header();
         return ledger.transact(h.tenantId(),h.workflowId(),w -> {
             if (sameEvent(w,h,event) || !expected(w,h,Workflow.State.BUILDING)) return w.view();
             w.inbox.put(h.eventId(),event.toString());
-            if (!event.success()) {
+            if (!clock.now().isBefore(w.limits.deadline())) {
+                block(w,"TIME_BUDGET_EXHAUSTED","start a new authorized workflow");
+            } else if (!event.success()) {
                 block(w,AgentStore.filled(event.failureCode())?event.failureCode():"BUILD_FAILED","inspect build failure");
             } else if (!AgentStore.hash(event.specDigest()) || !goodRef(event.specRef()) ||
                        !AgentStore.hash(event.modelRouteDigest()) ||
@@ -132,10 +134,12 @@ public final class ControlPlane {
     }
 
     public Workflow.View onEvaluation(Principal actor, EvaluationFinished event) {
-        verifyEventActor(actor,event.header());
+        verifyEventActor(actor,event.header(),"factory:events:evaluation");
         Header h=event.header();
+        boolean[] processed={false};
         Workflow.View view = ledger.transact(h.tenantId(),h.workflowId(),w -> {
             if (sameEvent(w,h,event) || !expected(w,h,Workflow.State.TESTING,Workflow.State.RE_TESTING)) return w.view();
+            processed[0]=true;
             w.inbox.put(h.eventId(),event.toString());
             if (!Objects.equals(w.specDigest,event.specDigest()) || event.evidence()==null ||
                 !Objects.equals(event.specDigest(),event.evidence().specDigest()) ||
@@ -180,7 +184,7 @@ public final class ControlPlane {
             }
             return w.view();
         });
-        if (view.state()==Workflow.State.VERIFIED && event.evidence()!=null &&
+        if (processed[0] && view.state()==Workflow.State.VERIFIED && event.evidence()!=null &&
             event.evidence().risk()==AgentStore.Risk.LOW && releasePolicy.allowAutomaticLowRisk(view)) {
             return promote(h.tenantId(),h.workflowId(),"auto:"+event.evaluationRunId(),true);
         }
@@ -188,7 +192,7 @@ public final class ControlPlane {
     }
 
     public Workflow.View onOptimization(Principal actor, OptimizationFinished event) {
-        verifyEventActor(actor,event.header());
+        verifyEventActor(actor,event.header(),"factory:events:optimization");
         Header h=event.header();
         return ledger.transact(h.tenantId(),h.workflowId(),w -> {
             if (sameEvent(w,h,event) || !expected(w,h,Workflow.State.OPTIMIZING)) return w.view();
@@ -206,6 +210,7 @@ public final class ControlPlane {
                 block(w,"INVALID_OPTIMIZATION_CANDIDATE","require immutable new candidate version");
             } else {
                 w.specRef=event.candidateSpecRef(); w.specDigest=event.candidateSpecDigest();
+                w.lastEvidence=null; w.candidateVersion=0;
                 w.state=Workflow.State.RE_TESTING;
                 w.enqueue(Workflow.ActionType.EVALUATE,w.specRef,w.specDigest);
             }
@@ -215,11 +220,24 @@ public final class ControlPlane {
 
     /** Optional, separately authorized training command; never implicitly initiated by GEPARD. */
     public Workflow.View requestSoup(Principal actor, String tenant, String workflowId, String rightsRef) {
+        return requestSoup(actor,tenant,workflowId,rightsRef,"training:"+workflowId+":"+rightsRef);
+    }
+
+    public Workflow.View requestSoup(Principal actor, String tenant, String workflowId,
+                                     String rightsRef, String idempotencyKey) {
         authorize(actor,tenant,"factory:training");
+        required(idempotencyKey);
         require(goodRef(rightsRef) && approvals.approved(tenant,workflowId,"training:approve"),"TRAINING_RIGHTS_OR_APPROVAL_MISSING");
         return ledger.transact(tenant,workflowId,w -> {
+            if (Objects.equals(w.trainingIdempotencyKey,idempotencyKey) &&
+                w.trainingIdempotencyKey != null) {
+                require(Objects.equals(w.trainingRightsRef,rightsRef),"IDEMPOTENCY_CONFLICT");
+                return w.view();
+            }
             require(w.state==Workflow.State.VERIFIED, "TRAINING_REQUIRES_VERIFIED_BASELINE");
             require(w.trainingAttempts<1 && clock.now().isBefore(w.limits.deadline()),"TRAINING_BUDGET_EXHAUSTED");
+            w.trainingIdempotencyKey=idempotencyKey;
+            w.trainingRightsRef=rightsRef;
             w.trainingAttempts++;
             w.state=Workflow.State.TRAINING;
             w.enqueue(Workflow.ActionType.SOUP,rightsRef,w.specDigest);
@@ -229,7 +247,7 @@ public final class ControlPlane {
 
     /** Separately authorized Soup completion; never promotes without fresh independent evaluation. */
     public Workflow.View onSoup(Principal actor, SoupFinished event) {
-        verifyEventActor(actor,event.header());
+        verifyEventActor(actor,event.header(),"factory:events:soup");
         Header h=event.header();
         return ledger.transact(h.tenantId(),h.workflowId(),w -> {
             if (sameEvent(w,h,event) || !expected(w,h,Workflow.State.TRAINING)) return w.view();
@@ -251,6 +269,7 @@ public final class ControlPlane {
             } else {
                 w.specRef=event.candidateSpecRef(); w.specDigest=event.candidateSpecDigest();
                 w.modelRouteDigest=event.modelRouteDigest();
+                w.lastEvidence=null; w.candidateVersion=0;
                 w.state=Workflow.State.RE_TESTING;
                 w.enqueue(Workflow.ActionType.EVALUATE,w.specRef,w.specDigest);
             }
