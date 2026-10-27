@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from threading import RLock
-from typing import Protocol
+from typing import Protocol, Any
 
 from .core import (
     AccessDenied, Case, DatasetVault, EvaluationEngine, EvaluationPolicy,
@@ -39,7 +39,11 @@ class EvidenceEnvelope:
 
 
 class EvidenceCollector(Protocol):
-    def collect(self, request: EvaluationRequest, case: PublicRunCase) -> EvidenceEnvelope: ...
+    def collect(self, request: EvaluationRequest, case: PublicRunCase) -> Any: ...
+
+
+class EvidenceVerifier(Protocol):
+    def verify(self, attested: Any) -> EvidenceEnvelope: ...
 
 
 @dataclass(frozen=True)
@@ -56,11 +60,17 @@ class EvaluationWorkflow:
     """Single-process reference; caller identity validated before reading state."""
 
     def __init__(self, vault: DatasetVault, collector: EvidenceCollector,
-                 policy: EvaluationPolicy | None = None):
+                 policy: EvaluationPolicy | None = None,
+                 verifier: EvidenceVerifier | None = None,
+                 require_attestation: bool = False):
         self._vault = vault
         self._engine = EvaluationEngine(vault)
         self._collector = collector
         self._policy = policy or EvaluationPolicy()
+        self._verifier = verifier
+        self._require_attestation = require_attestation
+        if require_attestation and verifier is None:
+            raise ValueError("a verifier is mandatory when attestation is required")
         self._requests: dict[tuple[str, str], EvaluationRequest] = {}
         self._jobs: dict[tuple[str, str], EvaluationJob] = {}
         self._idem: dict[tuple[str, str], str] = {}
@@ -119,8 +129,13 @@ class EvaluationWorkflow:
         request = self._requests[key]
         try:
             dataset = self._vault.read(principal, request.dataset_version_ref)
-            evidence = tuple(self._collector.collect(request, PublicRunCase(case.case_id, case.input_ref))
-                             for case in dataset.cases)
+            collected = tuple(self._collector.collect(request, PublicRunCase(case.case_id, case.input_ref))
+                              for case in dataset.cases)
+            if self._require_attestation:
+                assert self._verifier is not None
+                evidence = tuple(self._verifier.verify(item) for item in collected)
+            else:
+                evidence = collected
             for case, envelope in zip(dataset.cases, evidence):
                 if not isinstance(envelope, EvidenceEnvelope) or (
                     envelope.tenant_id != request.tenant_id
