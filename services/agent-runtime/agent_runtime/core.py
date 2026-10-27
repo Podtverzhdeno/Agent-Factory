@@ -74,6 +74,8 @@ class EffectLedger:
         return self._effects.get(key, (None, None))[0]
 
 class ToolGateway:
+    verified = False  # unverified fake port, denied by Runtime
+
     def __init__(self, tools: ToolPort, ledger: EffectLedger):
         self.tools, self.ledger = tools, ledger
 
@@ -127,6 +129,8 @@ class Runtime:
             raise RuntimeDenied('SPEC_TAMPERED')
         if spec.artifact_digest not in self.approved_spec_digests:
             raise RuntimeDenied('SPEC_NOT_PINNED')
+        if not getattr(self.gateway, 'verified', False):
+            raise RuntimeDenied('UNVERIFIED_TOOL_GATEWAY')
         request_hash = digest({'agent': spec.artifact_digest, 'thread': thread_id, 'request': request})
         ident = (tenant_id, run_id)
         async with self._lock:

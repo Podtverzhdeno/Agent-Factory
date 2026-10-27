@@ -1,48 +1,70 @@
-# Agent Engine — proposed isolated component (ADR-0002 pending)
+# Agent Engine 04 — contract-first isolated candidate
 
-This work packet implements testable mock-backed components, **not** approved deployable topology.
-Shared `openspec/**`, `docs/parallel/**` and architecture ADRs are deliberately untouched.
+**Owner architectural gate:** ADR-0002 not ratified. No production service topology,
+external A2A exposure, live tool effects, release authority or partner data processing.
 
-## Requirement → executable component test
+## Verifiable slice and run instructions
 
-| AF-REQ | Component | Tests |
+Python 3.12+ dependencies: `python -m pip install -r tests/agent-engine/requirements.txt`.
+From the repository root, run `python -m pytest -q tests/agent-engine`.
+Synthetic RFQ fixture is made by `agent_runtime.synthetic_demo.execute_two_tasks(work_dir)`:
+one generated XLSX RFQ, approved catalog lookup and draft XLSX; second supplier
+status read-only. Same Builder/Runtime source, distinct pinned AgentSpecs.
+
+## Requirement → test evidence
+
+| Requirements | Component | Tests |
 |---|---|---|
-| 005/006/029 | immutable versioned spec, minimal authorized set cover | minimum-set test; denied tools/grants |
-| 007/016 | two distinct task packages, bounded runtime | two-task test; tenant, steps, budget, tamper |
-| 012 | no repeat after uncertain external effect | crash/replay denial |
-| 013 | A2A release + caller permission boundary | A2A unauthorized test |
-| 023 | LiteLLM route, server-side secret injection and authoritative usage | proxy tests |
+| AF-REQ-005/006/029 | immutable AgentSpec, deterministic minimal approved coverage | test_engine.py |
+| AF-REQ-007/016 | bounded runtime, two distinct configurations | test_engine.py, test_synthetic_demo.py |
+| AF-REQ-012 | disk-backed effect reservation and simulated restart | test_durable_security.py |
+| AF-REQ-013 | A2A authorization + release boundary (NOT official SDK) | test_engine.py |
+| AF-REQ-023 | mock LiteLLM proxy model route/cost/error | test_litellm.py |
+| AF-REQ-039/040/042/043 | threads/tenant scoped memory, tool pin/schema checks | test_durable_security.py |
 
-## Local verification
+## Security design
 
-Run `python -m pytest -q tests/agent-engine` after installing dependencies in
-`tests/agent-engine/requirements.txt`. The synthetic tests require NO other factory service.
+- All effects use explicit runtime grants, tenant+agent+tool-version+manifest
+  digest and local input/output JSON Schemas. Unknown tools and schemas fail closed.
+- The local `VerifiedToolGateway` requires trusted registry-provisioned `ToolPolicy`;
+  it does **not** itself authenticate Registry. Reject all unverified gateways in Runtime.
+- Tool schemas prohibit dynamic/remote `$ref`; no implicit MCP download/install.
+- For a non-read external operation, a durable SQLite demo ledger writes a unique
+  reservation **before** calling the fake tool. Unknown outcomes stay UNCERTAIN and
+  are never retried automatically. This proves local replay denial, NOT exactly-once.
+- SQLite memory is plaintext and **synthetic-only**; tenant/agent/thread keys and
+  TTL prevent logical cross-tenant reads. Production encryption, ACL and retention
+  policies require owner decisions.
+- `model_route`, credentials, manifest digest and approval state are supplied
+  by trusted external ports; no secret is embedded in AgentSpec or prompt.
+- The run status `COMPLETED` means a candidate execution terminated normally.
+  It does **not** mean business task VERIFIED or evaluation PASSED.
 
-## Architecture / security limitations
+## Explicit BLOCKED work and remaining risks
 
-- `authorized_scopes` is an externally granted fixture value; Builder cannot authorize permissions.
-- The immutable AgentSpec contains only synthetic objective text; real prompts and private artifacts
-  need tenant-scoped encrypted storage. Digest is an integrity check, **not a signature**.
-- `Runtime.run` is an in-process candidate component. `langgraph_adapter.build_graph`
-  produces the real decide→tool→decide StateGraph only when `langgraph` is installed.
-  The Postgres saver factory exists, but a real Postgres restart test is **not verified**.
-- `EffectLedger` is **in-memory mock**. Once an ambiguous side effect is reserved, the same
-  key is blocked even after a logical runtime restart *sharing that mock*. Process termination
-  requires durable transaction/ledger and external reconciliation; **no exactly-once claim**.
-- `A2ABoundary` is **only identity and release checking**. Official A2A SDK HTTP server,
-  conformance tests and separate-client invocation are **BLOCKED**, not simulated with
-  a homegrown wire protocol. Unreleased candidates must never be externally callable.
-- LiteLLM adapter calls a fake OpenAI-compatible proxy; shared LiteLLM deployment, budgets,
-  auth, cost accounting, failover and provider keys remain an integration-owner concern.
-- Full registry input/output JSON Schema validation, verified MCP endpoints, credentials,
-  production egress policy, trace sink and signed spec verification are NOT implemented.
-  Reject these paths until corresponding owner-approved adapters exist.
-- Owner must ratify microservice communication, storage ownership and deployment in ADR-0002
-  before implementing service topology. This PR neither approves ADR nor claims system E2E.
+1. ADR-0002 service boundaries, databases, communication, release authority,
+   authenticated APIs and independent architecture approval.
+2. Official A2A SDK v1 server/client conformance and authenticated calls. The
+   current A2ABoundary is an authorization port only.
+3. Real LangGraph execution with `AsyncPostgresSaver`, `setup()`, process-kill
+   test and tenant-bound checkpoint ownership. Optional adapter is present but
+   dependencies and Postgres are unavailable in current sandbox.
+4. PostgreSQL transactional effect ledger/outbox + business-side external
+   idempotency key reconciliation. SQLite adapter is **not** production.
+5. Authenticated Registry grants, approved per-tool schema sourcing, real
+   MCP transport, egress isolation, tool timeouts and credentials.
+6. True LiteLLM Proxy tenant quota/billing, model provenance and resilient
+   failure handling. Tests use HTTP fake and no real provider.
+7. Full CI (ruff, pyright, dependency/license scan), production threat review,
+   HIL approvals, acceptance and end-to-end pilot evaluation.
 
-## Threats and rollback
+## Operational notes
 
-Threats: prompt/tool injection, tenant crossover, forged grants, privilege escalation, duplicate
-external operations, forged model cost, leaked provider secrets, stale memory. Boundaries deny
-unknown tools and consequential effects; all customer integrations are mocks.
-Rollback: remove candidate from development build; no production routes or migrations changed.
+No production credentials or customer content. Local files contain only synthetic
+test data. External source licenses: Pydantic MIT, LangGraph MIT (optional),
+jsonschema MIT, HTTPX BSD-3-Clause, openpyxl MIT, pytest MIT.
+Check actual pinned transitive licenses before release.
+
+Rollback: revert this feature commit/disable candidate; no deployed services,
+production migrations or released AgentStore versions are affected.
+Never merge this work packet until owner/integrator acceptance and all critical gates.

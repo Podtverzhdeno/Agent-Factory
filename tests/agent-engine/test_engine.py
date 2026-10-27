@@ -2,7 +2,7 @@
 import pytest
 from agent_builder import BuildCommand, BuildError, Builder, Limits, TaskSnapshot, ToolManifest
 from agent_runtime import (A2ABoundary, Decision, EffectLedger, LongTermMemory,
-                           Runtime, RuntimeDenied, ThreadMemory, ToolGateway)
+                           Runtime, RuntimeDenied, ThreadMemory, ToolGateway, ToolPolicy, VerifiedToolGateway)
 
 SHA = 'sha256:' + 'a' * 64
 
@@ -51,8 +51,13 @@ class FakeTools:
 
 def invoke(spec, decisions, *, tools=None, ledger=None, memory=None):
     tools = tools or FakeTools()
-    runtime = Runtime(ScriptedModel(decisions), ToolGateway(tools, ledger or EffectLedger()),
-                      memory, approved_spec_digests=frozenset([spec.artifact_digest]))
+    policies = {b.tool_id: ToolPolicy(tenant_id=spec.tenant_id, tool_id=b.tool_id,
+        version=b.version, manifest_digest=b.digest, scopes=frozenset(b.granted_scopes),
+        effect_mode=b.side_effects[0], input_schema={'type': 'object'},
+        output_schema={'type': 'object'}) for b in spec.selected_tools}
+    runtime = Runtime(ScriptedModel(decisions),
+        VerifiedToolGateway(tools, ledger or EffectLedger(), policies=policies),
+        memory, approved_spec_digests=frozenset([spec.artifact_digest]))
     return runtime, tools
 
 @pytest.mark.asyncio
