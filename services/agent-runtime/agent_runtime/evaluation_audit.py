@@ -9,12 +9,11 @@ from __future__ import annotations
 import json
 import re
 import time
-from dataclasses import asdict, dataclass
-from urllib.parse import parse_qs, unquote, urlsplit
-
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from dataclasses import dataclass
+from urllib.parse import parse_qs, unquote
 
 from agent_builder import AgentSpec
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from .core import Runtime, RuntimeDenied
 from .verified_tools import VerifiedToolGateway
@@ -59,7 +58,7 @@ class SignedRuntimeAudit:
     def __init__(self, runtime: Runtime, spec: AgentSpec, *,
                  private_key: Ed25519PrivateKey, key_id: str):
         if not isinstance(runtime.gateway, EvidenceRecordingGateway):
-            raise ValueError("trusted recording ToolGateway required")
+            raise TypeError("trusted recording ToolGateway required")
         if not isinstance(private_key, Ed25519PrivateKey) or not key_id or len(key_id) > 128:
             raise ValueError("KMS-provisioned Ed25519 signer and key id required")
         if not spec.verify_digest() or spec.artifact_digest not in runtime.approved_spec_digests:
