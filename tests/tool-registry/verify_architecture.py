@@ -23,14 +23,16 @@ ns = {'m': 'http://maven.apache.org/POM/4.0.0'}
 artifact = pom.find('./m:artifactId', ns)
 assert artifact is not None and artifact.text == 'tool-mcp-registry'
 version = pom.find('./m:parent/m:version', ns)
-assert version is not None and version.text
+assert version is not None and version.text == '4.1.2'
+# Static dependency verification does not prove that Maven resolves or builds.
 java = pom.find('./m:properties/m:java.version', ns)
 assert java is not None and int(java.text) >= 21
 
 deps = {dep.find('m:artifactId', ns).text for dep in pom.findall('./m:dependencies/m:dependency', ns)}
-assert {'spring-boot-starter-web', 'spring-boot-starter-security',
-        'spring-boot-starter-oauth2-resource-server',
-        'spring-boot-starter-test', 'spring-security-test'} <= deps
+assert {'spring-boot-starter-webmvc', 'spring-boot-starter-security',
+        'spring-boot-starter-security-oauth2-resource-server',
+        'spring-boot-starter-test', 'spring-boot-starter-webmvc-test',
+        'spring-boot-starter-security-test'} <= deps
 
 controller = (DOMAIN / 'RegistryApi.java').read_text(encoding='utf-8')
 api = (MODULE / 'openapi.yaml').read_text(encoding='utf-8')
@@ -56,4 +58,4 @@ assert 'anyRequest().denyAll()' in (DOMAIN / 'RegistrySecurity.java').read_text(
 print(f'PASS: Java domain architecture boundary ({len(DOMAINS)} modules), '
       f'JWT-deny-all default, {len(paths)} HTTP/OpenAPI path mappings, '
       f'{len(referenced)} verified runner source references, Maven dependencies')
-print(f'GATE OPEN: Spring Boot parent {version.text} requires supported-line migration and Maven/JWT tests')
+print(f'GATE OPEN: Spring Boot parent {version.text} selected; Maven/JUnit/JWT build unverified')
