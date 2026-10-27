@@ -349,3 +349,12 @@ def test_benchmark_cannot_pass_without_independent_holdout_provenance():
                                  "trace:baseline", "trace:candidate")
     result = BenchmarkEngine().compare(p, c, b, runs, BenchmarkPolicy(), evidence=training)
     assert result.status == "INCONCLUSIVE"
+
+
+def test_evaluation_event_cannot_claim_another_tenant(ev):
+    result = evaluate(ev)
+    assert result.tenant_id == "tenant-a"
+    with pytest.raises(AccessDenied):
+        result.event("tenant-b", "correlation-1")
+    with pytest.raises(AccessDenied):
+        result.event("tenant-a", "")
