@@ -141,6 +141,46 @@ final class RemoteHttpIntegrationTest {
         }
     }
 
+    @Test void forbiddenHttpReplyIsPermanent() throws Exception {
+        try(RemoteStub builder=new RemoteStub("/internal/builds","build_id")) {
+            var endpoint=new RemoteHttpClients.Transport("builder",
+                URI.create("http://127.0.0.1:"+builder.server.getAddress().getPort()),
+                Set.of("127.0.0.1"),true,
+                (service,tenant)->"synthetic-wrong-token",new ObjectMapper());
+            var failure=assertThrows(Protocol.RemoteCommandFailure.class,()->
+                RemoteHttpClients.builder(endpoint).submit(new Protocol.BuildCommand(
+                    TENANT,"wf-01","snapshot-01",HASH,"op-01","idempotency-01",
+                    "corr-01","artifact://policy/v1")));
+            assertFalse(failure.retryable());
+            assertEquals("REMOTE_UNAUTHORIZED",failure.getMessage());
+            assertEquals(1,builder.requests.size());
+        }
+    }
+
+    @Test void unavailableHttpReplyIsRetryableWithoutAutomaticRepetition() throws Exception {
+        HttpServer unavailable=HttpServer.create(new InetSocketAddress("127.0.0.1",0),0);
+        var deliveries=new java.util.concurrent.atomic.AtomicInteger();
+        unavailable.createContext("/internal/builds",exchange->{
+            deliveries.incrementAndGet();
+            exchange.sendResponseHeaders(503,-1);
+            exchange.close();
+        });
+        unavailable.start();
+        try {
+            var endpoint=new RemoteHttpClients.Transport("builder",
+                URI.create("http://127.0.0.1:"+unavailable.getAddress().getPort()),
+                Set.of("127.0.0.1"),true,
+                (service,tenant)->"synthetic-test-token",new ObjectMapper());
+            var failure=assertThrows(Protocol.RemoteCommandFailure.class,()->
+                RemoteHttpClients.builder(endpoint).submit(new Protocol.BuildCommand(
+                    TENANT,"wf-01","snapshot-01",HASH,"op-01","idempotency-01",
+                    "corr-01","artifact://policy/v1")));
+            assertTrue(failure.retryable());
+            assertEquals("REMOTE_UNAVAILABLE",failure.getMessage());
+            assertEquals(1,deliveries.get());
+        } finally { unavailable.stop(0); }
+    }
+
     @Test void endpointAllowlistDeniesArbitraryOutboundHost() {
         assertThrows(IllegalArgumentException.class,()->new RemoteHttpClients.Transport("builder",
             URI.create("http://169.254.169.254:80"),Set.of("169.254.169.254"),true,
