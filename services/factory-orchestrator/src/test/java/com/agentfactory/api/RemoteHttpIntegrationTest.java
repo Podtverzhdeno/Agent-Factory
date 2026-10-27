@@ -85,8 +85,8 @@ final class RemoteHttpIntegrationTest {
         String pending=plane.get(HUMAN,TENANT,"wf-01").pendingOperationId();
         return new Protocol.Header("0.1",event,TENANT,"wf-01",pending,"correlation-01",NOW);
     }
-    static AgentStore.Evidence evidence(String digest,boolean pass) {
-        return new AgentStore.Evidence("eval-01",digest,"artifact://datasets/v1",HASH,
+    static AgentStore.Evidence evidence(String runId,String digest,boolean pass) {
+        return new AgentStore.Evidence(runId,digest,"artifact://datasets/v1",HASH,
             "artifact://metrics/v1","artifact://traces/v1","artifact://holdout/v1",
             true,pass,false,true,true,AgentStore.Risk.HIGH,Set.of());
     }
@@ -121,16 +121,20 @@ final class RemoteHttpIntegrationTest {
                 "agent-01","artifact://agents/first",HASH,Map.of("lookup",HASH),
                 MODEL,"artifact://a2a/agent",null,false));
             assertEquals(1,dispatcher.dispatchPending());
-            var failure=plane.onEvaluation(EVALUATOR,new Protocol.EvaluationFinished(header("eval-fail",plane),
-                "eval-01",HASH,evidence(HASH,false),new BigDecimal("0.1"),null,false));
+            var firstRun=header("eval-fail",plane);
+            var failure=plane.onEvaluation(EVALUATOR,new Protocol.EvaluationFinished(firstRun,
+                firstRun.operationId(),HASH,evidence(firstRun.operationId(),HASH,false),
+                new BigDecimal("0.1"),null,false));
             assertEquals(Workflow.State.OPTIMIZING,failure.state());
             assertEquals(1,dispatcher.dispatchPending());
             String improved="sha256:"+"c".repeat(64);
             plane.onOptimization(OPTIMIZER,new Protocol.OptimizationFinished(header("optimized",plane),
                 true,HASH,"artifact://agents/improved",improved,new BigDecimal("0.2"),null,false));
             assertEquals(1,dispatcher.dispatchPending());
-            var finalState=plane.onEvaluation(EVALUATOR,new Protocol.EvaluationFinished(header("eval-pass",plane),
-                "eval-01",improved,evidence(improved,true),new BigDecimal("0.2"),null,false));
+            var secondRun=header("eval-pass",plane);
+            var finalState=plane.onEvaluation(EVALUATOR,new Protocol.EvaluationFinished(secondRun,
+                secondRun.operationId(),improved,evidence(secondRun.operationId(),improved,true),
+                new BigDecimal("0.2"),null,false));
             assertEquals(Workflow.State.VERIFIED,finalState.state());
             assertEquals(1,builder.requests.size());
             assertEquals(2,evaluator.requests.size());
