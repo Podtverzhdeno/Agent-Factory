@@ -1,62 +1,42 @@
-# Agent 05 — verified component evidence
+# Agent 05 — Quality Engine verification evidence
 
-## Executed locally, Python 3.13.5
-- `pytest -q tests/quality-engine`: **50 passed**
-- `pytest --cov=quality_engine --cov=gepard_optimizer --cov-report=term -q tests/quality-engine`: **50 passed, 96% statement coverage** (570 statements, 25 missed)
-- `python -m compileall -q services`: **passed**
-- CI on PR validates OpenSpec/SDD; it does NOT execute this component suite.
+Updated 2026-10-27. Workstream branch: agent/05-quality-engine. PR #2.
+**Scope:** local component verification and explicitly separated external integration gates.
 
-## Completed component milestones
-1. Independent domain scoring for chemical RFQ and certificate cases against private versioned gold.
-2. Denial of missing tool calls, missing effect proofs, invalid tool arguments, unauthorized actions, policy/tenant violations, incorrect outputs, ReAct missing transitions, stale or cross-tenant memory and graph step overflow.
-3. Holdout vault: train/validation/holdout role separation, immutable gold copies, duplicate input reference screening across tune/holdout and no hidden labels passed into execution collector (PublicRunCase).
-4. Typed EvaluationWorkflow state and HTTP contract: explicit submit returns 202 QUEUED; internal worker processes with authenticated principal port; idempotency, safe tenant-scoped lookup, fail closed on untrusted collector errors. Collector envelopes pinned to exact tenant, AgentSpec digest, dataset, case and provenance reference.
-5. GEPARD immutable candidate adapter + optional DSPy GEPA invocation seam; execution still MOCK, no live optimization.
-6. Model cost-quality: pinned paired cases, required capabilities/region, retry/tool/fallback spend, exact statistical upper bound without large-N underflow, reject NaN and quality regression; requires explicit independently verified holdout provenance or reports INCONCLUSIVE.
-7. Synthetic component integration: baseline fails missing catalog proof → permitted immutable mock prompt patch → independent holdout retest passes; no production release.
+## Latest executed local verification
 
-## Boundaries still NOT completed
+- Python 3.13, pytest 9, SQLAlchemy 2, cryptography 46, FastAPI/httpx
+- `pytest -q tests/quality-engine -W error::ResourceWarning` → **81 passed, 1 skipped** (no warnings)
+- `pytest --cov=quality_engine --cov=gepard_optimizer --cov-report=term -q tests/quality-engine` → **81 passed, 1 skipped, 94% statement coverage** (961 statements; 53 missed, before warning-only test fixture cleanup)
+- `python -m compileall -q services` → **passed**
+- Skipped: opt-in REAL PostgreSQL test, because dedicated PG test DSN, psycopg and explicit consent were unavailable. **Not counted as passed**.
+- GitHub Actions checks in this repo currently validate OpenSpec/SDD, NOT this executable Python suite. CI green alone is not Quality Engine E2E proof.
 
-**This is not a production-ready independently deployable service.** ADR-0002 still awaits owner ratification. Authentication is injected from a trusted integration port; its production implementation is NOT included. Data stores, job state and DatasetVault remain **in memory** (not PostgreSQL or cloud object storage). Collector envelope is typed and validated but is NOT a cryptographic attestation: authenticated Runtime/A2A tool audits must be integrated. The exact/gold fingerprint check is not robust near-duplicate detection.
+## Domain and security evidence
 
-GEPARD is NOT actually optimizing a DSPy program using a paid/private model; test uses a deterministic mock or fake DSPy object to verify adapter contract. LiteLLM, LangGraph, Kafka, Langfuse, actual customer files and cost provenance have not been integrated. The model benchmark synthetic success Boolean is not authoritative without real authenticated Evaluation inputs. Quality gates and released versions belong to Agent 01 Orchestrator.
+- RFQ and certificate fixtures score real structured business artifacts, required authorized tool calls and audited effect proofs; fluent false completions fail
+- ReAct observable transitions and short/long memory provenance, TTL and tenant violations are scored, including hard security veto
+- Evaluation's sealed gold never passes to PublicRunCase/Runtime or GEPARD; versioned train/holdout source collisions and denied access tested
+- Signed Runtime evidence HMAC adapter binds tenant, spec, dataset, case, trace and observed tool effects; tampering is blocked. **Production key management/mTLS and authenticated Runtime audit producer are NOT connected**
+- SQLAlchemy DatasetVault persists immutable case records; with strict encryption configured it stores AES-256-GCM ciphertext (AAD includes tenant/version/case). Database-level auth and key management still required
+- SQL-backed job workflow recovers across application instances, uses atomic lease claim/fencing, retry limit and transactional completion outbox; stale worker cannot commit
+- Outbox Kafka transport port sends messages only when ACKed; broker errors leave events pending. At-least-once delivery requires downstream event_id deduplication. Real Kafka broker NOT used
+- LiteLLM httpx client tests the real HTTP request format via MockTransport with model allowlist, TLS policy and safe failures; actual proxy/provider cost metering NOT tested
+- Model benchmark: paired business outcomes, correct-task cost incl retries/tool/fallback, conservative one-sided loss bound, capability/residency/safety rules, holdout evidence required; INCONCLUSIVE on insufficient evidence
+- GEPARD typed immutable candidate adapter + DSPy GEPA invocation wiring with injected fake DSPy; real DSPy package and reflection LM not available in local environment, so real optimization is NOT verified
+- One synthetic fail → candidate patch → holdout retest checks the control flow but never releases a production agent
 
-## Requirement mapping and remaining tasks
+## Remaining mandatory integration acceptance
 
-- AF-REQ-008/009/028: core evaluator and dataset isolation component implemented/tested; real gold storage, end-to-end trace provenance and security integration pending.
-- AF-REQ-010/011/041: mock GEPARD proposal implemented/tested; real DSPy feedback loop, quotas and runtime candidate integration pending.
-- AF-REQ-019/020/042/043: trace, observable ReAct and memory negative checks implemented/tested on synthetic evidence; real traces and persistence pending.
-- AF-REQ-048: standalone statistical model comparison implemented/tested; real LiteLLM metering, pricing snapshots, holdout authorization and release gate integration pending.
+1. Owner ratifies ADR-0002 (service topology, IAM, network, deployment and data ownership). Agent #5 cannot approve it.
+2. Workstream 04 issues signed authoritative runtime audit/typed tool-effect evidence. Proposed contract in services/evaluation/CONTRACT_CHANGE_REQUEST.md; handoff added to PR #3.
+3. Live PostgreSQL integration: `tests/quality-engine/test_postgres_integration.py` (opt-in), isolated Compose recipe at `services/evaluation/POSTGRES_INTEGRATION.md`; not run locally.
+4. Actual Kafka broker with authenticated producer/consumer, outbox ack/fail/replay and event_id dedup. Current KafkaPythonTransport exercised via ACK fake only.
+5. Actual LiteLLM Proxy (approved budget persistence + provider pricing), credential provisioning, cost reconciliation and rate-limit test. Cannot claim token savings from mocks.
+6. Actual DSPy GEPA optimizer run through approved LiteLLM Proxy with training/validation data, budget and a separately sealed holdout.
+7. Distributed identity, KMS keys, database migrations and reliable worker deployment/restart/observability in approved topology.
+8. Unified end-to-end two-business-task pipeline with 01–04 components and rollback/release evidence.
+9. Integration owner adds cross-workstream Python test job to shared GitHub CI. Agent 05 cannot edit .github per workstream ownership.
 
-Do NOT mark end-to-end SDD implementation tasks complete, and do NOT merge without independent code review and owner-approved ADR.
-
-## Last hardening pass
-- Verified runtime collector cannot see hidden gold (only PublicRunCase).
-- Nonfinite usage metrics and invalid cost-quality test provenance cannot yield PASS.
-- Published evaluation events cannot claim a foreign tenant or omit correlation identity.
-- Added deterministic fail → prompt candidate → held-out retest synthetic smoke (not live GEPA or LLM).
-- Latest local run: 50 unit/component tests passed; 96% statement coverage on Python 3.13.5.
-
-## Current extension — signed runtime evidence + LiteLLM HTTP transport
-
-- Added HMAC-SHA256 keyed `EvidenceEnvelope` canonicalization and verification with a configured trusted signer; altered tenant/case/spec/tool-effect data invalidate signature. Keys are injected by trusted infrastructure; never embedded in AgentSpec. This is an integration adapter, not independently established authorization from live Runtime.
-- EvaluationWorkflow supports `require_attestation=True`: mandatory verifier, missing/invalid signatures lead to BLOCKED. Legacy `require_attestation=False` remains for isolated mock fixtures only; must be forbidden at deployment configuration.
-- Added typed `LiteLLMClient` using HTTP POST `/v1/chat/completions` with TLS requirement, bearer key, model allowlist, timeout, safe error redaction, input validation and usage parsing. Tests execute a real httpx request/response path through `httpx.MockTransport`, not the external proxy.
-- Locally executed on Python 3.13: `cd /mnt/data/agent05 && pytest -q tests/quality-engine` -> **58 passed in 0.35s**.
-- Existing 96% coverage is from the earlier 50 tests; coverage was NOT re-measured after these additions and is not claimed for latest commit.
-
-### Still not proven
-
-- Actual connected authorized Runtime signing its own events with service-owned secrets and out-of-band audit reconciliation.
-- External LiteLLM Proxy availability, real provider inference, actual cost reconciliation or budget DB. A HTTP mock cannot prove these.
-- Persistent PostgreSQL gold/job repositories; cross-process workers; streaming and Kafka.
-- Running real DSPy GEPA with licensed examples and approved model budget; currently no connected credentials or available DSPy library in local environment.
-- Full independent integration with workstreams 01–04 and owner-ratified ADR-0002.
-
-## SQL-backed dataset repository (latest local evidence)
-
-- `SqlDatasetVault` uses injected SQLAlchemy Engine, tenant-scoped dataset/case/fingerprint tables and atomic inserts; exposes `register/read` analogous to in-memory vault. Schema creation is external; the repository does not silently migrate production DB.
-- SQLite SQL integration cases exercise roundtrip gold, retrieval across repository instances, role and tenant isolation, immutable versions, and holdout/source collision rejection.
-- Local command: `cd /mnt/data/agent05 && pytest -q tests/quality-engine` → **63 passed in 0.53s** (Python 3.13).
-- **Not a PostgreSQL integration proof:** PostgreSQL server is unavailable locally; migration planning, DB roles/encryption/backups, cross-process job persistence and schema tenancy still need deployed verification.
-- Test and implementation code corresponding to the latest additions were checked locally against an equivalent staging copy; GitHub Actions SDD validation is independent and still does not execute the Python test suite.
+**Status: COMPONENT VERIFIED; CROSS-SERVICE/PRODUCTION INTEGRATION BLOCKED.**
+Never mark main project-wide requirements fully closed from these test doubles or skipped tests.
