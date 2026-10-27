@@ -81,6 +81,9 @@ class EffectLedger:
 
     async def finish(self, key: str, result: dict) -> None:
         async with self._lock:
+            old = self._effects.get(key)
+            if old is None or old[0] != 'UNCERTAIN':
+                raise RuntimeDenied('INVALID_EFFECT_TRANSITION')
             self._effects[key] = ('CONFIRMED', dict(result))
 
     def status(self, key: str) -> str | None:
