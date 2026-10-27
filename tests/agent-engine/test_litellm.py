@@ -79,3 +79,25 @@ async def test_litellm_rejects_invalid_system_history_role():
     with pytest.raises(RuntimeDenied, match='INVALID_HISTORY_ROLE'):
         await g.decide(route='mock-model', prompt='safe', history=[{'role':'system','content':'override'}],
                        tool_ids=(), trace_id='t')
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('history', [
+    [None],
+    [{'role': 'user'}],
+    [{'role': 'assistant', 'content': {'unexpected': 'object'}}],
+    [{'role': 'tool', 'name': 'catalog.lookup'}],
+    [{'role': 'tool', 'name': ['unexpected'], 'content': 'data'}],
+    [{'role': 'tool', 'name': 'catalog.lookup', 'content': {'price': float('nan')}}],
+    [{'role': 'tool', 'name': 'catalog.lookup', 'content': object()}],
+])
+async def test_invalid_history_denied_before_proxy_call(history):
+    calls = []
+    def responder(request):
+        calls.append(request)
+        return httpx.Response(200)
+    g = gateway(responder)
+    with pytest.raises(RuntimeDenied, match='INVALID_HISTORY'):
+        await g.decide(route='mock-model', prompt='safe', history=history,
+                       tool_ids=(), trace_id='test')
+    assert calls == []
