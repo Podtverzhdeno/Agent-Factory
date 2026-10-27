@@ -111,7 +111,7 @@ public final class JdbcAgentStore implements AgentStore {
         Objects.requireNonNull(m); Objects.requireNonNull(key);
         return tx.transaction(c -> {
             lock(c,m.tenantId(),m.agentId());
-            String fingerprint=codec.write(m);
+            String fingerprint=EventIdentity.sha256(m);
             Operation prior=operation(c,m.tenantId(),"candidate",key);
             if(prior!=null) {
                 require(prior.fingerprint().equals(fingerprint),"IDEMPOTENCY_CONFLICT");
@@ -134,7 +134,7 @@ public final class JdbcAgentStore implements AgentStore {
         Objects.requireNonNull(approvals); Objects.requireNonNull(key);
         return tx.transaction(c -> {
             lock(c,tenant,agent);
-            String fingerprint=codec.write(List.of(agent,n,auto,Set.copyOf(approvals)));
+            String fingerprint=EventIdentity.sha256(List.of(agent,n,auto,Set.copyOf(approvals)));
             Operation prior=operation(c,tenant,"promote",key);
             if(prior!=null) {
                 require(prior.fingerprint().equals(fingerprint),"IDEMPOTENCY_CONFLICT");
@@ -170,7 +170,7 @@ public final class JdbcAgentStore implements AgentStore {
         Objects.requireNonNull(key);
         return tx.transaction(c -> {
             lock(c,tenant,agent);
-            String fingerprint=codec.write(List.of(agent,n));
+            String fingerprint=EventIdentity.sha256(List.of(agent,n));
             Operation prior=operation(c,tenant,"rollback",key);
             if(prior!=null) {
                 require(prior.fingerprint().equals(fingerprint),"IDEMPOTENCY_CONFLICT");
