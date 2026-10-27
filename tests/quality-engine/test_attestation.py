@@ -21,6 +21,7 @@ class SignedCollector:
             ObservedRun(case.case_id, {"ok": True},
                         (ToolCall("lookup", effect_proof="audit:one"),),
                         graph_events=("tool.call", "tool.result")),
+            request.evaluation_run_id,
         )
         attested = self.signer.sign(env, key_id="runtime-01")
         return replace(attested, signature_hex="a"*64) if self.forged else attested
@@ -64,3 +65,24 @@ def test_signature_binds_owning_tenant():
     attested = v.sign(env, key_id="runtime-01")
     with pytest.raises(InvalidEvidence):
         v.verify(replace(attested, envelope=replace(env, tenant_id="tenant-b")))
+
+
+def test_old_signed_evaluation_run_cannot_be_replayed_as_new_acceptance():
+    owner, _, request = prepared()
+    signer = HmacEvidenceVerifier({"runtime-01": b"a" * 32})
+    vault = DatasetVault()
+    vault.register(owner, Dataset("a", "gold-v1", "holdout", (
+        Case("c1", {"ok": True}, ("lookup",), ("audit:one",)),)))
+
+    class ReplayCollector(SignedCollector):
+        def collect(self, request, case):
+            valid = super().collect(request, case)
+            obsolete = replace(valid.envelope, evaluation_run_id="previous-run")
+            return signer.sign(obsolete, key_id="runtime-01")
+
+    workflow = EvaluationWorkflow(vault, ReplayCollector(signer),
+                                  verifier=signer, require_attestation=True)
+    workflow.submit(owner, request)
+    result = workflow.process(owner, request.evaluation_run_id)
+    assert result.status == "BLOCKED"
+    assert result.error_code == "INVALID_EXECUTION_EVIDENCE"
