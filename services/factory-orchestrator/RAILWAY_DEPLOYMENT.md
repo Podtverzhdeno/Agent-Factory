@@ -115,3 +115,41 @@ ended in **FAILED**:
 - This historical result does **not** attest the current GitHub branch,
   which has advanced since this Railway build. Fresh immutable-SHA smoke plus
   independent PostgreSQL Testcontainers are mandatory.
+
+## Verified Railway smoke build — 0f960966
+
+Build `edf72f3f-6262-4c44-ab21-af6316be6b31` in project `adequate-respect`
+successfully deployed commit `0f960966fe79f340d9f862d7462fe7e21b06eb01`
+from `agent/01-control-plane`:
+
+| Maven JUnit suite | Tests | Failures | Errors | Skipped |
+| --- | ---: | ---: | ---: | ---: |
+| RemoteHttpIntegrationTest | 9 | 0 | 0 | 0 |
+| ControlPlaneComponentSuiteTest | 4 | 0 | 0 | 0 |
+| ControlPlaneSecurityTest | 7 | 0 | 0 | 0 |
+| JdbcPersistenceIntegrationTest | 14 | 0 | 0 | 0 |
+| **Total** | **34** | **0** | **0** | **0** |
+
+The four component JUnit methods invoke the independent domain checks; the
+source at this immutable commit still includes **48** domain scenarios.
+
+`Dockerfile.railway-smoke` installs **actual, disposable PostgreSQL** inside
+its image build layer, starts `pg_ctlcluster`, creates localhost
+`control_plane_test`, and executes Maven `clean verify` with
+`CONTROL_PLANE_TEST_JDBC_URL=jdbc:postgresql://127.0.0.1:5432/control_plane_test`.
+`JdbcPersistenceIntegrationTest` checks that only a localhost URL ending in
+`/control_plane_test` can be used; it runs migrations and real JDBC operations.
+The smoke build finally runs `verify-surefire.py` and removes the test-only DB
+on completion. This **does not test the staged Railway-managed Postgres service**,
+which remains unprovisioned.
+
+Railway runtime logs confirm Spring Boot 3.5.6 / Java 21 started as unprivileged
+UID 10001 with `railway-smoke` profile and bound port 8080. The
+`/healthz` check passed according to the successful deployment. No public
+domain was present in the subsequent service inspection, and no live external
+Builder/Evaluation/GEPARD or production JWT verifier was demonstrated.
+
+**Acceptance caveat:** the shared PR branch has continued to advance after
+`0f960966`. Its latest head is **not** proven by this previous smoke build,
+and owner ADR-0002, external live E2E, and production database persistence
+remain open.
