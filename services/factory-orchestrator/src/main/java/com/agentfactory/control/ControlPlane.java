@@ -131,6 +131,7 @@ public final class ControlPlane {
     }
 
     public Workflow.View onBuild(Principal actor, BuildFinished event) {
+        require(event != null, "INVALID_EVENT");
         verifyEventActor(actor,event.header(),"factory:events:build");
         Header h=event.header();
         return ledger.transact(h.tenantId(),h.workflowId(),w -> {
@@ -159,6 +160,7 @@ public final class ControlPlane {
     }
 
     public Workflow.View onEvaluation(Principal actor, EvaluationFinished event) {
+        require(event != null, "INVALID_EVENT");
         verifyEventActor(actor,event.header(),"factory:events:evaluation");
         Header h=event.header();
         boolean[] processed={false};
@@ -217,6 +219,7 @@ public final class ControlPlane {
     }
 
     public Workflow.View onOptimization(Principal actor, OptimizationFinished event) {
+        require(event != null, "INVALID_EVENT");
         verifyEventActor(actor,event.header(),"factory:events:optimization");
         Header h=event.header();
         return ledger.transact(h.tenantId(),h.workflowId(),w -> {
@@ -273,6 +276,7 @@ public final class ControlPlane {
 
     /** Separately authorized Soup completion; never promotes without fresh independent evaluation. */
     public Workflow.View onSoup(Principal actor, SoupFinished event) {
+        require(event != null, "INVALID_EVENT");
         verifyEventActor(actor,event.header(),"factory:events:soup");
         Header h=event.header();
         return ledger.transact(h.tenantId(),h.workflowId(),w -> {
