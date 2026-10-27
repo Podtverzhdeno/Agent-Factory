@@ -162,7 +162,8 @@ def test_benchmark_cheaper_verified_noninferior():
     from quality_engine import BenchmarkEvidence
     evidence = BenchmarkEvidence("tenant-a", "dataset-v1", "sha256:holdout", "holdout",
                                  "trace:baseline", "trace:candidate")
-    r = BenchmarkEngine().compare(p, c, b, runs, BenchmarkPolicy(), evidence=evidence)
+    r = BenchmarkEngine(evidence_verifier=lambda ref: ref.dataset_version_ref == "dataset-v1").compare(
+        p, c, b, runs, BenchmarkPolicy(), evidence=evidence)
     assert r.status == "PASSED"
     assert 0 < r.loss_upper_bound < 0.05
     assert r.candidate_cost_per_success < r.baseline_cost_per_success
@@ -380,3 +381,15 @@ def test_benchmark_validates_absolute_quality_floor():
     with pytest.raises(ValueError):
         BenchmarkEngine().compare(p, c, baseline, cheaper,
                                   BenchmarkPolicy(min_absolute_success_rate=1.5))
+
+
+def test_model_benchmark_does_not_accept_forged_holdout_reference():
+    p, c, b, runs = models()
+    from quality_engine import BenchmarkEvidence
+    forged = BenchmarkEvidence("a", "holdout", "fake-digest", "holdout", "trace:1", "trace:2")
+    result = BenchmarkEngine().compare(p, c, b, runs, BenchmarkPolicy(), evidence=forged)
+    assert result.status == "INCONCLUSIVE"
+    assert "INDEPENDENT_DATASET_NOT_VERIFIED" in result.reasons
+    rejected = BenchmarkEngine(evidence_verifier=lambda ev: False).compare(
+        p, c, b, runs, BenchmarkPolicy(), evidence=forged)
+    assert rejected.status == "INCONCLUSIVE"
