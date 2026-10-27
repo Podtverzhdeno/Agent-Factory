@@ -14,6 +14,7 @@ from xml.etree import ElementTree
 # deliberately conservative; a reduced test suite must trigger a review.
 REQUIRED = {
     "ControlPlaneComponentSuiteTest": 4,
+    "ControlPlaneTelemetryTest": 9,
     "ControlPlaneSecurityTest": 9,
     "JdbcPersistenceIntegrationTest": 19,
     "JdbcSpringWiringIntegrationTest": 4,
