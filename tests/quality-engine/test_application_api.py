@@ -28,7 +28,7 @@ class FakeEvidenceCollector:
                                   graph_events=("tool.call", "tool.result"))
         return EvidenceEnvelope(request.tenant_id, request.agent_spec_digest,
                                 request.dataset_version_ref, case.case_id,
-                                "trace://signed-reference", observation)
+                                "trace://signed-reference", observation, request.evaluation_run_id)
 
 
 @pytest.fixture
