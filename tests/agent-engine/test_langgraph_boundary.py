@@ -56,3 +56,4 @@ async def test_fresh_graph_turn_resets_old_terminal_state_and_preserves_thread_c
                                       {'role':'user','content':'new'}]
     assert graph.received['steps']==0 and graph.received['cost_usd']==0
     assert graph.received['pending_tool']=='' and graph.received['terminal_error'] is None
+    assert graph.received['result'] == {}

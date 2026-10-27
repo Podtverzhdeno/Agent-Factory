@@ -166,7 +166,7 @@ async def invoke_graph(graph, runtime, spec, *, tenant_id: str, thread_id: str,
         state = {'tenant_id': tenant_id, 'thread_id': thread_id, 'run_id': run_id,
                  'request': request, 'trace_id': trace_id, 'history': history,
                  'steps': 0, 'cost_usd': 0.0, 'effects': [], 'pending_tool': '',
-                 'pending_args': {}, 'terminal_error': None, 'answer': ''}
+                 'pending_args': {}, 'terminal_error': None, 'answer': '', 'result': {}}
         final = await graph.ainvoke(
             state, config={'configurable': {'thread_id': checkpoint_id}})
         if not isinstance(final, dict) or not isinstance(final.get('result'), dict):
