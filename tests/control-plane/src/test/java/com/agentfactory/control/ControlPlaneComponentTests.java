@@ -111,6 +111,18 @@ public final class ControlPlaneComponentTests {
             check(f.eval(true,false,true,AgentStore.Risk.LOW,SPEC1,"0.1").state()==Workflow.State.RELEASED);
             check(f.store.active(TENANT,"agent-01").isPresent());
         });
+        test("AF-REQ-014 auto release and Evaluation commit as one revision",()->{
+            Fixture f=new Fixture();f.auto=true;f.start();f.build();
+            check(f.dispatcher.dispatchPending()==1);
+            long before=f.get().revision();
+            Workflow.View result=f.eval(true,false,true,AgentStore.Risk.LOW,SPEC1,"0.1");
+            check(result.state()==Workflow.State.RELEASED);
+            check(result.revision()==before+1);
+            check(f.get().revision()==result.revision());
+            check(f.store.active(TENANT,"agent-01").isPresent());
+            check(f.store.history(TENANT,"agent-01").stream()
+                .filter(t -> t.to()==AgentStore.Channel.RELEASED).count()==1);
+        });
         test("AF-REQ-009 critical safety veto blocks permanently",()->{
             Fixture f=new Fixture();f.auto=true;f.start();f.build();
             check(f.eval(false,true,true,AgentStore.Risk.LOW,SPEC1,"0.1").state()==Workflow.State.BLOCKED);
