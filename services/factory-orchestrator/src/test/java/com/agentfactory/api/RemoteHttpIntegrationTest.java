@@ -39,6 +39,7 @@ final class RemoteHttpIntegrationTest {
         final String receiptId;
         volatile boolean forgedOperationId;
         volatile boolean forgedEvaluationRunId;
+        volatile boolean forgedEvaluationTenant;
         volatile boolean oversizedReceipt;
         RemoteStub(String path,String receiptId) throws Exception {
             this.path=path;this.receiptId=receiptId;
@@ -55,6 +56,8 @@ final class RemoteHttpIntegrationTest {
                     if(forgedEvaluationRunId) receiptValue="wrong-run-id";
                     if(oversizedReceipt) receiptValue="x".repeat(9_000);
                     String response="{\""+receiptId+"\":\""+receiptValue+"\",\"status\":\"QUEUED\""+
+                        ("evaluation_run_id".equals(receiptId)?
+                            ",\"tenant_id\":\""+(forgedEvaluationTenant?"foreign-tenant":"tenant-a")+"\"":"")+
                         (forgedOperationId?",\"operation_id\":\"wrong-operation\"":"")+"}";
                     byte[] body=response.getBytes(StandardCharsets.UTF_8);
                     exchange.getResponseHeaders().set("Content-Type","application/json");
@@ -153,6 +156,19 @@ final class RemoteHttpIntegrationTest {
             assertTrue(store.active(TENANT,"agent-01").isPresent());
         }
     }
+    @Test void rejectEvaluationReceiptForAnotherTenant() throws Exception {
+        try(RemoteStub evaluator=new RemoteStub("/internal/evaluations","evaluation_run_id")) {
+            evaluator.forgedEvaluationTenant=true;
+            var command=new Protocol.EvaluationCommand(TENANT,"wf-01","eval-request-tenant-01",
+                "artifact://agents/first",HASH,HASH,"artifact://datasets/v1",
+                "artifact://policies/v1","control:eval-tenant-01","corr-01");
+            var error=assertThrows(Protocol.RemoteCommandFailure.class,()->
+                RemoteHttpClients.evaluator(evaluator.transport("evaluation")).submit(command));
+            assertEquals("REMOTE_RECEIPT_MISMATCH",error.getMessage());
+            assertFalse(error.retryable());
+        }
+    }
+
     @Test void rejectEvaluationReceiptForAnotherRunId() throws Exception {
         try(RemoteStub evaluator=new RemoteStub("/internal/evaluations","evaluation_run_id")) {
             evaluator.forgedEvaluationRunId=true;
