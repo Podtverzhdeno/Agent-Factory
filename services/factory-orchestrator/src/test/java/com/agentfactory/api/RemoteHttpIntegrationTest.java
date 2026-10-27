@@ -212,6 +212,71 @@ final class RemoteHttpIntegrationTest {
         }
     }
 
+
+    @Test void non202SuccessOrRedirectDoesNotRetryExternalSideEffects() throws Exception {
+        for(int statusCode : List.of(200,302)) {
+            HttpServer server=HttpServer.create(new InetSocketAddress("127.0.0.1",0),0);
+            var attempts=new java.util.concurrent.atomic.AtomicInteger();
+            server.createContext("/internal/builds", exchange -> {
+                attempts.incrementAndGet();
+                if(statusCode==302) {
+                    // A redirect must never make a credentialled second request.
+                    exchange.getResponseHeaders().set("Location","http://169.254.169.254/latest/meta-data/");
+                    exchange.sendResponseHeaders(302,-1);
+                } else {
+                    byte[] receipt="{\\"build_id\\":\\"external-id\\",\\"status\\":\\"QUEUED\\"}"
+                        .getBytes(StandardCharsets.UTF_8);
+                    exchange.getResponseHeaders().set("Content-Type","application/json");
+                    exchange.sendResponseHeaders(200,receipt.length);
+                    exchange.getResponseBody().write(receipt);
+                }
+                exchange.close();
+            });
+            server.start();
+            try {
+                var transport=new RemoteHttpClients.Transport("builder",
+                    URI.create("http://127.0.0.1:"+server.getAddress().getPort()),
+                    Set.of("127.0.0.1"),true,
+                    (service,tenant)->"synthetic-test-token",new ObjectMapper());
+                var command=new Protocol.BuildCommand(TENANT,"wf-01","snapshot-01",
+                    HASH,"operation-01","idempotency-01","correlation-01","artifact://policy/v1");
+                var error=assertThrows(Protocol.RemoteCommandFailure.class,()->
+                    RemoteHttpClients.builder(transport).submit(command));
+                assertEquals("REMOTE_COMMAND_REJECTED",error.getMessage());
+                assertFalse(error.retryable());
+                assertEquals(1,attempts.get());
+            } finally { server.stop(0); }
+        }
+    }
+
+    @Test void http202WithoutJsonMediaTypeCannotAcknowledgeCommand() throws Exception {
+        HttpServer server=HttpServer.create(new InetSocketAddress("127.0.0.1",0),0);
+        var attempts=new java.util.concurrent.atomic.AtomicInteger();
+        server.createContext("/internal/builds", exchange -> {
+            attempts.incrementAndGet();
+            byte[] receipt="{\\"build_id\\":\\"external-id\\",\\"status\\":\\"QUEUED\\"}"
+                .getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().set("Content-Type","text/plain");
+            exchange.sendResponseHeaders(202,receipt.length);
+            exchange.getResponseBody().write(receipt);
+            exchange.close();
+        });
+        server.start();
+        try {
+            var transport=new RemoteHttpClients.Transport("builder",
+                URI.create("http://127.0.0.1:"+server.getAddress().getPort()),
+                Set.of("127.0.0.1"),true,
+                (service,tenant)->"synthetic-test-token",new ObjectMapper());
+            var command=new Protocol.BuildCommand(TENANT,"wf-01","snapshot-01",
+                HASH,"operation-01","idempotency-01","correlation-01","artifact://policy/v1");
+            var error=assertThrows(Protocol.RemoteCommandFailure.class,()->
+                RemoteHttpClients.builder(transport).submit(command));
+            assertEquals("REMOTE_RECEIPT_INVALID",error.getMessage());
+            assertFalse(error.retryable());
+            assertEquals(1,attempts.get());
+        } finally { server.stop(0); }
+    }
+
     @Test void unavailableHttpReplyIsRetryableWithoutAutomaticRepetition() throws Exception {
         HttpServer unavailable=HttpServer.create(new InetSocketAddress("127.0.0.1",0),0);
         var deliveries=new java.util.concurrent.atomic.AtomicInteger();
