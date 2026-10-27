@@ -82,6 +82,11 @@ public final class RemoteHttpClients {
                     catch(Exception e) { throw new IllegalStateException("REMOTE_RECEIPT_INVALID",e); }
                     if(body==null || body.path(acceptedIdField).asText("").isBlank())
                         throw new IllegalStateException("REMOTE_RECEIPT_INVALID");
+                    // v0.1 services may return a separate build/evaluation ID. If an
+                    // operation_id is also echoed, it must match this exact command.
+                    if (body.hasNonNull("operation_id") &&
+                        !operationId.equals(body.path("operation_id").asText("")))
+                        throw new IllegalStateException("REMOTE_RECEIPT_MISMATCH");
                     String remoteStatus=body.path("status").asText("");
                     if(!Set.of("QUEUED","RUNNING","ACCEPTED").contains(remoteStatus.toUpperCase(Locale.ROOT)))
                         throw new IllegalStateException("REMOTE_RECEIPT_INVALID");
