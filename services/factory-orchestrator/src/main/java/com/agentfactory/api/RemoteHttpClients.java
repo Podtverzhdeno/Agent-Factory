@@ -114,11 +114,7 @@ public final class RemoteHttpClients {
         // Evaluation workstream 05 exposes a strict Pydantic DTO (extra=forbid).
         // evaluation_run_id is caller-assigned and must be echoed in the receipt.
         return c -> transport.submit("/internal/evaluations",c.tenantId(),c.idempotencyKey(),
-            c.correlationId(),c.operationId(),Map.of(
-                "tenant_id",c.tenantId(),"agent_spec_ref",c.specRef(),
-                "agent_spec_digest",c.specDigest(),"dataset_version_ref",c.datasetRef(),
-                "policy_ref",c.policyRef(),"idempotency_key",c.idempotencyKey(),
-                "evaluation_run_id",c.operationId()),"evaluation_run_id");
+            c.correlationId(),c.operationId(),EvaluationHttpPayload.from(c),"evaluation_run_id");
     }
 
     public static Ports.OptimizationClient optimizer(Transport transport) {
