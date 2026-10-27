@@ -50,12 +50,19 @@ public interface AgentStore {
 
     record Rollback(String rolledBackSpecDigest, Optional<Version> restored) { }
 
+    /** Append-only version transitions retain release provenance independently of the current channel. */
+    record Transition(long version, Channel from, Channel to, String operationId,
+                      String evidenceRunId, Set<String> approvalScopes) {
+        public Transition { approvalScopes = Set.copyOf(approvalScopes); }
+    }
+
     Version registerCandidate(Metadata metadata, String idempotencyKey);
     Version promote(String tenantId, String agentId, long version, String idempotencyKey,
                     Set<String> approvals, boolean allowLowRiskAuto);
     Rollback rollback(String tenantId, String agentId, long version, String idempotencyKey);
     Optional<Version> active(String tenantId, String agentId);
     List<Version> versions(String tenantId, String agentId);
+    List<Transition> history(String tenantId, String agentId);
 
     static boolean filled(String s) { return s != null && !s.isBlank(); }
     static boolean hash(String s) { return s != null && s.matches("sha256:[0-9a-f]{64}"); }
