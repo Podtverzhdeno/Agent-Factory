@@ -83,3 +83,34 @@ async def test_external_release_revocation_takes_effect_without_restart():
         assert (await client.get('/',headers={'Authorization':'Bearer good'})).status_code==200
         releases[('buyer',spec.artifact_digest)]=False
         assert (await client.get('/',headers={'Authorization':'Bearer good'})).status_code==403
+
+@pytest.mark.asyncio
+async def test_a2a_invalid_identity_resolver_response_fails_closed():
+    app = make_app()
+    app.authenticate = lambda token: {'tenant_id': 'buyer', 'principal': 'trusted'}
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),
+                                 base_url='http://example.test') as client:
+        response = await client.get('/', headers={'Authorization': 'Bearer good'})
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_a2a_release_service_failure_fails_closed():
+    app = make_app()
+    app.boundary.authorize_request = lambda **kwargs: (_ for _ in ()).throw(
+        RuntimeError('private internal error'))
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),
+                                 base_url='http://example.test') as client:
+        response = await client.get('/', headers={'Authorization': 'Bearer good'})
+    assert response.status_code == 403
+    assert 'private' not in response.text
+
+
+@pytest.mark.asyncio
+async def test_a2a_rejects_duplicate_authorization_headers():
+    app = make_app()
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),
+                                 base_url='http://example.test') as client:
+        response = await client.get('/', headers=[('Authorization', 'Bearer good'),
+                                                   ('Authorization', 'Bearer good')])
+    assert response.status_code == 401

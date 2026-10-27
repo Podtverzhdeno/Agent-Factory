@@ -42,7 +42,8 @@ class AuthenticatedA2AASGI:
             raise RuntimeDenied('A2A_HTTP_ONLY')
         authorization = [value for key, value in scope.get('headers', [])
                          if key.lower() == b'authorization']
-        if len(authorization) != 1 or not authorization[0].startswith(b'Bearer '):
+        if (len(authorization) != 1 or len(authorization[0]) > 4103
+                or not authorization[0].startswith(b'Bearer ')):
             await self._deny(send, 401)
             return
         try:
@@ -50,13 +51,14 @@ class AuthenticatedA2AASGI:
             identity = self.authenticate(token) if token else None
         except Exception:
             identity = None
-        if identity is None or not identity.tenant_id or not identity.principal:
+        if not isinstance(identity, A2AIdentity) or not identity.tenant_id or not identity.principal:
             await self._deny(send, 401)
             return
         try:
             self.boundary.authorize_request(tenant_id=identity.tenant_id,
                 principal=identity.principal, spec=self.spec)
-        except RuntimeDenied:
+        except Exception:
+            # Identity and release authorities are external dependencies. Fail closed.
             await self._deny(send, 403)
             return
         marker = _active_identity.set(identity)
