@@ -15,6 +15,12 @@
   <plugin><groupId>org.codehaus.mojo</groupId><artifactId>build-helper-maven-plugin</artifactId><version>3.6.1</version>
    <executions><execution><id>agent-store-module-source</id><phase>generate-sources</phase><goals><goal>add-source</goal></goals>
     <configuration><sources><source>${project.basedir}/../agent-store/src/main/java</source></sources></configuration>
+   </execution>
+   <execution>
+    <id>control-plane-component-tests</id>
+    <phase>generate-test-sources</phase>
+    <goals><goal>add-test-source</goal></goals>
+    <configuration><sources><source>${project.basedir}/../../tests/control-plane/src/test/java</source></sources></configuration>
    </execution></executions>
   </plugin>
   <plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId></plugin>
