@@ -21,7 +21,10 @@ public final class OutboxDispatcher {
         for (Ports.Key key : ledger.withUndeliveredActions()) {
             Workflow w = ledger.get(key.tenantId(),key.workflowId());
             for (Workflow.Action action : w.actions) {
-                if (action.delivered || action.attempts>=5) continue;
+                // Never send historical work after a transition or terminal decision.
+                if (action.delivered || action.attempts>=5 ||
+                    !Objects.equals(w.pendingOperationId,action.operationId) ||
+                    !matchesPhase(w.state,action.type)) continue;
                 // The call is outside the DB transaction. Replay requires an idempotent receiver.
                 try {
                     Protocol.CommandReceipt receipt = deliver(w,action);
@@ -51,6 +54,14 @@ public final class OutboxDispatcher {
             }
         }
         return delivered.get();
+    }
+    private static boolean matchesPhase(Workflow.State state, Workflow.ActionType type) {
+        return switch (type) {
+            case BUILD -> state==Workflow.State.BUILDING;
+            case EVALUATE -> state==Workflow.State.TESTING || state==Workflow.State.RE_TESTING;
+            case OPTIMIZE -> state==Workflow.State.OPTIMIZING;
+            case SOUP -> state==Workflow.State.TRAINING;
+        };
     }
     private Protocol.CommandReceipt deliver(Workflow w, Workflow.Action a) {
         return switch (a.type) {
