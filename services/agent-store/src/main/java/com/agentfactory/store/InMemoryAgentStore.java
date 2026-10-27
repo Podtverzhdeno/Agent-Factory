@@ -4,19 +4,23 @@ import java.util.*;
 
 /** Deterministic mock-backed adapter; not a durable production repository. */
 public final class InMemoryAgentStore implements AgentStore {
-    private final Map<String, List<Version>> catalogue = new HashMap<>();
-    private final Map<String, Object> operationFingerprints = new HashMap<>();
-    private final Map<String, Version> operationVersions = new HashMap<>();
-    private final Map<String, Rollback> rollbacks = new HashMap<>();
-    private final Map<String, List<Transition>> transitions = new HashMap<>();
+    private record AgentKey(String tenantId, String agentId) { }
+    private record OperationKey(String tenantId, String kind, String idempotencyKey) { }
+    private final Map<AgentKey, List<Version>> catalogue = new HashMap<>();
+    private final Map<OperationKey, Object> operationFingerprints = new HashMap<>();
+    private final Map<OperationKey, Version> operationVersions = new HashMap<>();
+    private final Map<OperationKey, Rollback> rollbacks = new HashMap<>();
+    private final Map<AgentKey, List<Transition>> transitions = new HashMap<>();
     private void record(String tenant, String agent, long version, Channel from, Channel to,
                         String operation, String evaluationRun, Set<String> approvals) {
         transitions.computeIfAbsent(key(tenant,agent), ignored -> new ArrayList<>())
             .add(new Transition(version,from,to,operation,evaluationRun,approvals));
     }
 
-    private static String key(String tenant, String agent) { return tenant + "\u001f" + agent; }
-    private static String op(String tenant, String operation) { return tenant + "\u001f" + operation; }
+    private static AgentKey key(String tenant, String agent) { return new AgentKey(tenant, agent); }
+    private static OperationKey op(String tenant, String kind, String operation) {
+        return new OperationKey(tenant, kind, operation);
+    }
     private static void require(boolean condition, String message) {
         if (!condition) throw new IllegalStateException(message);
     }
@@ -24,7 +28,7 @@ public final class InMemoryAgentStore implements AgentStore {
     @Override public synchronized Version registerCandidate(Metadata m, String key) {
         Objects.requireNonNull(m, "metadata");
         Objects.requireNonNull(key, "idempotencyKey");
-        String op = op(m.tenantId(), "candidate:" + key);
+        OperationKey op = op(m.tenantId(), "candidate", key);
         Metadata fingerprint = m;
         if (operationVersions.containsKey(op)) {
             require(Objects.equals(operationFingerprints.get(op), fingerprint), "IDEMPOTENCY_CONFLICT");
@@ -47,7 +51,7 @@ public final class InMemoryAgentStore implements AgentStore {
     @Override public synchronized Version promote(String tenant, String agent, long version,
                                                    String operation, Set<String> approvals, boolean auto) {
         Objects.requireNonNull(approvals, "approvals");
-        String op = op(tenant, "promote:" + operation);
+        OperationKey op = op(tenant, "promote", operation);
         Object fp = List.of(agent, version, auto, Set.copyOf(approvals));
         if (operationVersions.containsKey(op)) {
             require(Objects.equals(operationFingerprints.get(op), fp), "IDEMPOTENCY_CONFLICT");
@@ -81,7 +85,7 @@ public final class InMemoryAgentStore implements AgentStore {
     }
 
     @Override public synchronized Rollback rollback(String tenant, String agent, long version, String operation) {
-        String op = op(tenant, "rollback:" + operation);
+        OperationKey op = op(tenant, "rollback", operation);
         Object fp = List.of(agent, version);
         if (rollbacks.containsKey(op)) {
             require(Objects.equals(operationFingerprints.get(op), fp), "IDEMPOTENCY_CONFLICT");
