@@ -32,7 +32,7 @@ def bilateral_specs():
 
 @pytest.mark.asyncio
 async def test_bilateral_scenario_two_independent_tenant_pinned_agents():
-    _, _buyer, supplier = bilateral_specs()
+    _, buyer, supplier = bilateral_specs()
     assert buyer.tenant_id == 'buyer' and supplier.tenant_id == 'supplier'
     assert buyer.agent_id != supplier.agent_id
     assert buyer.artifact_digest != supplier.artifact_digest
@@ -73,7 +73,7 @@ async def test_bilateral_scenario_two_independent_tenant_pinned_agents():
 
 @pytest.mark.asyncio
 async def test_bilateral_scenario_cross_tenant_runtime_and_a2a_denied():
-    _, buyer, supplier = bilateral_specs()
+    _, _buyer, supplier = bilateral_specs()
     supplier_runtime, tools = invoke(supplier, [
         Decision(kind='tool', tool_id='supplier.stock', args={})])
     with pytest.raises(RuntimeDenied, match='TENANT_DENIED'):
