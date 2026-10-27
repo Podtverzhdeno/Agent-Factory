@@ -118,3 +118,24 @@ operations delivered if an HTTP acceptance arrived after the workflow changed st
   fifth-failure/deadline race under PostgreSQL.
 - The current GitHub head's complete suite, Maven/Spring and Docker-based PostgreSQL
   runs remain **UNVERIFIED**. No claim of production readiness follows.
+
+## Atomic auto-release hardening
+
+The low-risk Evaluation completion now calls the release gate **inside the same
+`WorkflowLedger.transact` callback** as inbox acknowledgment and candidate
+registration. With a shared `JdbcTransactionScope`, workflow revision, candidate
+creation and AgentStore promotion either commit together or roll back together.
+Manual release/rollback store their accepted idempotency operation IDs in the
+workflow snapshot and reject replays using a different key.
+
+Regression tests added:
+- `ControlPlaneComponentTests`: auto-release increments exactly one workflow
+  revision (and does not duplicate a RELEASED transition)
+- `JdbcPersistenceIntegrationTest`: a new adapter instance sees the released
+  version and rejects replay with a different release key
+- `JdbcPersistenceIntegrationTest`: injected exception after an actual JDBC
+  AgentStore promotion forces rollback of Evaluation and candidate, then an exact
+  event replay succeeds after creating fresh adapters
+
+These new regressions are **committed but not executed** in this environment;
+Maven/PostgreSQL acceptance still requires a Docker-capable CI host.
