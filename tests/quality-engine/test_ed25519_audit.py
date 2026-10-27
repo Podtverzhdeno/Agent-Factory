@@ -49,3 +49,23 @@ def test_cross_tenant_key_reuse_is_denied_even_when_signature_valid():
     evaluator = Ed25519EvidenceVerifier({"audit-key-1": RuntimeAuditPublicKey("a", key.public_key())})
     with pytest.raises(InvalidEvidence):
         evaluator.verify(make_claim(key, tenant="b"))
+
+
+def test_signer_revocation_rechecked_at_verification_time():
+    key = Ed25519PrivateKey.generate()
+    active_keys = {"audit-key-1": RuntimeAuditPublicKey("a", key.public_key())}
+    verifier = Ed25519EvidenceVerifier(active_keys, resolver=active_keys.get)
+    signed = make_claim(key)
+    assert verifier.verify(signed).tenant_id == "a"
+    active_keys["audit-key-1"] = RuntimeAuditPublicKey("a", key.public_key(), revoked=True)
+    with pytest.raises(InvalidEvidence, match="revoked"):
+        verifier.verify(signed)
+
+
+def test_expired_signer_is_denied_even_with_valid_signature():
+    key = Ed25519PrivateKey.generate()
+    verifier = Ed25519EvidenceVerifier({
+        "audit-key-1": RuntimeAuditPublicKey("a", key.public_key(), valid_from=10, valid_until=20),
+    }, clock=lambda: 25)
+    with pytest.raises(InvalidEvidence, match="validity"):
+        verifier.verify(make_claim(key))
