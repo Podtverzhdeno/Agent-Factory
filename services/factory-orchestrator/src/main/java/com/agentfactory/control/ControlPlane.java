@@ -80,8 +80,8 @@ public final class ControlPlane {
     private boolean sameEvent(Workflow w, Header h, Object event) {
         require(h != null && "0.1".equals(h.schemaVersion()) && AgentStore.filled(h.eventId()) &&
             AgentStore.filled(h.operationId()) && AgentStore.filled(h.correlationId()) &&
-            h.occurredAt()!=null && h.tenantId().equals(w.tenantId) &&
-            h.workflowId().equals(w.workflowId) && h.correlationId().equals(w.correlationId), "INVALID_EVENT_HEADER");
+            h.occurredAt()!=null && Objects.equals(h.tenantId(),w.tenantId) &&
+            Objects.equals(h.workflowId(),w.workflowId) && Objects.equals(h.correlationId(),w.correlationId), "INVALID_EVENT_HEADER");
         String fingerprint = event.toString();
         String existing = w.inbox.get(h.eventId());
         if (existing != null) {
@@ -119,7 +119,10 @@ public final class ControlPlane {
         return true;
     }
     private void verifyEventActor(Principal actor, Header h, String scope) {
-        require(h != null && AgentStore.filled(h.tenantId()), "INVALID_EVENT_HEADER");
+        require(h != null && AgentStore.filled(h.tenantId()) &&
+            AgentStore.filled(h.workflowId()) && AgentStore.filled(h.correlationId()) &&
+            AgentStore.filled(h.operationId()) && AgentStore.filled(h.eventId()) &&
+            "0.1".equals(h.schemaVersion()) && h.occurredAt()!=null, "INVALID_EVENT_HEADER");
         authorize(actor, h.tenantId(), scope);
     }
 
