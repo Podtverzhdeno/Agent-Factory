@@ -4,4 +4,4 @@ from .datasets import Case, Dataset, DatasetVault
 from .evaluation import (ToolCall, MemoryRead, ObservedRun, EvaluationPolicy, EvaluationRequest,
                          Finding, EvaluationResult, EvaluationEngine)
 from .model_benchmark import (ModelProfile, ModelRun, BenchmarkPolicy,
-                              BenchmarkResult, BenchmarkEngine)
+                              BenchmarkResult, BenchmarkEvidence, BenchmarkEngine)
