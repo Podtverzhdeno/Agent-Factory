@@ -224,7 +224,7 @@ final class RemoteHttpIntegrationTest {
                     exchange.getResponseHeaders().set("Location","http://169.254.169.254/latest/meta-data/");
                     exchange.sendResponseHeaders(302,-1);
                 } else {
-                    byte[] receipt="{\\"build_id\\":\\"external-id\\",\\"status\\":\\"QUEUED\\"}"
+                    byte[] receipt="{\"build_id\":\"external-id\",\"status\":\"QUEUED\"}"
                         .getBytes(StandardCharsets.UTF_8);
                     exchange.getResponseHeaders().set("Content-Type","application/json");
                     exchange.sendResponseHeaders(200,receipt.length);
@@ -254,7 +254,7 @@ final class RemoteHttpIntegrationTest {
         var attempts=new java.util.concurrent.atomic.AtomicInteger();
         server.createContext("/internal/builds", exchange -> {
             attempts.incrementAndGet();
-            byte[] receipt="{\\"build_id\\":\\"external-id\\",\\"status\\":\\"QUEUED\\"}"
+            byte[] receipt="{\"build_id\":\"external-id\",\"status\":\"QUEUED\"}"
                 .getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().set("Content-Type","text/plain");
             exchange.sendResponseHeaders(202,receipt.length);
