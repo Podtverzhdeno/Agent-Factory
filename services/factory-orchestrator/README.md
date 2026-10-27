@@ -42,7 +42,7 @@ Current adapters `InMemoryWorkflowLedger` and `InMemoryAgentStore` are **not dur
 
 From repository root: `bash tests/control-plane/run-core-tests.sh`
 
-The script runs `javac -Xlint:all -Werror` followed by an executable Java component suite without external services or Maven, using synthetic fixtures. 26 assertions/scenarios passed locally under OpenJDK 21 on 2026-10-27. No production E2E is claimed.
+The script runs `javac -Xlint:all -Werror` followed by an executable Java component suite without external services or Maven, using synthetic fixtures. A locally mounted subset with 35 scenarios passed under OpenJDK 21 on 2026-10-27; the exact current GitHub PR revision remains unexecuted end-to-end. No production E2E is claimed.
 
 ## Release gates
 
@@ -55,7 +55,7 @@ A candidate must include cryptographically formatted spec/tool/model digests, au
 3. **Upstream clients mocked** — no proof of independent evaluator ACL, sealed holdout, Builder tool correctness, released A2A endpoint or GEPARD gains.
 4. **API not integration-tested** — no local Maven artifacts/cache or running issuer; validate actual Spring Boot build, JWT policy, OpenAPI and load behavior in CI.
 5. **Outbox is at-least-once** — no exactly-once external effects. Concurrent dispatcher leasing, dead-letter handling, durable delivery and typed remote HTTP errors remain.
-6. **Optional Soup completion** — the training command is explicit, but no separate completion/evaluation route has been implemented yet; use only for isolated proof-of-command.
+6. **Optional Soup completion** — the command and typed completion/re-evaluation route exist only with mocks; no real training backend or rights authority has been tested.
 7. **No automatic runtime traffic switch** — publishing `AgentStore.Channel.RELEASED` does not deploy or reload a live Python agent until a separately authorized runtime adapter exists.
 
 For contract changes propose them in this module or PR; do not edit frozen shared specifications. See `tests/control-plane/README.md` for requirement-to-test evidence.
@@ -78,3 +78,11 @@ For contract changes propose them in this module or PR; do not edit frozen share
 - Dispatcher refuses obsolete actions after terminal transitions; it remains at-least-once and needs durable leasing/reconciliation in a ratified design.
 - The REST contract with request/response schemas is in `openapi/control-plane-v0.yaml`.
 - **No current core-suite or Spring/Maven verification claim.** The repository CI only runs SDD checks; execute the suite on the current commit before merge.
+
+## Lifecycle notifications and risk controls
+
+- `LifecycleEventDispatcher` publishes tenant-bound versioned transition notifications through a typed `Ports.OutboxPublisher`. Stable event IDs allow consumer deduplication; acknowledgments are retained in the test ledger. It never triggers Builder.
+- State-change audit and pending notification progress are co-located in the in-memory aggregate. The adapter does **not** provide crash durability or transactional Kafka delivery across processes.
+- Duplicate event payloads are compared structurally rather than by their string presentation.
+- AgentStore rejects HIGH-risk automatic promotion even if the caller supplies a manual approval scope.
+- The local mock-backed 35-test subset passed; **do not** infer full PR Java CI, Spring Boot, or production integration success.
