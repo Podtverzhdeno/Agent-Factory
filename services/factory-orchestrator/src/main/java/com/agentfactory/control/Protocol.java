@@ -27,7 +27,12 @@ public final class Protocol {
     public record BuildFinished(Header header, boolean success, String agentId,
                                 String specRef, String specDigest, Map<String,String> toolDigests,
                                 String modelRouteDigest, String a2aCardRef,
-                                String failureCode, boolean retryable) { }
+                                String failureCode, boolean retryable) {
+        public BuildFinished {
+            // Snapshot before storing as inbox evidence. Map equality is order-independent.
+            if (toolDigests != null) toolDigests = Map.copyOf(toolDigests);
+        }
+    }
     public record EvaluationFinished(Header header, String evaluationRunId, String specDigest,
                                      AgentStore.Evidence evidence, BigDecimal spendUsd,
                                      String failureCode, boolean retryable) { }
