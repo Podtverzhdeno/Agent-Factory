@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+from dataclasses import asdict
 from typing import Any, TypedDict
 
 from agent_builder import digest
@@ -32,7 +33,7 @@ def build_graph(runtime, spec, checkpointer=None):
     Tool ledger must be transactionally durable separately from the graph checkpoint.
     """
     try:
-        from langgraph.graph import StateGraph, START, END
+        from langgraph.graph import END, START, StateGraph
     except ImportError as exc:
         raise RuntimeError('Install langgraph to compile the execution graph') from exc
 
@@ -79,7 +80,7 @@ def build_graph(runtime, spec, checkpointer=None):
                     'pending_tool': ''}
         except RuntimeDenied as exc:
             return {'steps': step, 'history': history, 'terminal_error': exc.code, 'pending_tool': ''}
-        except Exception:
+        except Exception:  # noqa: BLE001 - untrusted model port must fail closed.
             return {'steps': step, 'history': history, 'terminal_error': 'MODEL_UNAVAILABLE', 'pending_tool': ''}
 
     def route_after_decide(state: GraphState) -> str:
@@ -98,7 +99,7 @@ def build_graph(runtime, spec, checkpointer=None):
                     'pending_tool': ''}
         except RuntimeDenied as exc:
             return {'terminal_error': exc.code, 'pending_tool': ''}
-        except Exception:
+        except Exception:  # noqa: BLE001 - unknown external side effect is never replayed.
             return {'terminal_error': 'EXECUTION_UNCERTAIN', 'pending_tool': ''}
 
     def route_after_tool(state: GraphState) -> str:
