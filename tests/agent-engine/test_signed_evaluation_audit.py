@@ -89,7 +89,8 @@ async def test_real_verified_runtime_result_signed_with_quality_exact_schema():
     assert observation["tool_calls"] == [{
         "tool_id": "document.render", "arguments_valid": True,
         "approved": True, "effect_proof": signed["envelope"]["observation"]["tool_calls"][0]["effect_proof"]}]
-    assert observation["tool_calls"][0]["effect_proof"].startswith("sha256:")
+    # A reservation key is not proof of a real ERP effect.
+    assert observation["tool_calls"][0]["effect_proof"] is None
     assert observation["steps"] == 2
     assert observation["graph_events"] == ["final"]
     assert len(tools.called) == 1
