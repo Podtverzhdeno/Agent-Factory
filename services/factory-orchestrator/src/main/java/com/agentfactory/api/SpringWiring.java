@@ -28,6 +28,13 @@ public class SpringWiring {
     @Bean @ConditionalOnMissingBean(Ports.TimeSource.class)
     Ports.TimeSource timeSource() { return Instant::now; }
 
+    @Bean @ConditionalOnMissingBean(Ports.EvidenceVerifier.class)
+    Ports.EvidenceVerifier evidenceVerifier() {
+        return (tenant, run, digest, evidence) -> {
+            throw new IllegalStateException("EVIDENCE_VERIFIER_NOT_CONFIGURED");
+        };
+    }
+
     @Bean @ConditionalOnMissingBean(Ports.ApprovalReader.class)
     Ports.ApprovalReader approvalReader() { return (tenant, workflow, purpose) -> false; }
 
@@ -45,7 +52,8 @@ public class SpringWiring {
     @Bean @ConditionalOnMissingBean(ControlPlane.class)
     ControlPlane controlPlane(Ports.WorkflowLedger ledger, Ports.TaskSnapshotReader reader,
                               Ports.TenantAuthz authz, Ports.ApprovalReader approvals,
-                              Ports.ReleasePolicy releasePolicy, Ports.TimeSource clock, AgentStore store) {
-        return new ControlPlane(ledger, reader, authz, approvals, releasePolicy, clock, store);
+                              Ports.ReleasePolicy releasePolicy, Ports.TimeSource clock, AgentStore store,
+                              Ports.EvidenceVerifier evidenceVerifier) {
+        return new ControlPlane(ledger, reader, authz, approvals, releasePolicy, clock, store, evidenceVerifier);
     }
 }
