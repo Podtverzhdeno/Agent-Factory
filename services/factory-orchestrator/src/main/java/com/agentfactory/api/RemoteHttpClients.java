@@ -82,6 +82,11 @@ public final class RemoteHttpClients {
                     catch(Exception e) { throw new Protocol.RemoteCommandFailure("REMOTE_RECEIPT_INVALID",false); }
                     if(body==null || body.path(acceptedIdField).asText("").isBlank())
                         throw new Protocol.RemoteCommandFailure("REMOTE_RECEIPT_INVALID",false);
+                    // Only Evaluation promises a caller-assigned run ID. Never accept
+                    // a success receipt referencing somebody else's evaluation.
+                    if ("evaluation_run_id".equals(acceptedIdField) &&
+                        !operationId.equals(body.path(acceptedIdField).asText("")))
+                        throw new Protocol.RemoteCommandFailure("REMOTE_RECEIPT_MISMATCH",false);
                     // v0.1 services may return a separate build/evaluation ID. If an
                     // operation_id is also echoed, it must match this exact command.
                     if (body.hasNonNull("operation_id") &&
@@ -105,13 +110,14 @@ public final class RemoteHttpClients {
     }
 
     public static Ports.EvaluationClient evaluator(Transport transport) {
+        // Evaluation workstream 05 exposes a strict Pydantic DTO (extra=forbid).
+        // evaluation_run_id is caller-assigned and must be echoed in the receipt.
         return c -> transport.submit("/internal/evaluations",c.tenantId(),c.idempotencyKey(),
             c.correlationId(),c.operationId(),Map.of(
-                "schema_version","0.1","tenant_id",c.tenantId(),"agent_spec_ref",c.specRef(),
-                "agent_spec_digest",c.specDigest(),"baseline_spec_digest",c.baselineDigest(),
-                "dataset_version_ref",c.datasetRef(),"policy_ref",c.policyRef(),
-                "idempotency_key",c.idempotencyKey(),"correlation_id",c.correlationId(),
-                "operation_id",c.operationId()),"evaluation_run_id");
+                "tenant_id",c.tenantId(),"agent_spec_ref",c.specRef(),
+                "agent_spec_digest",c.specDigest(),"dataset_version_ref",c.datasetRef(),
+                "policy_ref",c.policyRef(),"idempotency_key",c.idempotencyKey(),
+                "evaluation_run_id",c.operationId()),"evaluation_run_id");
     }
 
     public static Ports.OptimizationClient optimizer(Transport transport) {
