@@ -37,13 +37,14 @@ final class RemoteHttpIntegrationTest {
         final List<String> requests=new ArrayList<>();
         final String path;
         final String receiptId;
+        volatile boolean forgedOperationId;
         RemoteStub(String path,String receiptId) throws Exception {
             this.path=path;this.receiptId=receiptId;
             server=HttpServer.create(new InetSocketAddress("127.0.0.1",0),0);
             server.createContext(path,exchange->{
                 try {
                     requests.add(new String(exchange.getRequestBody().readAllBytes(),StandardCharsets.UTF_8));
-                    String response="{\""+receiptId+"\":\"accepted-001\",\"status\":\"QUEUED\"}";
+                    String response="{\""+receiptId+"\":\"accepted-001\",\"status\":\"QUEUED\""+(forgedOperationId?",\"operation_id\":\"wrong-operation\"":"")+"}";
                     byte[] body=response.getBytes(StandardCharsets.UTF_8);
                     exchange.getResponseHeaders().set("Content-Type","application/json");
                     if(!"Bearer synthetic-test-token".equals(exchange.getRequestHeaders().getFirst("Authorization")) ||
@@ -127,6 +128,19 @@ final class RemoteHttpIntegrationTest {
             assertTrue(store.active(TENANT,"agent-01").isPresent());
         }
     }
+    @Test void rejectsReceiptEchoingAnotherOperationId() throws Exception {
+        try(RemoteStub builder=new RemoteStub("/internal/builds","build_id")) {
+            builder.forgedOperationId=true;
+            var command=new Protocol.BuildCommand(TENANT,"wf-01","snapshot-01",
+                HASH,"operation-01","idempotency-01","correlation-01",
+                "artifact://policy/v1");
+            var error=assertThrows(IllegalStateException.class,()->
+                RemoteHttpClients.builder(builder.transport("builder")).submit(command));
+            assertEquals("REMOTE_RECEIPT_MISMATCH",error.getMessage());
+            assertEquals(1,builder.requests.size());
+        }
+    }
+
     @Test void endpointAllowlistDeniesArbitraryOutboundHost() {
         assertThrows(IllegalArgumentException.class,()->new RemoteHttpClients.Transport("builder",
             URI.create("http://169.254.169.254:80"),Set.of("169.254.169.254"),true,
