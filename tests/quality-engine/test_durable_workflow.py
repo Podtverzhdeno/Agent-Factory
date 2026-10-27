@@ -24,7 +24,7 @@ class SignedCollector:
                                  req.dataset_version_ref, case.case_id, "trace://audit",
                                  ObservedRun(case.case_id, {"verified": True},
                                              (ToolCall("catalog.lookup", effect_proof="effect:1"),),
-                                             graph_events=("tool.call", "final")))
+                                             graph_events=("tool.call", "final")), req.evaluation_run_id)
         signed = self.signer.sign(value, key_id="runtime")
         return replace(signed, signature_hex="00"*32) if self.bad else signed
 
@@ -163,7 +163,7 @@ def test_durable_workflow_with_runtime_ed25519_verify_only_key(scenario):
                 case.case_id, "trace://audit",
                 ObservedRun(case.case_id, {"verified": True},
                             (ToolCall("catalog.lookup", effect_proof="effect:1"),),
-                            graph_events=("tool.call", "final")))
+                            graph_events=("tool.call", "final")), req.evaluation_run_id)
             return AttestedEvidence(envelope, "runtime-v1",
                                     private.sign(canonical_evidence(envelope)).hex())
 
