@@ -200,6 +200,12 @@ paths:
     post:
       tags: [Discovery]
       summary: Exact minimum authorized capability cover (registry:lookup)
+      description: >-
+        Autonomous Registry v0 categorically excludes PAYMENT and DESTRUCTIVE
+        operations from agent selection, even when the caller carries a matching
+        scope and the task allows CRITICAL risk. Mixed safe+consequential requests
+        return BLOCKED with no partial selected_tools. Human-approved effectful
+        execution requires a separate, independently reviewed workflow.
       requestBody:
         required: true
         content: {application/json: {schema: {$ref: '#/components/schemas/SelectionRequest'}}}
