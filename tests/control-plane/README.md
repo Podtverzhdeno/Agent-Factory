@@ -111,8 +111,8 @@ operations delivered if an HTTP acceptance arrived after the workflow changed st
   `WorkflowLedger.transact` before either acknowledging a receipt or incrementing
   failures. No-op late callbacks do not count as newly delivered work.
 - `OutboxRaceTests` covers an obsolete fifth failure, an obsolete successful receipt,
-  a Builder failure after moving to Evaluation, and unchanged normal idempotent delivery. **Executed in the mounted Java 21 subset:
-  4/4 PASS** with `javac -Xlint:all -Werror`.
+  a Builder failure after moving to Evaluation, permanent authorization rejection, five bounded transient failures, and unchanged normal idempotent delivery. **Executed in the mounted Java 21 subset:
+  6/6 PASS** with `javac -Xlint:all -Werror`.
 - `JdbcPersistenceIntegrationTest` has new cases for replay after a fresh JDBC instance
   (including fingerprint verification and colliding payload rejection), plus the
   fifth-failure/deadline race under PostgreSQL.
@@ -139,3 +139,20 @@ Regression tests added:
 
 These new regressions are **committed but not executed** in this environment;
 Maven/PostgreSQL acceptance still requires a Docker-capable CI host.
+
+## Remote error taxonomy (2026-10-27)
+
+`Protocol.RemoteCommandFailure` carries explicit `retryable` state.
+`RemoteHttpClients` classifies HTTP 401/403 and malformed/contract-rejected receipts as
+terminal, while network/503 and other temporary service failures remain retryable.
+`OutboxDispatcher` stops a permanent failure immediately and exposes the exact
+non-secret code, without retrying an unauthorized request; transient failures keep
+the bounded five-attempt policy. This classification never bypasses the live
+pending-operation guard added above.
+
+- **Locally executed:** 6/6 `OutboxRaceTests` plus 36/36 mounted domain scenarios,
+  OpenJDK 21, `javac -Xlint:all -Werror`.
+- **Committed but not executed here:** local-HTTP 403 and 503 contract tests added
+  to `RemoteHttpIntegrationTest`, and all PostgreSQL Testcontainers scenarios.
+- **Unverified:** Maven/Spring/JWT integration on current GitHub head,
+  real team 04/05 endpoints and owner approval for ADR-0002.
