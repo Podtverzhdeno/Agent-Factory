@@ -1,4 +1,5 @@
 """Fail closed before an integration gate can touch shared or production data."""
+
 from __future__ import annotations
 
 import os

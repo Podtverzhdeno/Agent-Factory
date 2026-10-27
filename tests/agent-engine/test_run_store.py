@@ -1,4 +1,5 @@
 """Return saved terminal evidence after restart without repeating external effects."""
+
 import pytest
 
 from agent_runtime import (
@@ -9,7 +10,7 @@ from agent_runtime import (
     ToolPolicy,
     VerifiedToolGateway,
 )
-from test_engine import build, FakeTools, manifest, Registry, ScriptedModel, task
+from test_engine import FakeTools, Registry, ScriptedModel, build, manifest, task
 
 
 @pytest.mark.asyncio

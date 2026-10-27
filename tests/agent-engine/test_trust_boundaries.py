@@ -1,8 +1,9 @@
 """Mock journal transitions and user task text are never implicit authority."""
+
 import pytest
 
 from agent_runtime import EffectLedger, RuntimeDenied
-from test_engine import build, manifest, Registry, task
+from test_engine import Registry, build, manifest, task
 
 
 @pytest.mark.asyncio

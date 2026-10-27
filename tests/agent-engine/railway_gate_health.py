@@ -1,4 +1,5 @@
 """Private smoke-test readiness probe, not an Agent Factory API."""
+
 from __future__ import annotations
 
 import json

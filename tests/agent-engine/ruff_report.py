@@ -1,4 +1,5 @@
 """Bound Ruff output without dropping diagnostics or weakening exit status."""
+
 from __future__ import annotations
 
 import collections

@@ -1,4 +1,5 @@
 """Guard source integrity to prevent duplicate/unterminated agent modules."""
+
 from pathlib import Path
 
 import ast
