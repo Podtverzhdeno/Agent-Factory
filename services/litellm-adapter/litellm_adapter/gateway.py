@@ -1,0 +1,58 @@
+"""Typed LiteLLM/OpenAI-compatible proxy adapter. No direct provider credentials."""
+from __future__ import annotations
+import json
+from collections.abc import Callable
+import httpx
+from agent_runtime.core import Decision, RuntimeDenied
+
+class LiteLLMGateway:
+    def __init__(self, *, base_url: str, allowed_routes: frozenset[str],
+                 tenant_key_provider: Callable[[str], str], tenant_id: str,
+                 http_client: httpx.AsyncClient):
+        if not base_url.startswith('https://') and not base_url.startswith('http://127.0.0.1:'):
+            raise ValueError('proxy must use HTTPS (local loopback fake allowed)')
+        self.base_url = base_url.rstrip('/')
+        self.allowed_routes = allowed_routes
+        self.key_provider = tenant_key_provider
+        self.tenant_id = tenant_id
+        self.client = http_client
+
+    async def decide(self, *, route: str, prompt: str, history: list[dict],
+                     tool_ids: tuple[str, ...], trace_id: str) -> Decision:
+        if route not in self.allowed_routes:
+            raise RuntimeDenied('MODEL_DENIED')
+        api_key = self.key_provider(self.tenant_id)
+        if not api_key:
+            raise RuntimeDenied('PROXY_CREDENTIAL_UNAVAILABLE')
+        request = {'model': route, 'messages': [{'role': 'system', 'content': prompt}]
+                   + [{'role': m['role'] if m['role'] in ('user', 'assistant') else 'tool',
+                       'content': m['content']} for m in history],
+                   'temperature': 0, 'response_format': {'type': 'json_object'}}
+        try:
+            response = await self.client.post(self.base_url + '/chat/completions',
+                json=request, headers={'Authorization': 'Bearer ' + api_key,
+                                       'X-Tenant-ID': self.tenant_id,
+                                       'X-Trace-ID': trace_id}, timeout=30)
+            response.raise_for_status()
+            payload = response.json()
+            content = json.loads(payload['choices'][0]['message']['content'])
+            decision = Decision.model_validate(content)
+            if decision.kind == 'tool' and decision.tool_id not in tool_ids:
+                raise RuntimeDenied('TOOL_DENIED')
+            usage = payload.get('usage', {})
+            price = usage.get('cost', usage.get('total_cost'))
+            if price is None:
+                raise RuntimeDenied('MISSING_PROXY_COST')
+            if not isinstance(price, (int, float)) or not (0 <= price < 1000):
+                raise RuntimeDenied('INVALID_PROXY_COST')
+            return decision.model_copy(update={'estimated_usd': float(price)})
+        except RuntimeDenied:
+            raise
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code in (401, 403):
+                raise RuntimeDenied('MODEL_DENIED') from None
+            if exc.response.status_code == 429:
+                raise RuntimeDenied('MODEL_RATE_LIMITED') from None
+            raise RuntimeDenied('PROVIDER_UNAVAILABLE') from None
+        except (httpx.RequestError, ValueError, KeyError, IndexError, TypeError):
+            raise RuntimeDenied('PROVIDER_UNAVAILABLE') from None
