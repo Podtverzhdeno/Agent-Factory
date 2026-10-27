@@ -16,12 +16,20 @@ if ! docker info >/dev/null 2>&1; then
   exit 4
 fi
 
-if [[ -n "${EXPECTED_HEAD_SHA:-}" ]]; then
-  actual_sha="$(git rev-parse HEAD)"
-  if [[ "$actual_sha" != "$EXPECTED_HEAD_SHA" ]]; then
-    echo "ACCEPTANCE FAILED: expected commit $EXPECTED_HEAD_SHA, found $actual_sha" >&2
-    exit 7
-  fi
+# Acceptance evidence is valid only for the owner-reviewed immutable PR SHA.
+# A successful run against an arbitrary stale branch must never close production gates.
+if [[ -z "${EXPECTED_HEAD_SHA:-}" ]]; then
+  echo "ACCEPTANCE BLOCKED: set EXPECTED_HEAD_SHA to the reviewed full PR commit SHA" >&2
+  exit 7
+fi
+actual_sha="$(git rev-parse HEAD)"
+if [[ "$actual_sha" != "$EXPECTED_HEAD_SHA" ]]; then
+  echo "ACCEPTANCE FAILED: expected commit $EXPECTED_HEAD_SHA, found $actual_sha" >&2
+  exit 7
+fi
+if ! git diff --quiet HEAD -- services/agent-store services/factory-orchestrator tests/control-plane; then
+  echo "ACCEPTANCE BLOCKED: uncommitted workstream source changes would invalidate evidence" >&2
+  exit 8
 fi
 echo "Checking acceptance report verifier against known passing and failing fixtures"
 python3 -m unittest discover -s "$HERE" -p "test_verify_surefire.py" -v
