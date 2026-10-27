@@ -2,14 +2,14 @@
 from __future__ import annotations
 
 import json
-import math
 import re
 from collections.abc import Callable
-from urllib.parse import urlsplit
 
 import httpx
-
+import math
 from agent_runtime.core import Decision, RuntimeDenied
+from urllib.parse import urlsplit
+
 
 class LiteLLMGateway:
     def __init__(self, *, base_url: str, allowed_routes: frozenset[str],

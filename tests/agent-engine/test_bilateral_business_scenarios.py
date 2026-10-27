@@ -5,9 +5,10 @@ These fixtures prove isolation of independent Builder/Runtime instances;
 a separate SDK test must prove multi-turn A2A protocol conformance.
 """
 import pytest
+
 from agent_builder import BuildError
 from agent_runtime import A2ABoundary, Decision, RuntimeDenied
-from test_engine import Registry, build, invoke, manifest, task
+from test_engine import build, invoke, manifest, Registry, task
 
 
 def bilateral_specs():

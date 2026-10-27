@@ -1,12 +1,18 @@
 """Real ASGI authorization boundary test; official SDK conformance is separate."""
 import httpx
 import pytest
+from agent_runtime.official_a2a import (
+    A2AIdentity,
+    AuthenticatedA2AASGI,
+    current_a2a_identity,
+)
 from starlette.applications import Starlette
 from starlette.responses import PlainTextResponse
 from starlette.routing import Route
+
 from agent_runtime import A2ABoundary
-from agent_runtime.official_a2a import A2AIdentity, AuthenticatedA2AASGI, current_a2a_identity
-from test_engine import Registry, build, manifest, task
+from test_engine import build, manifest, Registry, task
+
 
 def make_app(*, released=True):
     spec = build(task('read', ['read'], ['read'], []),

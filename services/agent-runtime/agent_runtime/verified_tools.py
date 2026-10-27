@@ -8,9 +8,9 @@ from typing import Any
 from jsonschema import Draft202012Validator, SchemaError, ValidationError
 from pydantic import BaseModel, ConfigDict, Field
 
+from .core import RuntimeDenied, ToolGateway
 from agent_builder import AgentSpec, ToolBinding
 
-from .core import RuntimeDenied, ToolGateway
 
 class ToolPolicy(BaseModel):
     model_config = ConfigDict(frozen=True, extra='forbid')
