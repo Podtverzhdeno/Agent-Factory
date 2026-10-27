@@ -67,8 +67,8 @@ public final class OperationalLog {
             +" tenant_ref="+reference(event.tenantId())
             +" workflow_ref="+reference(event.workflowId())
             +" event_ref="+reference(event.eventId())
-            +" from="+event.from().name()
-            +" to="+event.to().name()
+            +" from="+event.previousState().name()
+            +" to="+event.currentState().name()
             +" sequence="+event.sequence()
             +" outcome="+outcome.name());
     }
