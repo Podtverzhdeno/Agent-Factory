@@ -89,7 +89,8 @@ async def test_official_a2a_sdk_client_server_smoke():
                      skills=[AgentSkill(id='read',name='Read',description='Read permitted catalog',
                                         tags=['sandbox'],examples=['Read catalog'])])
     app = create_official_a2a_app(spec=spec,runtime=runtime,boundary=boundary,agent_card=card,
-               authenticate=lambda token: A2AIdentity('buyer','trusted') if token == 'good' else None)
+               authenticate=lambda token: A2AIdentity('buyer','trusted') if token == 'good' else None,
+               principal_scope='trusted')
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),base_url='http://localhost',
                                  headers={'Authorization':'Bearer good'}) as client_http:
         resolver = A2ACardResolver(httpx_client=client_http,base_url='http://localhost')

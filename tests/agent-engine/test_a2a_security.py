@@ -124,3 +124,39 @@ async def test_a2a_denies_tampered_spec_even_if_digest_was_released():
                                  base_url='http://example.test') as client:
         response = await client.get('/', headers={'Authorization': 'Bearer good'})
     assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_a2a_single_principal_scope_blocks_authorized_other_principal():
+    # Even if two principals have general tenant access, the same task store
+    # must never be shared across them in this isolated candidate SDK adapter.
+    app = make_app()
+    app.principal_scope = 'trusted'
+    app.authenticate = lambda token: (
+        A2AIdentity('buyer', 'trusted') if token == 'trusted'
+        else A2AIdentity('buyer', 'viewer') if token == 'viewer' else None)
+    app.boundary.authorize = lambda principal, tenant: tenant == 'buyer' and principal in {'trusted','viewer'}
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),
+                                 base_url='http://example.test') as client:
+        assert (await client.get('/', headers={'Authorization': 'Bearer trusted'})).status_code == 200
+        assert (await client.get('/', headers={'Authorization': 'Bearer viewer'})).status_code == 403
+
+
+def test_official_a2a_factory_requires_principal_scope_even_before_sdk_import():
+    from agent_runtime.official_a2a import create_official_a2a_app
+    from agent_runtime import Decision, Runtime, RuntimeDenied, ToolPolicy, VerifiedToolGateway, EffectLedger
+    from test_engine import ScriptedModel, FakeTools
+    spec = build(task('read', ['read'], ['read'], []),
+                 Registry([manifest('read', ['read'], ['read'], [])]))
+    b = spec.selected_tools[0]
+    gateway = VerifiedToolGateway(FakeTools(), EffectLedger(), policies={'read':ToolPolicy(
+        tenant_id='buyer',tool_id='read',version=b.version,manifest_digest=b.digest,
+        scopes=frozenset(b.granted_scopes),effect_mode='read',input_schema={'type':'object'},
+        output_schema={'type':'object'})})
+    runtime = Runtime(ScriptedModel([Decision(kind='final', text='ok')]), gateway,
+                      approved_spec_digests=frozenset({spec.artifact_digest}))
+    boundary = A2ABoundary(released_spec_digests=frozenset({spec.artifact_digest}),
+                           authorize=lambda principal, tenant: True)
+    with pytest.raises(RuntimeDenied, match='A2A_PRINCIPAL_SCOPE_REQUIRED'):
+        create_official_a2a_app(spec=spec, runtime=runtime, boundary=boundary,
+                                agent_card=None, authenticate=lambda token: None)

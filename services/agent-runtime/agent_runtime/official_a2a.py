@@ -30,9 +30,11 @@ class AuthenticatedA2AASGI:
     tenant data from untrusted headers or JSON-RPC payloads.
     """
     def __init__(self, app, *, spec: AgentSpec, boundary: A2ABoundary,
-                 authenticate: BearerAuthenticator):
+                 authenticate: BearerAuthenticator,
+                 principal_scope: str | None = None):
         self.app, self.spec, self.boundary = app, spec, boundary
         self.authenticate = authenticate
+        self.principal_scope = principal_scope
 
     async def __call__(self, scope, receive, send):
         if scope['type'] == 'lifespan':
@@ -53,6 +55,11 @@ class AuthenticatedA2AASGI:
             identity = None
         if not isinstance(identity, A2AIdentity) or not identity.tenant_id or not identity.principal:
             await self._deny(send, 401)
+            return
+        if self.principal_scope is not None and identity.principal != self.principal_scope:
+            # The candidate SDK uses a single shared in-memory TaskStore.
+            # Prevent horizontal read access between authorized principals.
+            await self._deny(send, 403)
             return
         try:
             self.boundary.authorize_request(tenant_id=identity.tenant_id,
@@ -77,7 +84,8 @@ class AuthenticatedA2AASGI:
 
 
 def create_official_a2a_app(*, spec: AgentSpec, runtime: Runtime, boundary: A2ABoundary,
-                            agent_card, authenticate: BearerAuthenticator):
+                            agent_card, authenticate: BearerAuthenticator,
+                            principal_scope: str | None = None):
     """Create SDK routes only for a released/pinned AgentSpec in an isolated test.
 
     SDK conformance and production endpoint authentication require owner ADR.
@@ -88,6 +96,8 @@ def create_official_a2a_app(*, spec: AgentSpec, runtime: Runtime, boundary: A2AB
         raise RuntimeDenied('SPEC_NOT_PINNED')
     if not getattr(runtime.gateway, 'verified', False):
         raise RuntimeDenied('UNVERIFIED_TOOL_GATEWAY')
+    if not principal_scope:
+        raise RuntimeDenied('A2A_PRINCIPAL_SCOPE_REQUIRED')
     try:
         from a2a.server.agent_execution import AgentExecutor, RequestContext
         from a2a.server.events import EventQueue
@@ -136,4 +146,5 @@ def create_official_a2a_app(*, spec: AgentSpec, runtime: Runtime, boundary: A2AB
                                     task_store=InMemoryTaskStore(), agent_card=agent_card)
     routes = [*create_agent_card_routes(agent_card), *create_jsonrpc_routes(handler, '/')]
     return AuthenticatedA2AASGI(Starlette(routes=routes), spec=spec,
-                                 boundary=boundary, authenticate=authenticate)
+                                 boundary=boundary, authenticate=authenticate,
+                                 principal_scope=principal_scope)
