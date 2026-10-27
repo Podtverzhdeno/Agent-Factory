@@ -72,3 +72,23 @@ mvn -B -ntp -f services/factory-orchestrator/pom.xml clean test
 The first command proves the framework-independent Java domain with `javac -Xlint:all -Werror`. The second additionally compiles the Spring Boot application, and Surefire is now configured to execute the component suite through JUnit. Neither command has been executed on the latest PR commit in the current session. The existing GitHub Actions SDD workflow does not invoke Maven; it cannot be changed inside workstream 01's ownership paths.
 
 Additional regression scenarios cover replaying authorized operations after their original approval is withdrawn, deadline-expired start replay, semantic deduplication of event maps, and typed rejection of null event payloads. These are pending a fresh executable run on the exact PR head.
+
+## Proof status at workstream revision
+
+- **Executed, exact Git blob SHA:** `JdbcTransactionScopeTests` 3/3 PASS
+  (`javac -Xlint:all -Werror`, Java 21). Both the production class and test class
+  matched GitHub's blob IDs.
+- **Executed, exact Git blob SHA:** `EventIdentityTests` 4/4 PASS
+  (`javac -Xlint:all -Werror`, Java 21). Both source SHA values matched GitHub.
+- **Unexecuted on current PR SHA:** full mock-backed domain component suite,
+  Spring Boot + JWT MockMvc suite, PostgreSQL Testcontainers integration suite.
+- `run-core-tests.sh` now compiles optional JDBC domain adapters and runs
+  both isolated proof suites in addition to `ControlPlaneComponentTests`.
+- `run-acceptance.sh` requires Maven + Docker and verifies the PostgreSQL
+  integration report did not silently skip. It must be run on the final immutable
+  PR commit in a Docker-capable CI environment.
+- PostgreSQL integration cases cover persistence across new adapter instances,
+  atomic rollback of Workflow and AgentStore on injected failures, captured
+  nested-transaction rollback-only, version release/rollback recovery, canonical
+  idempotency, tenant and stored-row identity isolation. These cases are committed,
+  **but not yet verified by executable PostgreSQL results**.
