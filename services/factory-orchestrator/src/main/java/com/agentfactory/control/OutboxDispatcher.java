@@ -29,7 +29,7 @@ public final class OutboxDispatcher {
                 try {
                     Protocol.CommandReceipt receipt = deliver(w,action);
                     if (!receipt.accepted() || !Objects.equals(receipt.operationId(),action.operationId))
-                        throw new IllegalStateException("REMOTE_RECEIPT_MISMATCH");
+                        throw new Protocol.RemoteCommandFailure("REMOTE_RECEIPT_MISMATCH",false);
                     boolean acknowledged = ledger.transact(w.tenantId,w.workflowId,active -> {
                         if (!stillPending(active,action)) return false;
                         active.actions.stream().filter(a->a.operationId.equals(action.operationId))
