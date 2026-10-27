@@ -1,7 +1,8 @@
 """Concrete synthetic RFQ XLSX and supplier verification from one factory core."""
 import pytest
-from openpyxl import load_workbook
 from agent_runtime.synthetic_demo import execute_two_tasks
+from openpyxl import load_workbook
+
 
 @pytest.mark.asyncio
 async def test_two_business_tasks_with_real_synthetic_excel(tmp_path):

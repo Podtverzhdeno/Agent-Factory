@@ -1,8 +1,16 @@
 """Return saved terminal evidence after restart without repeating external effects."""
 import pytest
-from agent_runtime import (Decision, EffectLedger, Runtime, SqliteRunStore,
-                           ToolPolicy, VerifiedToolGateway)
-from test_engine import FakeTools, Registry, ScriptedModel, build, manifest, task
+
+from agent_runtime import (
+    Decision,
+    EffectLedger,
+    Runtime,
+    SqliteRunStore,
+    ToolPolicy,
+    VerifiedToolGateway,
+)
+from test_engine import build, FakeTools, manifest, Registry, ScriptedModel, task
+
 
 @pytest.mark.asyncio
 async def test_completed_run_retrieved_without_model_or_duplicate_effect(tmp_path):

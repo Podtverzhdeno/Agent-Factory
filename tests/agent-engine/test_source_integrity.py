@@ -1,6 +1,7 @@
 """Guard source integrity to prevent duplicate/unterminated agent modules."""
-import ast
 from pathlib import Path
+
+import ast
 
 
 def test_builder_file_has_single_definition_set():

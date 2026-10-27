@@ -1,9 +1,17 @@
 """Defence in depth: never infer authority from a pinned specification."""
 import pytest
-from agent_builder import digest
-from agent_runtime import Decision, EffectLedger, Runtime, RuntimeDenied, ToolPolicy, VerifiedToolGateway
 from agent_runtime.langgraph_adapter import invoke_graph
-from test_engine import FakeTools, Registry, ScriptedModel, build, manifest, task
+
+from agent_builder import digest
+from agent_runtime import (
+    Decision,
+    EffectLedger,
+    Runtime,
+    RuntimeDenied,
+    ToolPolicy,
+    VerifiedToolGateway,
+)
+from test_engine import build, FakeTools, manifest, Registry, ScriptedModel, task
 
 
 def fixture():
