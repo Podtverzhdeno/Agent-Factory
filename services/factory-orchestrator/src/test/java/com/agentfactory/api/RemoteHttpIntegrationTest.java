@@ -188,9 +188,10 @@ final class RemoteHttpIntegrationTest {
             var command=new Protocol.BuildCommand(TENANT,"wf-01","snapshot-01",
                 HASH,"operation-01","idempotency-01","correlation-01",
                 "artifact://policy/v1");
-            var error=assertThrows(IllegalStateException.class,()->
+            var error=assertThrows(Protocol.RemoteCommandFailure.class,()->
                 RemoteHttpClients.builder(builder.transport("builder")).submit(command));
             assertEquals("REMOTE_RECEIPT_MISMATCH",error.getMessage());
+            assertFalse(error.retryable());
             assertEquals(1,builder.requests.size());
         }
     }
