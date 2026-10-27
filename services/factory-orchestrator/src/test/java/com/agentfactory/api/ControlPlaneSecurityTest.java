@@ -38,14 +38,14 @@ final class ControlPlaneSecurityTest {
     }
 
     private static Jwt jwt(String token, String tenant, String scope) {
-        Instant now = Instant.parse("2026-10-27T00:00:00Z");
+        Instant now = Instant.now();
         return Jwt.withTokenValue(token)
             .header("alg", "RS256")
             .subject("synthetic-test-service")
             .claim("tenant_id", tenant)
             .claim("scope", scope)
             .issuedAt(now)
-            .expiresAt(now.plusSeconds(60 * 60 * 24 * 365))
+            .expiresAt(now.plusSeconds(3_600))
             .build();
     }
 
