@@ -44,9 +44,24 @@ def create(tmp_path, bad=False):
     workflow = DurableEvaluationWorkflow(vault, collector, store, verifier=signer, clock=lambda: 100)
     return engine, vault, owner, signer, collector, store, req, workflow
 
+ 
+import pytest
 
-def test_persisted_end_to_end_evaluation_and_outbox(tmp_path):
-    engine, vault, owner, signer, collector, store, req, wf = create(tmp_path)
+@pytest.fixture
+def scenario(tmp_path):
+    values = create(tmp_path)
+    yield values
+    values[0].dispose()
+
+@pytest.fixture
+def forged_scenario(tmp_path):
+    values = create(tmp_path, bad=True)
+    yield values
+    values[0].dispose()
+
+
+def test_persisted_end_to_end_evaluation_and_outbox(scenario):
+    engine, vault, owner, signer, collector, store, req, wf = scenario
     assert wf.submit(owner, req).status == "QUEUED"
     result = wf.process(owner, req.evaluation_run_id)
     assert result.status == "PASSED"
@@ -62,8 +77,8 @@ def test_persisted_end_to_end_evaluation_and_outbox(tmp_path):
     assert new.submit(owner, req).status == "PASSED"
 
 
-def test_forged_trace_blocks_without_leaking_gold(tmp_path):
-    _, _, owner, _, _, store, req, wf = create(tmp_path, bad=True)
+def test_forged_trace_blocks_without_leaking_gold(forged_scenario):
+    _, _, owner, _, _, store, req, wf = forged_scenario
     wf.submit(owner, req)
     result = wf.process(owner, "run-1")
     assert result.status == "BLOCKED"
@@ -73,8 +88,8 @@ def test_forged_trace_blocks_without_leaking_gold(tmp_path):
     assert "verified" not in str(events[0].payload)
 
 
-def test_cross_tenant_durable_eval_is_invisible(tmp_path):
-    _, _, owner, _, _, _, req, wf = create(tmp_path)
+def test_cross_tenant_durable_eval_is_invisible(scenario):
+    _, _, owner, _, _, _, req, wf = scenario
     wf.submit(owner, req)
     from quality_engine import AccessDenied
     import pytest
