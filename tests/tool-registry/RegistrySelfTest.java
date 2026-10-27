@@ -79,6 +79,18 @@ public final class RegistrySelfTest {
         check(deniedPayment.decision() == Decision.BLOCKED
                 && deniedPayment.denials().stream().anyMatch(d -> d.code() == DenialCode.EFFECT_NOT_ALLOWED),
             "Explicit payment scope and CRITICAL allowance must not bypass autonomous effect veto");
+        // Destructive business operations require a separately approved human flow.
+        Manifest destructive = manifest("ops.destroy", "1.0.0", "delete_vendor",
+            PAY_IN, PAY_OUT, PAY_ENDPOINT, Set.of(Effect.DESTRUCTIVE),
+            Set.of("ops:destroy"), Risk.CRITICAL);
+        register(r, destructive);
+        Caller destructiveCaller = new Caller("builder", "tenant-a", Set.of("registry:lookup", "ops:destroy"));
+        SelectionRequest authorizeDestruction = new SelectionRequest(Set.of("delete_vendor"),
+            Set.of(Effect.DESTRUCTIVE), Risk.CRITICAL, Map.of(), Map.of());
+        Selection deniedDestruction = r.select(destructiveCaller, authorizeDestruction);
+        check(deniedDestruction.decision() == Decision.BLOCKED
+                && deniedDestruction.denials().stream().anyMatch(d -> d.code() == DenialCode.EFFECT_NOT_ALLOWED),
+            "Explicit destructive scope and CRITICAL policy cannot bypass hard veto");
         SelectionRequest wrongSchema = new SelectionRequest(Set.of("catalog_lookup"),Set.of(Effect.READ),Risk.LOW,Map.of(),Map.of("catalog_lookup",new Requirement(FILE_IN,null)));
         check(r.select(user,wrongSchema).denials().stream().anyMatch(d->d.code()==DenialCode.SCHEMA_INCOMPATIBLE),"Schema compatibility veto");
         SelectionRequest wrongVersion = new SelectionRequest(Set.of("catalog_lookup"),Set.of(Effect.READ),Risk.LOW,Map.of("catalog.lookup","2.0.0"),Map.of());
