@@ -38,10 +38,11 @@ public final class InMemoryWorkflowLedger implements Ports.WorkflowLedger {
         Workflow found = workflows.get(key);
         if (found == null) throw new NoSuchElementException("WORKFLOW_NOT_FOUND");
         Workflow working = found.copy();
+        // A transaction's response must reflect the revision that will be committed.
+        working.revision++;
         T result = transaction.apply(working);
         if (found.state != working.state) working.audit.add(new Workflow.Audit(java.time.Instant.now(),
             found.state, working.state, working.errorCode, working.correlationId));
-        working.revision++;
         workflows.put(key, working);
         return result;
     }
