@@ -86,12 +86,41 @@ public final class JdbcWorkflowLedger implements Ports.WorkflowLedger {
             return found.copy();
         });
     }
+    private static void persistNewInboxEvents(Connection c,Workflow previous,Workflow updated)
+        throws SQLException {
+        for (var entry : updated.inbox.entrySet()) {
+            String eventId=entry.getKey();
+            String fingerprint=entry.getValue();
+            if(previous.inbox.containsKey(eventId)) {
+                if(!Objects.equals(previous.inbox.get(eventId),fingerprint))
+                    throw new IllegalStateException("EVENT_ID_COLLISION");
+                continue;
+            }
+            try(PreparedStatement insert=c.prepareStatement(
+                "INSERT INTO cp_event_inbox(tenant_id,event_id,workflow_id,fingerprint) "+
+                "VALUES(?,?,?,?) ON CONFLICT DO NOTHING")) {
+                bind(insert,updated.tenantId,eventId,updated.workflowId,fingerprint);
+                if(insert.executeUpdate()==1) continue;
+            }
+            try(PreparedStatement lookup=c.prepareStatement(
+                "SELECT workflow_id,fingerprint FROM cp_event_inbox WHERE tenant_id=? AND event_id=?")) {
+                bind(lookup,updated.tenantId,eventId);
+                try(ResultSet result=lookup.executeQuery()) {
+                    if(!result.next() || !updated.workflowId.equals(result.getString(1)) ||
+                        !fingerprint.equals(result.getString(2)))
+                        throw new IllegalStateException("EVENT_ID_COLLISION");
+                }
+            }
+        }
+    }
+
     @Override public <T> T transact(String tenant,String id,Function<Workflow,T> operation) {
         return transactions.transaction(c -> {
             Workflow stored=findById(c,tenant,id,true);
             if(stored==null) throw new NoSuchElementException("WORKFLOW_NOT_FOUND");
             Workflow working=stored.copy(); working.revision++;
             T result=operation.apply(working);
+            persistNewInboxEvents(c,stored,working);
             if(stored.state!=working.state) working.audit.add(new Workflow.Audit(Instant.now(),
                 stored.state,working.state,working.errorCode,working.correlationId));
             try(PreparedStatement statement=c.prepareStatement(
