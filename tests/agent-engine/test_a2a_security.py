@@ -64,3 +64,22 @@ async def test_a2a_lifespan_delegates_without_authentication():
                              authorize=lambda *_: True), authenticate=lambda _: None)
     await app({'type': 'lifespan'}, None, None)
     assert received == ['lifespan']
+
+@pytest.mark.asyncio
+async def test_external_release_revocation_takes_effect_without_restart():
+    spec = build(task('read', ['read'], ['read'], []),
+                 Registry([manifest('read', ['read'], ['read'], [])]))
+    releases = {('buyer',spec.artifact_digest): True}
+    boundary = A2ABoundary(released_spec_digests=frozenset({spec.artifact_digest}),
+        authorize=lambda principal,tenant: principal=='trusted' and tenant=='buyer',
+        release_lookup=lambda tenant,digest: releases.get((tenant,digest),False))
+    async def handler(request):
+        return PlainTextResponse('available')
+    app = AuthenticatedA2AASGI(Starlette(routes=[Route('/',handler)]),spec=spec,
+        boundary=boundary,authenticate=lambda token: A2AIdentity('buyer','trusted')
+        if token=='good' else None)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),
+                                 base_url='http://localhost') as client:
+        assert (await client.get('/',headers={'Authorization':'Bearer good'})).status_code==200
+        releases[('buyer',spec.artifact_digest)]=False
+        assert (await client.get('/',headers={'Authorization':'Bearer good'})).status_code==403

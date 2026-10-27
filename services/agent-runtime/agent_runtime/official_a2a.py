@@ -48,7 +48,7 @@ class AuthenticatedA2AASGI:
         try:
             token = authorization[0][7:].decode('ascii')
             identity = self.authenticate(token) if token else None
-        except (UnicodeError, ValueError, RuntimeDenied):
+        except Exception:
             identity = None
         if identity is None or not identity.tenant_id or not identity.principal:
             await self._deny(send, 401)
@@ -80,7 +80,7 @@ def create_official_a2a_app(*, spec: AgentSpec, runtime: Runtime, boundary: A2AB
 
     SDK conformance and production endpoint authentication require owner ADR.
     """
-    if not spec.verify_digest() or spec.artifact_digest not in boundary.released_spec_digests:
+    if not spec.verify_digest() or not boundary.is_released(spec.tenant_id, spec.artifact_digest):
         raise RuntimeDenied('A2A_NOT_RELEASED')
     if spec.artifact_digest not in runtime.approved_spec_digests:
         raise RuntimeDenied('SPEC_NOT_PINNED')

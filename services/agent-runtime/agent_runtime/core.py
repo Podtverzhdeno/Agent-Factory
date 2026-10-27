@@ -131,11 +131,16 @@ class RunResult:
     steps: int
     error_code: str | None = None
 
+class RunStorePort(Protocol):
+    def load(self, tenant: str, run_id: str) -> tuple[str, RunResult] | None: ...
+    def save(self, tenant: str, run_id: str, request_hash: str, result: RunResult) -> None: ...
+
+
 class Runtime:
     def __init__(self, model: ModelPort, gateway: ToolGateway,
                  memory: ThreadMemory | None = None, *,
                  approved_spec_digests: frozenset[str] = frozenset(),
-                 model_timeout_seconds: float = 30.0, run_store=None):
+                 model_timeout_seconds: float = 30.0, run_store: RunStorePort | None = None):
         if not 0.01 <= model_timeout_seconds <= 120:
             raise ValueError('model timeout outside configured safety limits')
         self.model_timeout_seconds = model_timeout_seconds
