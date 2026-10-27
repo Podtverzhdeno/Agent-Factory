@@ -17,19 +17,6 @@ CREATE INDEX cp_workflow_pending_actions ON cp_workflow (tenant_id, workflow_id)
 CREATE INDEX cp_workflow_pending_events ON cp_workflow (tenant_id, workflow_id)
     WHERE notification_pending;
 
--- A single event_id cannot acknowledge two workflows within the same tenant.
--- Inserted inside the same SQL transaction as workflow/outbox state.
-CREATE TABLE cp_event_inbox (
-    tenant_id TEXT NOT NULL,
-    event_id TEXT NOT NULL,
-    workflow_id TEXT NOT NULL,
-    fingerprint TEXT NOT NULL CHECK (char_length(fingerprint) = 64),
-    PRIMARY KEY (tenant_id, event_id),
-    FOREIGN KEY (tenant_id, workflow_id)
-        REFERENCES cp_workflow (tenant_id, workflow_id)
-);
-CREATE INDEX cp_event_inbox_workflow ON cp_event_inbox (tenant_id, workflow_id);
-
 CREATE TABLE cp_agent_lock (
     tenant_id TEXT NOT NULL,
     agent_id TEXT NOT NULL,
