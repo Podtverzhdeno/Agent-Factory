@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import os
 import sys
-
 from urllib.parse import urlsplit
-
 
 _ALLOWED_HOST = "agent04-test-postgres.railway.internal"
 _ALLOWED_DATABASE = "agent04_test"

@@ -1,7 +1,6 @@
 """Defence in depth: never infer authority from a pinned specification."""
 
 import pytest
-
 from agent_builder import digest
 from agent_runtime import (
     Decision,
