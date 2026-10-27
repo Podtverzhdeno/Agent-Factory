@@ -14,6 +14,11 @@ public final class Ports {
     public interface OptimizationClient { Protocol.CommandReceipt submit(Protocol.OptimizationCommand command); }
     public interface SoupClient { Protocol.CommandReceipt submit(Protocol.SoupCommand command); }
     public interface TenantAuthz { void check(Protocol.Principal actor, String tenant, String scope); }
+    /** Validate provenance from an evaluator-owned source rather than trusting an event field. */
+    public interface EvidenceVerifier {
+        void validate(String tenant, String evaluationRunId, String specDigest,
+                      com.agentfactory.store.AgentStore.Evidence evidence);
+    }
     public interface ApprovalReader { boolean approved(String tenant, String workflow, String purpose); }
     public interface ReleasePolicy { boolean allowAutomaticLowRisk(Workflow.View workflow); }
     public interface TimeSource { java.time.Instant now(); }
