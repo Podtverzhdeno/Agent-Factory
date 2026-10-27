@@ -40,8 +40,12 @@ public final class JdbcWorkflowLedger implements Ports.WorkflowLedger {
         }
     }
     private Workflow findById(Connection c,String tenant,String id,boolean lock) throws SQLException {
-        return readOne(c,"SELECT payload FROM cp_workflow WHERE tenant_id=? AND workflow_id=?"+
+        Workflow workflow = readOne(c,"SELECT payload FROM cp_workflow WHERE tenant_id=? AND workflow_id=?"+
             (lock?" FOR UPDATE":""),codec,tenant,id);
+        if (workflow != null && (!tenant.equals(workflow.tenantId) || !id.equals(workflow.workflowId))) {
+            throw new IllegalStateException("STORED_WORKFLOW_IDENTITY_MISMATCH");
+        }
+        return workflow;
     }
     @Override public Workflow open(Workflow initial) {
         Objects.requireNonNull(initial);
@@ -66,9 +70,14 @@ public final class JdbcWorkflowLedger implements Ports.WorkflowLedger {
         });
     }
     @Override public Optional<Workflow> byIdempotency(String tenant,String key) {
-        return transactions.transaction(c -> Optional.ofNullable(readOne(c,
-            "SELECT payload FROM cp_workflow WHERE tenant_id=? AND idempotency_key=?",
-            codec,tenant,key)).map(Workflow::copy));
+        return transactions.transaction(c -> {
+            Workflow saved=readOne(c,"SELECT payload FROM cp_workflow WHERE tenant_id=? AND idempotency_key=?",
+                codec,tenant,key);
+            if(saved!=null && (!tenant.equals(saved.tenantId) || !key.equals(saved.idempotencyKey))) {
+                throw new IllegalStateException("STORED_WORKFLOW_IDENTITY_MISMATCH");
+            }
+            return Optional.ofNullable(saved).map(Workflow::copy);
+        });
     }
     @Override public Workflow get(String tenant,String workflow) {
         return transactions.transaction(c -> {
