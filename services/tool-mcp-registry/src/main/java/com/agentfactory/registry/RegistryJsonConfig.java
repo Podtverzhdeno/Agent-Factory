@@ -1,11 +1,14 @@
 package com.agentfactory.registry;
 
 import java.util.Locale;
+import org.springframework.boot.jackson.autoconfigure.JsonFactoryBuilderCustomizer;
 import org.springframework.boot.jackson.autoconfigure.JsonMapperBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import tools.jackson.core.JsonGenerator;
 import tools.jackson.core.JsonParser;
+import tools.jackson.core.StreamReadConstraints;
+import tools.jackson.core.StreamReadFeature;
 import tools.jackson.databind.DeserializationContext;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.JacksonModule;
@@ -31,6 +34,21 @@ public class RegistryJsonConfig {
         return builder -> builder
             .propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true);
+    }
+
+    /** Parse-time protections apply before JSON reaches the domain validator. */
+    @Bean
+    JsonFactoryBuilderCustomizer registryJsonLimits() {
+        return builder -> builder
+            .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
+            .streamReadConstraints(StreamReadConstraints.builder()
+                .maxNestingDepth(16)
+                .maxDocumentLength(1_048_576)
+                .maxTokenCount(50_000)
+                .maxStringLength(8_192)
+                .maxNameLength(128)
+                .maxNumberLength(64)
+                .build());
     }
 
     @Bean
