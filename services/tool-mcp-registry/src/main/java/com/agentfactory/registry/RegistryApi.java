@@ -84,6 +84,7 @@ public final class RegistryApi {
     }
     @ExceptionHandler(RegistryFailure.class)
     public ResponseEntity<Map<String,Object>> onRegistryError(RegistryFailure error) {
+        LOG.info("{}", RegistryTelemetry.rejectionLine(correlationId(), error.code));
         HttpStatus status = switch (error.code) {
             case "FORBIDDEN", "SEPARATION_OF_DUTIES" -> HttpStatus.FORBIDDEN;
             case "UNAUTHENTICATED" -> HttpStatus.UNAUTHORIZED;
