@@ -57,6 +57,21 @@ public final class ControlPlane {
         w.enqueue(Workflow.ActionType.BUILD, null, null);
         return ledger.open(w).view();
     }
+    /** Trusted scheduler/reconciliation adapter terminates workflows over wallclock limit. */
+    public int expireDueWorkflows() {
+        int expired=0;
+        for (Ports.Key key : ledger.activeKeys()) {
+            boolean changed=ledger.transact(key.tenantId(),key.workflowId(),w -> {
+                if (w.state==Workflow.State.BLOCKED || w.state==Workflow.State.RELEASED ||
+                    w.state==Workflow.State.ROLLED_BACK || clock.now().isBefore(w.limits.deadline()))
+                    return false;
+                block(w,"TIME_BUDGET_EXHAUSTED","restart with authorized limits");
+                return true;
+            });
+            if (changed) expired++;
+        }
+        return expired;
+    }
     public Workflow.View get(Principal actor, String tenant, String workflowId) {
         authorize(actor,tenant,"factory:read");
         return ledger.get(tenant,workflowId).view();
