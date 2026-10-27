@@ -358,3 +358,25 @@ def test_evaluation_event_cannot_claim_another_tenant(ev):
         result.event("tenant-b", "correlation-1")
     with pytest.raises(AccessDenied):
         result.event("tenant-a", "")
+
+
+def test_benchmark_rejects_equally_poor_cheaper_model():
+    p, c, baseline, cheaper = models()
+    baseline = tuple(ModelRun(r.case_id, i < 10, False, r.model_cost_usd)
+                     for i, r in enumerate(baseline))
+    cheaper = tuple(ModelRun(r.case_id, i < 10, False, r.model_cost_usd)
+                    for i, r in enumerate(cheaper))
+    from quality_engine import BenchmarkEvidence
+    evidence = BenchmarkEvidence("tenant-a", "holdout-1", "digest:holdout", "holdout",
+                                 "trace:b", "trace:c")
+    result = BenchmarkEngine().compare(p, c, baseline, cheaper, BenchmarkPolicy(), evidence=evidence)
+    assert result.status == "FAILED"
+    assert "UNSAFE_BASELINE_QUALITY" in result.reasons
+    assert "CANDIDATE_ABSOLUTE_QUALITY_LOW" in result.reasons
+
+
+def test_benchmark_validates_absolute_quality_floor():
+    p, c, baseline, cheaper = models()
+    with pytest.raises(ValueError):
+        BenchmarkEngine().compare(p, c, baseline, cheaper,
+                                  BenchmarkPolicy(min_absolute_success_rate=1.5))
