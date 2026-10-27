@@ -94,6 +94,25 @@ components:
         selected_tools: {type: array, items: {$ref: '#/components/schemas/Binding'}}
         denials: {type: array, items: {$ref: '#/components/schemas/Denial'}}
         explanation: {type: string}
+    BuilderToolManifest:
+      type: object
+      additionalProperties: false
+      required: [tool_id, version, manifest_digest, capabilities, side_effects,
+        required_scopes, tenant_availability, input_schema_ref, output_schema_ref,
+        risk_level, approved, transport]
+      properties:
+        tool_id: {type: string}
+        version: {type: string}
+        manifest_digest: {type: string, pattern: '^sha256:[0-9a-f]{64}$'}
+        capabilities: {type: array, items: {type: string}}
+        side_effects: {type: array, items: {$ref: '#/components/schemas/Effect'}}
+        required_scopes: {type: array, items: {type: string}}
+        tenant_availability: {type: array, items: {type: string}}
+        input_schema_ref: {type: string}
+        output_schema_ref: {type: string}
+        risk_level: {type: string, enum: [low, medium, high]}
+        approved: {type: boolean, enum: [true]}
+        transport: {type: string, enum: [LOCAL, MCP]}
     AuditEvent:
       type: object
       additionalProperties: false
@@ -212,3 +231,22 @@ paths:
         '200': {description: Valid payload (this never invokes a tool)}
         '403': {$ref: '#/components/responses/Forbidden'}
         '422': {$ref: '#/components/responses/Invalid'}
+
+  /v0/registry/builder/manifests:
+    get:
+      tags: [Discovery]
+      summary: Experimental Builder v0 compatibility projection (approved, scoped, execute-only)
+      description: >-
+        Read-only projection filtered by authenticated tenant and tool grants. Critical-risk
+        and non-execute operations are intentionally excluded. More than 18 eligible
+        candidates fails closed with BUILDER_PORT_CAPACITY; no MCP execution occurs.
+      responses:
+        '200':
+          description: Builder-compatible manifests; no permission issuance
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/BuilderToolManifest'}
+        '403': {description: Caller lacks registry lookup permission}
+        '422': {description: Builder v0 candidate limit exceeded}
