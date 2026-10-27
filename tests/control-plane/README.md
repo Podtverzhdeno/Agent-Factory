@@ -7,7 +7,7 @@ cd <repository root>
 bash tests/control-plane/run-core-tests.sh
 ```
 
-Earlier baseline run (before this revision): OpenJDK 21, `javac -Xlint:all -Werror`, **26/26 PASS** as previously recorded. **The current 33-scenario revision has not been executed in this environment.** Do not treat earlier evidence as proof of the changed code. All fixtures are synthetic; no production data or secrets.
+Earlier baseline run (before this revision): OpenJDK 21, `javac -Xlint:all -Werror`, **26/26 PASS** as previously recorded. **The current 36-scenario GitHub revision has not been executed end-to-end in this environment.** A local subset with the new malformed-event case completed **31/31 PASS** under OpenJDK 21; these are not evidence for all 36 current scenarios. Do not treat earlier evidence as proof of the changed code. All fixtures are synthetic; no production data or secrets.
 
 ## Requirement → task → executable checks
 
@@ -46,5 +46,5 @@ Tests are deliberately dependency-free. `mvn test`/Spring Boot startup/PostgreSQ
 - Explicit Soup command idempotency and independent completion route are exercised.
 - Builder completion after the time limit must BLOCK rather than start Evaluation.
 - Workflow transaction response revision and blocking audit reason are checked.
-- Current run status: **NOT RUN**. Run `bash tests/control-plane/run-core-tests.sh` on this exact Git SHA.
+- Current exact GitHub revision run status: **NOT RUN**; local 31-test subset: **PASS**. Run `bash tests/control-plane/run-core-tests.sh` on this exact Git SHA.
 - The repository's `.github/workflows/sdd.yml` presently runs OpenSpec and Python SDD checks **only**. A passing SDD check does not establish Java compilation or API/security integration.
