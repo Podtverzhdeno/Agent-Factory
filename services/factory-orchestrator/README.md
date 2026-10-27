@@ -67,3 +67,14 @@ For contract changes propose them in this module or PR; do not edit frozen share
 - Separate `SoupFinished` completion returns a pinned model-route and immutable spec revision into independent `RE_TESTING`; GEPARD event cannot stand in for Soup completion.
 - Outbox dispatcher ignores historical actions and actions outside their permitted workflow stage, even if their receipts remain pending.
 - Four additional synthetic tests cover these controls; no real Evaluation provenance service or training backend is claimed.
+
+## Local hardening status (2026-10-27)
+
+- Tenant and operation identifiers use typed composite keys (no delimiter-concatenation collision).
+- AgentStore candidate idempotency compares the complete immutable metadata, including pinned tool digest and evaluation evidence.
+- Caller and event publisher permissions are separate: `factory:events:build`, `factory:events:evaluation`, `factory:events:optimization`, `factory:events:soup`.
+- Event-driven auto-promotion only follows newly processed Evaluation outcomes, never stale or duplicate events.
+- All success paths through Soup are re-evaluated independently before promotion. The `/train` command accepts a tenant-scoped idempotency key.
+- Dispatcher refuses obsolete actions after terminal transitions; it remains at-least-once and needs durable leasing/reconciliation in a ratified design.
+- The REST contract with request/response schemas is in `openapi/control-plane-v0.yaml`.
+- **No current core-suite or Spring/Maven verification claim.** The repository CI only runs SDD checks; execute the suite on the current commit before merge.
