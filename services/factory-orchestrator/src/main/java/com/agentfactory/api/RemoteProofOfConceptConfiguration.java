@@ -2,6 +2,9 @@ package com.agentfactory.api;
 
 import com.agentfactory.control.OutboxDispatcher;
 import com.agentfactory.control.Ports;
+import com.agentfactory.control.JdbcWorkflowLedger;
+import com.agentfactory.control.JdbcAgentStore;
+import com.agentfactory.store.AgentStore;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.URI;
 import java.util.Arrays;
@@ -43,9 +46,17 @@ public class RemoteProofOfConceptConfiguration {
     @Bean Ports.SoupClient disabledSoup() {
         return command -> { throw new IllegalStateException("SOUP_BACKEND_NOT_CONFIGURED"); };
     }
-    @Bean OutboxDispatcher explicitCommandRelay(Ports.WorkflowLedger ledger,
+    /**
+     * A real HTTP side effect must never be enabled with volatile storage.
+     * Keeping the ledger and AgentStore durable is a precondition for the
+     * externally-triggered command relay, even in an opt-in PoC profile.
+     */
+    @Bean OutboxDispatcher explicitCommandRelay(Ports.WorkflowLedger ledger, AgentStore store,
         Ports.BuildClient builder,Ports.EvaluationClient evaluation,
         Ports.OptimizationClient optimization,Ports.SoupClient soup) {
+        if (!(ledger instanceof JdbcWorkflowLedger) || !(store instanceof JdbcAgentStore)) {
+            throw new IllegalStateException("REMOTE_REQUIRES_DURABLE_POSTGRESQL");
+        }
         return new OutboxDispatcher(ledger,builder,evaluation,optimization,soup);
     }
     private static RemoteHttpClients.Transport transport(String service,URI endpoint,String configured,
