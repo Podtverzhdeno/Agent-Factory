@@ -37,3 +37,12 @@ The SQLAlchemy store includes immutable per-tenant gold datasets, evaluation job
 `SqlDatasetVault` now defaults to **require_encryption=True**. A tenant-scoped AES-256-GCM key must be injected by trusted KMS infrastructure; associated data binds tenant, dataset version and case. Only isolated test fixtures may explicitly set `require_encryption=False`. No production secrets should be placed in source, AgentSpec or business files.
 
 For the real PostgreSQL opt-in test, see `POSTGRES_INTEGRATION.md`. For Runtime signed audit handoff see `CONTRACT_CHANGE_REQUEST.md` and Agent 04 PR #3.
+
+
+## 2026-10-27 cross-service security updates
+
+- `quality_engine.runtime_http.RuntimeEvidenceHTTPCollector`: read-only, bounded signed-audit HTTP retrieval from a pre-executed sandbox Runtime run. Requires HTTPS except local loopback, a trusted service bearer token, strict observed-run schema and **signature verification by the workflow**. Public `input_ref` is not placed in GET query strings; hidden gold is never sent.
+- `quality_engine.execution_evidence.EvidenceEnvelope` includes signed `evaluation_run_id` to prevent stale audit replay. Different evaluations of the same task cannot reuse one another's signed evidence.
+- `quality_engine.lease_heartbeat.LeaseKeeper`: fenced automatic renewal while evaluation is running, allowing slow tests to finish without duplicate worker claims; external actions still need independent idempotency.
+- Ed25519 verifier can consult an injected revocable/expiring trusted public-key provider. A live key management service and Agent 04 signed producer are NOT yet connected.
+- Current local verification: **117 passing, 3 deliberately skipped external tests**, statement coverage 93%. See `tests/quality-engine/EVIDENCE.md`.
