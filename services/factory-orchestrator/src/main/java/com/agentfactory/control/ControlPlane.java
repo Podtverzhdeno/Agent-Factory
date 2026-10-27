@@ -34,15 +34,19 @@ public final class ControlPlane {
     private void authorize(Principal actor, String tenant, String scope) { authz.check(actor, tenant, scope); }
 
     public Workflow.View start(Principal actor, Start req) {
+        require(req != null, "INVALID_REQUEST");
         required(req.tenantId()); required(req.workflowId()); required(req.taskSnapshotId());
         required(req.correlationId()); required(req.idempotencyKey());
-        require(req.limits() != null && clock.now().isBefore(req.limits().deadline()), "TIME_BUDGET_EXHAUSTED");
+        require(req.limits() != null, "INVALID_LIMITS");
         authorize(actor, req.tenantId(), "factory:start");
+        // Replay is a read of a previously authorized command; expiring the original
+        // budget must not make the same idempotency key behave differently.
         var existing = ledger.byIdempotency(req.tenantId(), req.idempotencyKey());
         if (existing.isPresent()) {
             require(existing.get().requestFingerprint.equals(Workflow.fingerprint(req)), "IDEMPOTENCY_CONFLICT");
             return existing.get().view();
         }
+        require(clock.now().isBefore(req.limits().deadline()), "TIME_BUDGET_EXHAUSTED");
         Snapshot snap = snapshots.readReady(req.tenantId(), req.taskSnapshotId());
         require(snap != null && req.tenantId().equals(snap.tenantId()) &&
             req.taskSnapshotId().equals(snap.taskSnapshotId()) && "READY".equals(snap.status()), "SNAPSHOT_NOT_READY");
