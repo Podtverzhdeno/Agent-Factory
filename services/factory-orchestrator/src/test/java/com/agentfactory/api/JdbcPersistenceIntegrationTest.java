@@ -113,6 +113,52 @@ final class JdbcPersistenceIntegrationTest {
             });
     }
 
+    @Test void foreignAttestedEvaluationRunCannotCreateDurableCandidate() {
+        var scope=tx();
+        var ledger=new JdbcWorkflowLedger(scope,codec());
+        var store=new JdbcAgentStore(scope,codec());
+        var plane=orchestrator(ledger,store,true);
+        plane.start(principal(),start());
+
+        var relay=new OutboxDispatcher(ledger,
+            command -> new Protocol.CommandReceipt(command.operationId(),true),
+            command -> new Protocol.CommandReceipt(command.operationId(),true),
+            command -> {throw new AssertionError("Unexpected GEPARD");},
+            command -> {throw new AssertionError("Unexpected Soup");});
+        assertEquals(1,relay.dispatchPending());
+        plane.onBuild(new Protocol.Principal("builder",TENANT,Set.of("factory:events:build")),
+            new Protocol.BuildFinished(
+                new Protocol.Header("0.1","foreign-test-build",TENANT,"wf-01",
+                    ledger.get(TENANT,"wf-01").view().pendingOperationId(),"trace-01",NOW),
+                true,"agent-01","artifact://agent-spec/v1",DIGEST,
+                Map.of("lookup.v1",TOOL),MODEL,"artifact://a2a/card-v1",null,false));
+        assertEquals(1,relay.dispatchPending());
+
+        String actualRun=ledger.get(TENANT,"wf-01").view().pendingOperationId();
+        assertNotEquals("foreign-evaluation-run",actualRun);
+        var event=new Protocol.EvaluationFinished(new Protocol.Header(
+                "0.1","foreign-test-evaluation",TENANT,"wf-01",
+                actualRun,"trace-01",NOW),
+            "foreign-evaluation-run",DIGEST,forRun(evidence(),"foreign-evaluation-run"),
+            new BigDecimal("0.1"),null,false);
+        var result=plane.onEvaluation(new Protocol.Principal("evaluator",TENANT,
+            Set.of("factory:events:evaluation")),event);
+        assertEquals(Workflow.State.BLOCKED,result.state());
+        assertEquals("EVALUATION_RUN_MISMATCH",result.errorCode());
+
+        var restartedLedger=new JdbcWorkflowLedger(tx(),codec());
+        var restartedStore=new JdbcAgentStore(tx(),codec());
+        assertEquals(Workflow.State.BLOCKED,restartedLedger.get(TENANT,"wf-01").view().state());
+        assertEquals("EVALUATION_RUN_MISMATCH",
+            restartedLedger.get(TENANT,"wf-01").view().errorCode());
+        assertTrue(restartedStore.versions(TENANT,"agent-01").isEmpty());
+        assertEquals(0,new OutboxDispatcher(restartedLedger,
+            command -> {throw new AssertionError("Stale build replay");},
+            command -> {throw new AssertionError("Stale evaluation replay");},
+            command -> {throw new AssertionError("Stale optimizer replay");},
+            command -> {throw new AssertionError("Stale Soup replay");}).dispatchPending());
+    }
+
     @Test void verifiedLowRiskEvaluationAndAutoReleaseShareSingleCommit() {
         var tx=tx();
         var ledger=new JdbcWorkflowLedger(tx,codec());
