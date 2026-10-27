@@ -6,6 +6,7 @@ evaluators still decide correctness. Never treats response prose as success.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import isfinite
 from typing import Any
 
 import httpx
@@ -53,14 +54,18 @@ class LiteLLMClient:
             text = content["choices"][0]["message"]["content"]
             if not isinstance(text, str):
                 raise ValueError("invalid completion content")
-            return CompletionUsage(
-                model_id=str(content.get("model") or model),
-                output_text=text,
-                prompt_tokens=int(usage["prompt_tokens"]),
-                completion_tokens=int(usage["completion_tokens"]),
-                response_cost_usd=(float(content["response_cost"])
-                                   if content.get("response_cost") is not None else None),
-            )
+            reported_model = str(content.get("model") or model)
+            if reported_model != model:
+                raise ValueError("unexpected proxy model substitution")
+            prompt_tokens, completion_tokens = usage["prompt_tokens"], usage["completion_tokens"]
+            if (type(prompt_tokens) is not int or type(completion_tokens) is not int
+                    or prompt_tokens < 0 or completion_tokens < 0):
+                raise ValueError("invalid token usage")
+            raw_cost = content.get("response_cost")
+            reported_cost = float(raw_cost) if raw_cost is not None else None
+            if reported_cost is not None and (not isfinite(reported_cost) or reported_cost < 0):
+                raise ValueError("invalid response cost")
+            return CompletionUsage(reported_model, text, prompt_tokens, completion_tokens, reported_cost)
         except (httpx.HTTPError, ValueError, TypeError, KeyError, IndexError) as exc:
             raise LiteLLMError("GATEWAY_CALL_FAILED") from exc
 
