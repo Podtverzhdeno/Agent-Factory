@@ -1,11 +1,12 @@
 openapi: 3.0.3
 info:
   title: Agent Factory Control Plane (PROPOSED)
-  version: 0.1.0
-  description: >
-    Workstream 01 JWT-protected adapter contract. This is not a ratified deployable
-    service boundary. JSON schemas are provided in Java Protocol records and
-    CONTRACTS_V0.md pending owner approval.
+  version: 0.1.1
+  description: >-
+    Workstream 01 contract-first REST adapter. ADR-0002 is pending owner decision;
+    this specification does not ratify deployment topology or prove upstream integration.
+    JWT tenant_id and scope claims are verified server-side. Producer-specific
+    event scopes prevent Builder, Evaluation, GEPARD and Soup impersonation.
 servers:
   - url: https://control-plane.example.invalid
 security:
@@ -13,35 +14,58 @@ security:
 paths:
   /v1/workflows:
     post:
-      summary: Explicitly command an authorized build
       operationId: startWorkflow
+      summary: Authorize and enqueue an explicit Builder command
+      description: Requires factory:start and an immutable READY task snapshot.
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: '#/components/schemas/Start'
+            schema: { $ref: '#/components/schemas/Start' }
       responses:
         '202':
-          description: Workflow accepted, action queued for explicit dispatch
-        '403':
-          description: Invalid tenant or missing scope
-        '409':
-          description: Idempotency mismatch, unready snapshot or exhausted limits
+          description: Created or accepted idempotent workflow
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WorkflowView' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /v1/workflows/{workflowId}:
     get:
-      summary: Read tenant-authorized workflow state
+      operationId: readWorkflow
+      summary: Read a tenant-scoped lifecycle projection
       parameters:
         - $ref: '#/components/parameters/workflowId'
         - $ref: '#/components/parameters/tenantId'
       responses:
         '200':
-          description: Current workflow view
-        '403':
-          description: Forbidden
+          description: Current state
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WorkflowView' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /v1/workflows/{workflowId}/audit:
+    get:
+      operationId: readWorkflowAudit
+      summary: Read a tenant-authorized transition audit
+      parameters:
+        - $ref: '#/components/parameters/workflowId'
+        - $ref: '#/components/parameters/tenantId'
+      responses:
+        '200':
+          description: Recorded state changes
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Audit' }
   /v1/workflows/{workflowId}/release:
     post:
-      summary: Publish verified immutable AgentSpec after approvals and evidence
+      operationId: releaseWorkflow
+      summary: Promote an independently verified candidate after required approvals
+      description: Requires factory:release, quality gate and human approval unless already explicitly auto-released.
       parameters:
         - $ref: '#/components/parameters/workflowId'
         - $ref: '#/components/parameters/tenantId'
@@ -49,16 +73,18 @@ paths:
         required: true
         content:
           application/json:
-            schema:
-              $ref: '#/components/schemas/IdempotentAction'
+            schema: { $ref: '#/components/schemas/IdempotentAction' }
       responses:
         '200':
-          description: Released or duplicate of already released operation
-        '409':
-          description: Required holdout, approvals or safety checks absent
+          description: Released version
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WorkflowView' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /v1/workflows/{workflowId}/rollback:
     post:
-      summary: Explicit authorized rollback retaining version history
+      operationId: rollbackWorkflow
+      summary: Record an approved rollback without erasing release history
       parameters:
         - $ref: '#/components/parameters/workflowId'
         - $ref: '#/components/parameters/tenantId'
@@ -66,29 +92,77 @@ paths:
         required: true
         content:
           application/json:
-            schema:
-              $ref: '#/components/schemas/IdempotentAction'
+            schema: { $ref: '#/components/schemas/IdempotentAction' }
       responses:
         '200':
-          description: Rollback result
+          description: Rolled-back release
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WorkflowView' }
+  /v1/workflows/{workflowId}/train:
+    post:
+      operationId: requestOptionalSoup
+      summary: Separately authorize a bounded Soup training command
+      description: Requires factory:training and an approved rights reference; never initiated implicitly by GEPARD.
+      parameters:
+        - $ref: '#/components/parameters/workflowId'
+        - $ref: '#/components/parameters/tenantId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TrainingAction' }
+      responses:
+        '200':
+          description: TRAINING state or idempotent duplicate
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WorkflowView' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /internal/events/build:
     post:
-      summary: Authenticated Builder completion (never an implicit build command)
+      operationId: acceptBuildFinished
+      summary: Receive an authenticated Builder outcome (factory:events:build)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BuildFinished' }
       responses:
-        '200':
-          description: Accepted/duplicate/stale event, current workflow state
+        '200': { $ref: '#/components/responses/EventAccepted' }
   /internal/events/evaluation:
     post:
-      summary: Authenticated independent evaluator completion
+      operationId: acceptEvaluationFinished
+      summary: Receive independently attested Evaluation outcome (factory:events:evaluation)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EvaluationFinished' }
       responses:
-        '200':
-          description: Evaluated and quality-gated state
+        '200': { $ref: '#/components/responses/EventAccepted' }
   /internal/events/optimization:
     post:
-      summary: Authenticated GEPARD completion
+      operationId: acceptOptimizationFinished
+      summary: Receive a new GEPARD candidate (factory:events:optimization)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OptimizationFinished' }
       responses:
-        '200':
-          description: Optimizer candidate tracked or blocked
+        '200': { $ref: '#/components/responses/EventAccepted' }
+  /internal/events/soup:
+    post:
+      operationId: acceptSoupFinished
+      summary: Receive independently commanded Soup result (factory:events:soup)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SoupFinished' }
+      responses:
+        '200': { $ref: '#/components/responses/EventAccepted' }
 components:
   securitySchemes:
     bearerAuth:
@@ -97,36 +171,193 @@ components:
       bearerFormat: JWT
   parameters:
     workflowId:
-      in: path
       name: workflowId
+      in: path
       required: true
-      schema: { type: string }
+      schema: { type: string, minLength: 1 }
     tenantId:
-      in: query
       name: tenantId
+      in: query
       required: true
-      schema: { type: string }
+      description: Must equal the validated JWT tenant_id claim.
+      schema: { type: string, minLength: 1 }
+  responses:
+    EventAccepted:
+      description: Current workflow state after processing or ignoring an idempotent/stale event
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/WorkflowView' }
+    BadRequest:
+      description: Invalid JSON or request semantics
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unauthorized:
+      description: Missing or invalid JWT
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Forbidden:
+      description: Missing tenant/scope authorization
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Conflict:
+      description: Idempotency, policy or state conflict
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: Workflow not found in tenant scope
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
   schemas:
+    Error:
+      type: object
+      required: [code, retryable]
+      properties:
+        code: { type: string }
+        retryable: { type: string, enum: ['false'] }
     Limits:
       type: object
       required: [maxRepairs, maxUsd, deadline]
       properties:
         maxRepairs: { type: integer, minimum: 0, maximum: 10 }
-        maxUsd: { type: number, exclusiveMinimum: 0 }
+        maxUsd: { type: number, exclusiveMinimum: true, minimum: 0 }
         deadline: { type: string, format: date-time }
     Start:
       type: object
-      required: [tenantId, workflowId, taskSnapshotId, idempotencyKey, correlationId, limits]
+      required: [tenantId, workflowId, taskSnapshotId, idempotencyKey, limits, correlationId]
       properties:
-        tenantId: { type: string }
-        workflowId: { type: string }
-        taskSnapshotId: { type: string }
-        idempotencyKey: { type: string }
-        correlationId: { type: string }
-        limits:
-          $ref: '#/components/schemas/Limits'
+        tenantId: { type: string, minLength: 1 }
+        workflowId: { type: string, minLength: 1 }
+        taskSnapshotId: { type: string, minLength: 1 }
+        idempotencyKey: { type: string, minLength: 1 }
+        correlationId: { type: string, minLength: 1 }
+        limits: { $ref: '#/components/schemas/Limits' }
     IdempotentAction:
       type: object
       required: [idempotencyKey]
       properties:
-        idempotencyKey: { type: string }
+        idempotencyKey: { type: string, minLength: 1 }
+    TrainingAction:
+      type: object
+      required: [rightsRef, idempotencyKey]
+      properties:
+        rightsRef: { type: string, pattern: '^artifact://' }
+        idempotencyKey: { type: string, minLength: 1 }
+    WorkflowView:
+      type: object
+      required: [tenantId, workflowId, taskSnapshotId, state, repairs, trainingAttempts, spentUsd, candidateVersion, releasedVersion, revision]
+      properties:
+        tenantId: { type: string }
+        workflowId: { type: string }
+        taskSnapshotId: { type: string }
+        state:
+          type: string
+          enum: [DRAFT, READY, BUILDING, TESTING, OPTIMIZING, TRAINING, RE_TESTING, VERIFIED, BLOCKED, RELEASED, ROLLED_BACK]
+        agentId: { type: string, nullable: true }
+        specRef: { type: string, nullable: true }
+        specDigest: { type: string, nullable: true }
+        repairs: { type: integer }
+        trainingAttempts: { type: integer }
+        spentUsd: { type: number }
+        candidateVersion: { type: integer, format: int64 }
+        releasedVersion: { type: integer, format: int64 }
+        pendingOperationId: { type: string, nullable: true }
+        errorCode: { type: string, nullable: true }
+        requiredAction: { type: string, nullable: true }
+        revision: { type: integer, format: int64 }
+    Audit:
+      type: object
+      properties:
+        occurredAt: { type: string, format: date-time }
+        from: { type: string }
+        to: { type: string }
+        reason: { type: string, nullable: true }
+        correlationId: { type: string }
+    Header:
+      type: object
+      required: [schemaVersion, eventId, tenantId, workflowId, operationId, correlationId, occurredAt]
+      properties:
+        schemaVersion: { type: string, enum: ['0.1'] }
+        eventId: { type: string, minLength: 1 }
+        tenantId: { type: string, minLength: 1 }
+        workflowId: { type: string, minLength: 1 }
+        operationId: { type: string, minLength: 1 }
+        correlationId: { type: string, minLength: 1 }
+        occurredAt: { type: string, format: date-time }
+    BuildFinished:
+      type: object
+      required: [header, success]
+      properties:
+        header: { $ref: '#/components/schemas/Header' }
+        success: { type: boolean }
+        agentId: { type: string }
+        specRef: { type: string }
+        specDigest: { type: string }
+        toolDigests:
+          type: object
+          additionalProperties: { type: string }
+        modelRouteDigest: { type: string }
+        a2aCardRef: { type: string }
+        failureCode: { type: string }
+        retryable: { type: boolean }
+    Evidence:
+      type: object
+      required: [evaluationRunId, specDigest, datasetRef, baselineDigest, independent, passed, safetyVeto, effectsVerified, nonRegression, risk]
+      properties:
+        evaluationRunId: { type: string }
+        specDigest: { type: string }
+        datasetRef: { type: string }
+        baselineDigest: { type: string }
+        metricsRef: { type: string }
+        traceRef: { type: string }
+        holdoutEvidenceRef: { type: string }
+        independent: { type: boolean }
+        passed: { type: boolean }
+        safetyVeto: { type: boolean }
+        effectsVerified: { type: boolean }
+        nonRegression: { type: boolean }
+        risk: { type: string, enum: [LOW, HIGH] }
+        approvals:
+          type: array
+          items: { type: string }
+          uniqueItems: true
+    EvaluationFinished:
+      type: object
+      required: [header, evaluationRunId, specDigest, evidence, spendUsd]
+      properties:
+        header: { $ref: '#/components/schemas/Header' }
+        evaluationRunId: { type: string }
+        specDigest: { type: string }
+        evidence: { $ref: '#/components/schemas/Evidence' }
+        spendUsd: { type: number, minimum: 0 }
+        failureCode: { type: string }
+        retryable: { type: boolean }
+    OptimizationFinished:
+      type: object
+      required: [header, success, baseSpecDigest, spendUsd]
+      properties:
+        header: { $ref: '#/components/schemas/Header' }
+        success: { type: boolean }
+        baseSpecDigest: { type: string }
+        candidateSpecRef: { type: string }
+        candidateSpecDigest: { type: string }
+        spendUsd: { type: number, minimum: 0 }
+        failureCode: { type: string }
+        retryable: { type: boolean }
+    SoupFinished:
+      type: object
+      required: [header, success, baseSpecDigest, spendUsd]
+      properties:
+        header: { $ref: '#/components/schemas/Header' }
+        success: { type: boolean }
+        baseSpecDigest: { type: string }
+        candidateSpecRef: { type: string }
+        candidateSpecDigest: { type: string }
+        modelRouteDigest: { type: string }
+        spendUsd: { type: number, minimum: 0 }
+        failureCode: { type: string }
+        retryable: { type: boolean }
