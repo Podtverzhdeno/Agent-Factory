@@ -35,10 +35,15 @@ class ThreadMemory:
         self._threads: dict[tuple[str, str, str], list[dict]] = {}
 
     def get(self, tenant: str, agent: str, thread: str) -> list[dict]:
-        return list(self._threads.get((tenant, agent, thread), []))
+        return list(self._threads.get((tenant, agent, thread), [])[-50:])
 
     def append(self, tenant: str, agent: str, thread: str, entry: dict) -> None:
-        self._threads.setdefault((tenant, agent, thread), []).append(dict(entry))
+        if len(json.dumps(entry)) > 16000:
+            raise RuntimeDenied('MEMORY_TOO_LARGE')
+        values = self._threads.setdefault((tenant, agent, thread), [])
+        values.append(dict(entry))
+        if len(values) > 100:
+            del values[:-100]
 
 class LongTermMemory:
     def __init__(self, clock: Callable[[], float] = time.time):
@@ -132,6 +137,9 @@ class Runtime:
                   thread_id: str, request: str, trace_id: str) -> RunResult:
         if tenant_id != spec.tenant_id:
             raise RuntimeDenied('TENANT_DENIED')
+        if (not run_id or not thread_id or not trace_id or len(trace_id) > 128
+                or not request or len(request) > 20000):
+            raise RuntimeDenied('INVALID_RUN_INPUT')
         if not spec.verify_digest():
             raise RuntimeDenied('SPEC_TAMPERED')
         if spec.artifact_digest not in self.approved_spec_digests:

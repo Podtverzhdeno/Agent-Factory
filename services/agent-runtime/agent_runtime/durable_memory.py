@@ -30,8 +30,8 @@ class SqliteMemory:
     def get(self, tenant: str, agent: str, thread: str) -> list[dict]:
         with closing(self._open()) as db:
             rows = db.execute('SELECT payload FROM thread_memory WHERE tenant=? AND agent=? '
-                              'AND thread=? ORDER BY position', (tenant, agent, thread))
-            return [json.loads(row[0]) for row in rows]
+                              'AND thread=? ORDER BY position DESC LIMIT 50', (tenant, agent, thread))
+            return [json.loads(row[0]) for row in reversed(list(rows))]
 
     def append(self, tenant: str, agent: str, thread: str, entry: dict):
         content = json.dumps(entry, ensure_ascii=False)
@@ -62,3 +62,10 @@ class SqliteMemory:
             if result is None or result[0] <= self.clock():
                 return None
             return result[1]
+
+    def purge_expired(self) -> int:
+        """Physically remove expired memory; does not promise cryptographic erasure."""
+        with closing(self._open()) as db:
+            cursor = db.execute('DELETE FROM scoped_memory WHERE valid_until<=?',
+                                (self.clock(),))
+            return cursor.rowcount
