@@ -6,7 +6,7 @@ from gepard_optimizer import DspyGepaBackend, GepaUnavailableError
 
 
 def _kwargs():
-    return dict(student=object(), metric=lambda e, p: 1.0,
+    return dict(student=object(), metric=lambda gold, pred, trace, pred_name, pred_trace: 1.0,
                 trainset=[object()], valset=[object()], reflection_lm=object(),
                 train_ref="artifact://train-v1", validation_ref="artifact://val-v1")
 
@@ -44,3 +44,8 @@ def test_backend_calls_dspy_gepa_contract_but_does_not_release(monkeypatch):
     assert result.status == "REQUIRES_INDEPENDENT_EVALUATION"
     assert calls['options']['enable_tool_optimization'] is True
     assert calls['sets']['trainset'] and calls['sets']['valset']
+
+
+def test_gepa_metric_requires_actual_five_arg_feedback_contract():
+    with pytest.raises(ValueError, match="5 arguments"):
+        DspyGepaBackend().compile(**(_kwargs() | {"metric": lambda gold, pred: 1.0}))
