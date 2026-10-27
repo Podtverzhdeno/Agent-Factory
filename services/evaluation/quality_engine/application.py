@@ -17,6 +17,13 @@ from .core import (
 
 
 @dataclass(frozen=True)
+class PublicRunCase:
+    """Public test input only; must not include gold or oracle answers."""
+    case_id: str
+    input_ref: str
+
+
+@dataclass(frozen=True)
 class EvidenceEnvelope:
     """Collector observation bound to tenant, candidate, dataset and case.
 
@@ -32,7 +39,7 @@ class EvidenceEnvelope:
 
 
 class EvidenceCollector(Protocol):
-    def collect(self, request: EvaluationRequest, case: Case) -> EvidenceEnvelope: ...
+    def collect(self, request: EvaluationRequest, case: PublicRunCase) -> EvidenceEnvelope: ...
 
 
 @dataclass(frozen=True)
@@ -112,7 +119,8 @@ class EvaluationWorkflow:
         request = self._requests[key]
         try:
             dataset = self._vault.read(principal, request.dataset_version_ref)
-            evidence = tuple(self._collector.collect(request, case) for case in dataset.cases)
+            evidence = tuple(self._collector.collect(request, PublicRunCase(case.case_id, case.input_ref))
+                             for case in dataset.cases)
             for case, envelope in zip(dataset.cases, evidence):
                 if not isinstance(envelope, EvidenceEnvelope) or (
                     envelope.tenant_id != request.tenant_id
