@@ -89,6 +89,13 @@ final class JdbcSpringWiringIntegrationTest {
     }
 
     @Test
+    void schemaProbeConfirmsV1AndV2OnRealPostgres() throws Exception {
+        http.perform(get("/schemaz")).andExpect(status().isOk())
+            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                .jsonPath("$.schema").value("ready"));
+    }
+
+    @Test
     void jdbcProfileNeverOpensPrivateWorkflowApisToUnauthenticatedClients() throws Exception {
         http.perform(get("/healthz")).andExpect(status().isOk());
         http.perform(get("/v1/workflows/test").param("tenantId", "tenant-a"))
