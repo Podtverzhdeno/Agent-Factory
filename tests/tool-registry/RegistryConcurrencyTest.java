@@ -51,7 +51,9 @@ public final class RegistryConcurrencyTest {
             }
             if (accepted != 1) throw new AssertionError("Exactly one immutable registration expected; actual=" + accepted);
         }
-        registry.approve(reviewer, "shared.concurrent", "1.0.0", "execute");
+        assertSingleSuccessfulTransition(24, () -> {
+            registry.approve(reviewer, "shared.concurrent", "1.0.0", "execute");
+        }, "IMMUTABLE", "approval");
         Caller auditor = new Caller("audit", "tenant-a", Set.of("registry:audit"));
         if (registry.auditTrail(auditor).size() != 2) throw new AssertionError("Audit must not contain duplicate transitions");
         if (registry.select(user, task("read_xlsx")).selectedTools().size() != 1)
@@ -62,9 +64,49 @@ public final class RegistryConcurrencyTest {
         String revision = copies.getFirst().registryRevision();
         if (copies.stream().anyMatch(s -> !s.registryRevision().equals(revision)))
             throw new AssertionError("Same registry state produced differing revisions");
-        registry.revoke(reviewer, "shared.concurrent", "1.0.0", "execute");
+        assertSingleSuccessfulTransition(24, () -> {
+            registry.revoke(reviewer, "shared.concurrent", "1.0.0", "execute");
+        }, "INVALID_STATE", "revocation");
         if (registry.auditTrail(auditor).size() != 3 || registry.select(user, task("read_xlsx")).decision() != Decision.BLOCKED)
             throw new AssertionError("Revocation must be atomic and audited");
-        System.out.println("PASS: concurrent registrations linearize to one immutable manifest, one approval and one revocation");
+        System.out.println("PASS: 24-way concurrent registration, approval and revocation linearize exactly once");
+    }
+
+    @FunctionalInterface
+    private interface Transition { void run(); }
+
+    /** Independent barrier-controlled actor races must emit precisely one success and audit event. */
+    private static void assertSingleSuccessfulTransition(int actors, Transition action,
+                                                          String expectedFailure, String transition) throws Exception {
+        CountDownLatch ready = new CountDownLatch(actors);
+        CountDownLatch start = new CountDownLatch(1);
+        List<Future<String>> outcomes = new ArrayList<>();
+        try (ExecutorService pool = Executors.newFixedThreadPool(actors)) {
+            for (int i = 0; i < actors; i++) {
+                outcomes.add(pool.submit(() -> {
+                    ready.countDown();
+                    if (!start.await(10, TimeUnit.SECONDS)) throw new AssertionError("Barrier timeout");
+                    try {
+                        action.run();
+                        return "SUCCESS";
+                    } catch (RegistryFailure error) {
+                        return error.code;
+                    }
+                }));
+            }
+            if (!ready.await(10, TimeUnit.SECONDS)) throw new AssertionError("Actors not ready");
+            start.countDown();
+            int succeeded = 0;
+            for (Future<String> outcome : outcomes) {
+                String value = outcome.get(10, TimeUnit.SECONDS);
+                if ("SUCCESS".equals(value)) succeeded++;
+                else if (!expectedFailure.equals(value)) {
+                    throw new AssertionError("Unexpected " + transition + " error: " + value);
+                }
+            }
+            if (succeeded != 1) {
+                throw new AssertionError("Expected one " + transition + ", got " + succeeded);
+            }
+        }
     }
 }
