@@ -1,10 +1,18 @@
 """Contract-level tenant/version checkpoint isolation without fake LangGraph compliance claims."""
 import pytest
-from agent_builder import digest
-from agent_runtime import (Decision, EffectLedger, Runtime, RuntimeDenied,
-                           ToolPolicy, VerifiedToolGateway)
 from agent_runtime.langgraph_adapter import invoke_graph
-from test_engine import FakeTools, Registry, ScriptedModel, build, manifest, task
+
+from agent_builder import digest
+from agent_runtime import (
+    Decision,
+    EffectLedger,
+    Runtime,
+    RuntimeDenied,
+    ToolPolicy,
+    VerifiedToolGateway,
+)
+from test_engine import build, FakeTools, manifest, Registry, ScriptedModel, task
+
 
 @pytest.mark.asyncio
 async def test_checkpoint_namespace_is_tenant_agent_version_bound():

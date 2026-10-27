@@ -1,7 +1,18 @@
 """Input bounds, memory retention and expiry regression tests."""
 import pytest
-from agent_runtime import Runtime, RuntimeDenied, ThreadMemory, SqliteMemory, Decision, ToolPolicy, VerifiedToolGateway, EffectLedger
-from test_engine import Registry, FakeTools, ScriptedModel, build, manifest, task
+
+from agent_runtime import (
+    Decision,
+    EffectLedger,
+    Runtime,
+    RuntimeDenied,
+    SqliteMemory,
+    ThreadMemory,
+    ToolPolicy,
+    VerifiedToolGateway,
+)
+from test_engine import build, FakeTools, manifest, Registry, ScriptedModel, task
+
 
 def make_runtime():
     spec=build(task('read',['read'],['read'],['read']),

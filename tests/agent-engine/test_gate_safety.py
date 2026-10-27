@@ -1,6 +1,6 @@
 """No Railway integration can connect to a shared database by accident."""
-from verify_test_database import validate_isolated_test_database
 from ruff_report import summarize_ruff
+from verify_test_database import validate_isolated_test_database
 
 
 def test_gate_accepts_only_dedicated_test_db_host_user_name():

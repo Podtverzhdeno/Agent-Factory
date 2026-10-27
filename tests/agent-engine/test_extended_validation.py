@@ -1,8 +1,9 @@
 """Hardening regressions: version correctness and model argument trust boundary."""
 import pytest
+
 from agent_builder import Builder, BuildError
-from agent_runtime import RuntimeDenied, ToolPolicy, VerifiedToolGateway, EffectLedger
-from test_engine import Registry, FakeTools, build, manifest, task
+from agent_runtime import EffectLedger, RuntimeDenied, ToolPolicy, VerifiedToolGateway
+from test_engine import build, FakeTools, manifest, Registry, task
 
 
 def test_full_task_snapshot_is_part_of_agent_version():
