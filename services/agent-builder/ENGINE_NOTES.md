@@ -18,10 +18,10 @@ No shared OpenSpec, ADR, other agents' directories or production infrastructure 
 
 ## Actual local evidence (Python 3.13)
 
-- `python -m pytest -q tests/agent-engine -ra`: **76 passed, 4 skipped**.
+- `python -m pytest -q tests/agent-engine -ra`: **88 passed, 4 skipped**.
 - `python -m compileall -q services tests`: completed.
 - `pytest --cov=agent_builder --cov=agent_runtime --cov=litellm_adapter`:
-  81% aggregate coverage, mostly optional integrations absent.
+  82% aggregate coverage, mostly optional integrations absent.
 - `AGENT_ENGINE_REQUIRE_INTEGRATIONS=1 python -m pytest -q tests/agent-engine/test_official_integrations.py -k real_langgraph -ra`:
   **exit code 1** on skipped SDK test; verified fail-closed integration gate.
 - GitHub SDD workflow checks specification, **not** the full Agent Engine test suite.
@@ -126,8 +126,8 @@ No merges performed by this workstream.
 - The LiteLLM request now includes an explicit, JSON-defined ReAct decision
   contract and the complete pinned allowed tool-ID list. The provider still
   cannot authorize arbitrary tools: Gateway validates the returned action.
-- Independent local test: `76 passed, 4 skipped` (Python 3.13).
-  Coverage via `pytest --cov` is **81% overall**, Agent Builder core 94%,
+- Independent local test: `88 passed, 4 skipped` (Python 3.13).
+  Coverage via `pytest --cov` is **82% overall**, Agent Builder core 94%,
   Runtime core 95%; LangGraph/official A2A/Postgres adapters need real SDK/DB
   integration. Compilation passes.
 - SDK smoke tests and Ruff/Pyright are **NOT accepted** without executing the
@@ -136,3 +136,35 @@ No merges performed by this workstream.
 - A2A request authorization also verifies the released AgentSpec's digest against
   its actual immutable content on every request. A tampered prompt is rejected
   even when an earlier artifact digest is still allowlisted (regression-tested).
+
+## 2026-10-27 hardening pass, isolated component tests
+
+- Local Python 3.13 test suite: **88 passed, 4 skipped**, 82% coverage
+  (Agent Builder core 94%, Runtime core 95%).
+- `VerifiedToolGateway` limits UTF-8 output payloads to 32 KiB and refuses
+  recursive/non-JSON structures before confirming an effect reservation.
+- `postgres_checkpointer()` refuses to initialize unless
+  `LANGGRAPH_STRICT_MSGPACK=true`; integration script sets it explicitly,
+  following current official checkpoint deserialization guidance.
+- Experimental A2A SDK adapter now requires `principal_scope` to stop
+  cross-principal tasks/get exposure from a shared in-memory task store.
+  Multi-principal production TaskStore requires a separately reviewed,
+  authenticated per-principal durable storage implementation.
+- Synthetic in-memory effect ledger now rejects confirmations without
+  UNCERTAIN reservations or duplicate confirmation transitions.
+- Builder JSON-quotes the task objective within policy instructions so raw
+  task content cannot inject extra system-prompt lines.
+- PostgreSQL effect ledger pre-validates result JSON (no NaN/Infinity,
+  recursion, or oversized records) before acquiring a driver/connection.
+- Reproducible strict integration gate without optional dependencies:
+  4 skipped, **exit status 1** as expected (not accepted).
+- Full Ruff/Pyright, real SDK and PostgreSQL tests are **not executed/passed**;
+  actual production acceptance remains blocked on owner ADR-0002.
+
+### Independent checks
+
+```shell
+python -m pytest -q tests/agent-engine -ra
+python -m pytest -q tests/agent-engine --cov=agent_builder --cov=agent_runtime --cov=litellm_adapter --cov-report=term
+AGENT_ENGINE_REQUIRE_INTEGRATIONS=1 python -m pytest -q tests/agent-engine/test_official_integrations.py tests/agent-engine/test_postgres_effects.py
+```
