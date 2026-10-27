@@ -57,3 +57,28 @@ def test_official_a2a_server_extra_is_installed_by_integration_gate():
     from pathlib import Path
     requirements = (Path(__file__).resolve().parent / "requirements-integration.txt").read_text()
     assert "a2a-sdk[http-server]" in requirements
+
+
+def test_guard_accepts_exact_local_ephemeral_database_only_with_explicit_mode():
+    dsn = "postgresql://agent04_test:ephemeral@127.0.0.1:55432/agent04_test"
+    assert validate_isolated_test_database(dsn) == "TEST_DATABASE_NOT_ISOLATED"
+    assert validate_isolated_test_database(dsn, local_ephemeral=True) is None
+    for bad in (
+        "postgresql://postgres:ephemeral@127.0.0.1:55432/agent04_test",
+        "postgresql://agent04_test:ephemeral@127.0.0.1:5432/agent04_test",
+        "postgresql://agent04_test:ephemeral@127.0.0.1:55432/railway",
+        "postgresql://agent04_test:ephemeral@postgres.railway.internal:55432/agent04_test",
+    ):
+        assert validate_isolated_test_database(bad, local_ephemeral=True) is not None
+
+
+def test_ephemeral_entrypoint_discards_shared_database_env_before_starting_pg():
+    from pathlib import Path
+    root = Path(__file__).resolve().parent
+    entry = (root / "railway_gate_entrypoint.sh").read_text()
+    assert "unset AGENT_ENGINE_TEST_PG_DSN DATABASE_URL" in entry
+    assert entry.index("unset AGENT_ENGINE_TEST_PG_DSN") < entry.index("initdb -D")
+    assert "listen_addresses=127.0.0.1" in entry
+    assert "port=55432" in entry
+    assert "trap cleanup_pg EXIT" in entry
+    assert entry.index("bash tests/agent-engine/run_integration_gates.sh") < entry.index("exec python tests/agent-engine/railway_gate_health.py")
