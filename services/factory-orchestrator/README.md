@@ -42,7 +42,7 @@ Current adapters `InMemoryWorkflowLedger` and `InMemoryAgentStore` are **not dur
 
 From repository root: `bash tests/control-plane/run-core-tests.sh`
 
-The script runs `javac -Xlint:all -Werror` followed by an executable Java component suite without external services or Maven, using synthetic fixtures. 21 assertions/scenarios passed locally under OpenJDK 21 on 2026-10-27. No production E2E is claimed.
+The script runs `javac -Xlint:all -Werror` followed by an executable Java component suite without external services or Maven, using synthetic fixtures. 22 assertions/scenarios passed locally under OpenJDK 21 on 2026-10-27. No production E2E is claimed.
 
 ## Release gates
 
