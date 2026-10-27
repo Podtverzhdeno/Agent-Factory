@@ -82,7 +82,7 @@ public class RegistryJsonConfig {
                         // Reject unknown values; never weaken to a default risk/effect.
                     }
                 }
-                throw new IllegalArgumentException("Unsupported lower-case " + enumType.getSimpleName() + " value");
+                throw context.weirdStringException(value, enumType, "Expected a defined lowercase v0 enum value");
             }
         };
     }
