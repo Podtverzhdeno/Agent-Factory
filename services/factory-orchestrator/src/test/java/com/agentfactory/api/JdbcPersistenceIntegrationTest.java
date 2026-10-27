@@ -159,6 +159,34 @@ final class JdbcPersistenceIntegrationTest {
             command -> {throw new AssertionError("Stale Soup replay");}).dispatchPending());
     }
 
+    @Test void schemaProbeRejectsMissingV2WithinRollbackOnlyDisposableSchema() throws Exception {
+        // Run the V1-only negative test in a rolled-back transaction on the
+        // already disposable localhost test DB. No live Railway DB is touched.
+        try(Connection connection=dataSource.getConnection()) {
+            connection.setAutoCommit(false);
+            try {
+                try(var create=connection.createStatement()) {
+                    create.execute("CREATE SCHEMA cp_probe_incomplete");
+                }
+                connection.setSchema("cp_probe_incomplete");
+                ScriptUtils.executeSqlScript(connection,
+                    new ClassPathResource("db/migration/V1__control_plane_poc.sql"));
+                var prior=connection.setSavepoint();
+                assertThrows(java.sql.SQLException.class,
+                    () -> SchemaReadinessController.verifySchema(connection));
+                // Missing table raises a PostgreSQL transaction error: clear
+                // its abort state before applying the forward-only V2 script.
+                connection.rollback(prior);
+                ScriptUtils.executeSqlScript(connection,
+                    new ClassPathResource("db/migration/V2__tenant_event_inbox.sql"));
+                assertDoesNotThrow(() -> SchemaReadinessController.verifySchema(connection));
+            } finally {
+                // Roll back schema creation itself, not merely its contents.
+                connection.rollback();
+            }
+        }
+    }
+
     @Test void verifiedLowRiskEvaluationAndAutoReleaseShareSingleCommit() {
         var tx=tx();
         var ledger=new JdbcWorkflowLedger(tx,codec());
