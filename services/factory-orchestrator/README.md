@@ -86,3 +86,43 @@ For contract changes propose them in this module or PR; do not edit frozen share
 - Duplicate event payloads are compared structurally rather than by their string presentation.
 - AgentStore rejects HIGH-risk automatic promotion even if the caller supplies a manual approval scope.
 - The local mock-backed 35-test subset passed; **do not** infer full PR Java CI, Spring Boot, or production integration success.
+
+## Optional PostgreSQL durability proof (NOT a ratified topology)
+
+The following adapters are opt-in and isolated to this workstream:
+`JdbcWorkflowLedger`, `JdbcAgentStore`, `JdbcTransactionScope`, `JacksonStateCodec`.
+`db/migration/V1__control_plane_poc.sql` defines tenant-scoped keys, candidate versions,
+transition history and workflow-persisted event inbox, command outbox and notification cursor.
+No other service database is accessed.
+
+- Default Spring Boot startup intentionally excludes automatic DataSource configuration and
+  keeps fail-closed in-memory wiring. JDBC requires explicit `jdbc-poc` profile and an
+  isolated PostgreSQL datasource configured with `spring.datasource.jdbc-url`,
+  `spring.datasource.username`, `spring.datasource.password`.
+- **Schema migration is not automatically applied to production.** The test suite applies
+  V1 to an ephemeral PostgreSQL Testcontainer. Production migrations, DDL ownership,
+  database topology and deployment still await ADR-0002 owner ratification.
+- WorkflowLedger and AgentStore must share **one** `JdbcTransactionScope` instance.
+  A nested SQL/domain failure marks the transaction rollback-only; a caught nested exception
+  cannot allow the outer transaction to commit.
+- Metadata request fingerprints use canonical SHA-256, stable across map/set ordering,
+  JSON codecs and process restarts. Stored row identities are checked after deserialization.
+- The proof-of-concept relies on row locking and replay-safe command IDs. It **does not**
+  implement distributed command leases, actual Builder/Evaluation/GEPARD connectors, live
+  runtime switching or broker-level exactly-once effects.
+
+### Strict acceptance commands
+
+```bash
+# From repository root: JDK 21 + Maven + Docker-capable host
+bash tests/control-plane/run-acceptance.sh
+```
+
+The script refuses to report PASS if Maven or Docker/PostgreSQL is unavailable, or if
+the PostgreSQL integration test report is absent or skipped.
+
+**Verified locally on exact GitHub blob SHA files, OpenJDK 21:
+3/3 JDBC transaction tests + 4/4 canonical event fingerprint tests PASS.**
+The exact PR head's full component suite, Spring MockMvc JWT suite and PostgreSQL
+Testcontainers suite are **not yet executed in this environment**: Maven, Docker and
+GitHub checkout network are unavailable. Do not interpret passing SDD validation as Maven PASS.
