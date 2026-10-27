@@ -46,3 +46,25 @@ def test_external_plain_http_denied():
     with pytest.raises(ValueError):
         LiteLLMClient(base_url="http://external.example", api_key="placeholder",
                       allowed_models={"allowed"})
+
+
+@pytest.mark.parametrize("wrong", [
+    {"model": "unauthorized-fallback"},
+    {"usage": {"prompt_tokens": -1, "completion_tokens": 1}},
+    {"usage": {"prompt_tokens": True, "completion_tokens": 1}},
+    {"response_cost": float("nan")},
+    {"response_cost": -0.0001},
+])
+def test_misreported_proxy_model_or_usage_is_rejected(wrong):
+    payload = {"model": "allowed", "choices": [{"message": {"content": "ok"}}],
+               "usage": {"prompt_tokens": 10, "completion_tokens": 2},
+               "response_cost": 0.03}
+    payload.update(wrong)
+    client = LiteLLMClient(base_url="https://gateway.example", api_key="placeholder",
+                            allowed_models={"allowed"},
+                            transport=httpx.MockTransport(lambda req: httpx.Response(200, json=payload)))
+    try:
+        with pytest.raises(LiteLLMError, match="GATEWAY_CALL_FAILED"):
+            client.complete(model="allowed", messages=[{"role": "user", "content": "ok"}])
+    finally:
+        client.close()
