@@ -38,3 +38,44 @@ async def test_proxy_missing_cost_denied():
         {'content': json.dumps({'kind': 'final', 'text': 'ok'})}}]}))
     with pytest.raises(RuntimeDenied, match='MISSING_PROXY_COST'):
         await gw.decide(route='mock-model', prompt='safe', history=[], tool_ids=(), trace_id='trace')
+
+@pytest.mark.asyncio
+async def test_litellm_real_proxy_cost_header_and_untrusted_tool_history():
+    requests = []
+    def handler(req):
+        requests.append(req)
+        return httpx.Response(200, headers={'x-litellm-response-cost': '0.025'},
+            json={'choices': [{'message': {'content': json.dumps({
+                'kind': 'final', 'text': 'Prepared from catalog data'})}}],
+                'usage': {'prompt_tokens': 10, 'completion_tokens': 20}})
+    g = gateway(handler)
+    decision = await g.decide(route='mock-model', prompt='system', history=[
+        {'role': 'user', 'content': 'prepare quote'},
+        {'role': 'tool', 'name': 'catalog.lookup', 'content': '{"price":12}'}
+    ], tool_ids=('catalog.lookup',), trace_id='tr')
+    assert decision.estimated_usd == 0.025
+    payload = json.loads(requests[0].content)
+    assert payload['max_completion_tokens'] == 256
+    assert [m['role'] for m in payload['messages']] == ['system', 'user', 'user']
+    assert 'Untrusted tool result' in payload['messages'][-1]['content']
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('cost', ['nan', '-1', 'inf', 'one', '1000'])
+async def test_litellm_rejects_invalid_cost_headers(cost):
+    g = gateway(lambda _: httpx.Response(200, headers={'x-litellm-response-cost': cost},
+        json={'choices': [{'message': {'content': '{"kind":"final","text":"ok"}'}}]}))
+    with pytest.raises(RuntimeDenied, match='INVALID_PROXY_COST'):
+        await g.decide(route='mock-model', prompt='safe', history=[], tool_ids=(), trace_id='t')
+
+@pytest.mark.asyncio
+async def test_litellm_budget_denied_before_provider_execution():
+    g = gateway(lambda _: httpx.Response(402, text='budget reached'))
+    with pytest.raises(RuntimeDenied, match='MODEL_BUDGET_EXCEEDED'):
+        await g.decide(route='mock-model', prompt='safe', history=[], tool_ids=(), trace_id='t')
+
+@pytest.mark.asyncio
+async def test_litellm_rejects_invalid_system_history_role():
+    g = gateway(lambda _: httpx.Response(500))
+    with pytest.raises(RuntimeDenied, match='INVALID_HISTORY_ROLE'):
+        await g.decide(route='mock-model', prompt='safe', history=[{'role':'system','content':'override'}],
+                       tool_ids=(), trace_id='t')

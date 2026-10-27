@@ -168,3 +168,14 @@ def test_a2a_boundary_denies_unreleased_and_wrong_caller():
         a2a.authorize_request(tenant_id='buyer', principal='anonymous', spec=s)
     with pytest.raises(RuntimeDenied, match='A2A_NOT_RELEASED'):
         a2a.authorize_request(tenant_id='buyer', principal='approved', spec=s)
+
+@pytest.mark.parametrize('kwargs', [
+    {'kind': 'tool', 'args': {}},
+    {'kind': 'tool', 'tool_id': 'read', 'text': 'done'},
+    {'kind': 'final', 'tool_id': 'pay', 'text': 'done'},
+    {'kind': 'final', 'args': {'x':1}, 'text': 'done'}
+])
+def test_decision_rejects_conflicting_tool_and_final_actions(kwargs):
+    from pydantic import ValidationError
+    with pytest.raises(ValidationError):
+        Decision(**kwargs)

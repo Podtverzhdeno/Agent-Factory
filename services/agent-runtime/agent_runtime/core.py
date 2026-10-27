@@ -6,7 +6,7 @@ import time
 from dataclasses import dataclass
 from typing import Any, Callable, Literal, Protocol
 from agent_builder import AgentSpec, ToolBinding, digest
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 class RuntimeDenied(Exception):
     def __init__(self, code: str):
@@ -21,6 +21,14 @@ class Decision(BaseModel):
     text: str = ''
     source_refs: tuple[str, ...] = ()
     estimated_usd: float = Field(default=0, ge=0)
+
+    @model_validator(mode='after')
+    def consistent_action(self):
+        if self.kind == 'tool' and (not self.tool_id or self.text):
+            raise ValueError('tool action requires tool_id and no final text')
+        if self.kind == 'final' and (self.tool_id is not None or self.args):
+            raise ValueError('final answer cannot request tool execution')
+        return self
 
 class ModelPort(Protocol):
     async def decide(self, *, route: str, prompt: str, history: list[dict],
