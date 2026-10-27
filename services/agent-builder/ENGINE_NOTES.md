@@ -252,3 +252,46 @@ owner-approved ADR-0002; signed artifact/provenance verification; real
 external MCP and LiteLLM; cross-service orchestration; authenticated
 multi-turn buyer-supplier A2A negotiation and independently accepted
 business outcome; independent security/tenant and disaster-recovery testing.
+
+## 2026-10-27: observability and expanded strict integration suite
+
+**Latest executed candidate SHA:** `cf386c92c4a09caab9c78fed1b1a613542f4038f`.
+**Railway private Agent 04 gate:** deployment
+`940cee01-9421-4e89-8fde-1ac7c1f7819e` returned **SUCCESS**.
+
+The full strict gate on a disposable PostgreSQL inside the appliance reported:
+
+- **Ruff 0 violations**;
+- **Pyright 0 errors / 0 warnings**;
+- credential-free SDK/component phase **179 passed, 2 intentionally skipped**;
+- strict PostgreSQL + official A2A SDK phase **181 passed, 0 skipped**;
+- no edits to the live shared Railway `Postgres` or production service.
+
+This supersedes the prior 148-test execution count by **33 passing
+tests** on the current tested revision; the new tests cover audit and
+related signed Evaluation boundary changes in this shared branch.
+
+New privacy-minimal structured logging:
+
+- `agent_builder.audit.audit_event` emits JSONL metadata through
+  the `agent_factory.audit` logger; `AGENT_AUDIT_JSON_STDOUT=1` enables
+  an idempotent stdout handler in a configured application process.
+- No raw IDs/prompts/tools args/results/tokens/HTTP headers/stack traces;
+  only allowlisted event/outcome names and bounded numeric metrics.
+- Optional `AGENT_AUDIT_HMAC_KEY` with **32+ random bytes** permits
+  domain-separated, pseudonymous tenant/run/trace/tool correlation.
+  Without a key no raw or hashed identifiers are emitted.
+- Lifecycle events cover **Builder, regular Runtime, LangGraph, tool gateway
+  and A2A authorization denials**, including replay and errors.
+- A failing log sink cannot reissue external side effects or override the
+  original business result.
+- Automated tests cover malicious error text, Unicode identifiers,
+  weak or rotating HMAC keys, stdout JSONL in separate Python processes,
+  tenant/auth rejection and run/tool/build idempotency.
+- Documentation: `services/agent-builder/OBSERVABILITY.md`.
+
+**Important distinction:** telemetry is neither an Ed25519 signature nor
+an authoritative business outcome. The signed Runtime→Evaluation
+candidate is separately tested in this branch but external issuer/KMS
+trust, real end-to-end evaluation integrations and ADR-0002 production
+approval remain independent requirements.

@@ -143,3 +143,23 @@ and deterministic RFQ business oracles. It still does **not** cover the
 full A2A buyer-supplier negotiation, cross-service durable release,
 real external payment/settlement, verified supplier Quote Artifact
 provenance or production failover. Those scenario rows remain OPEN.
+
+## Audit and negative-test expansion — 2026-10-27
+
+At revision `cf386c92`, the isolated real PostgreSQL + official SDK
+Railway gate reached **181 PASS / 0 SKIP**, **Ruff 0**, **Pyright 0**.
+The safe, no-database phase independently reached **179 PASS / 2 expected
+Postgres SKIP**. Private Railway gate returned **SUCCESS**.
+
+Additional observability tests check Builder assembly/replay/denials,
+Runtime and LangGraph run lifecycle, uncertain tool errors, malicious
+credential-bearing tool args, A2A authorization rejection, stdout
+JSONL emission, pseudonymous HMAC correlation and log-sink failure.
+They do **not** establish release approval or correct transaction
+settlement. Detailed privacy rules and configuration are in
+`services/agent-builder/OBSERVABILITY.md`.
+
+This revision also contains synthetic signed Runtime→Evaluation
+evidence tests developed on the shared workstream branch. Signing a
+trace does not independently validate source authenticity, customer
+consent, business totals, or a full buyer↔supplier negotiation.
