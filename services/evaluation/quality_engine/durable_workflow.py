@@ -63,7 +63,11 @@ class DurableEvaluationWorkflow:
             observations = collect_observations(self._collector, claim.request, ds.cases,
                                                 self._verifier, True)
             result = self._engine.evaluate(principal, claim.request, observations, self._policy)
-            status, code = result.status, None
+            if result.passed and not result.independent_acceptance:
+                # Training success is never independent release evidence.
+                status, code, result = "BLOCKED", "INDEPENDENT_HOLDOUT_REQUIRED", None
+            else:
+                status, code = result.status, None
         except (InvalidEvidence, AccessDenied):
             status, code, result = "BLOCKED", "INVALID_EXECUTION_EVIDENCE", None
         except Exception:
