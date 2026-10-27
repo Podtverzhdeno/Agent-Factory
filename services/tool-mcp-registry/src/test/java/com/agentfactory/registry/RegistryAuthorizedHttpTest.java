@@ -124,6 +124,26 @@ class RegistryAuthorizedHttpTest {
             .isInstanceOf(RuntimeException.class);
     }
 
+    @Test void testJsonParserRejectsDuplicateKeysAndExcessivePayload() throws Exception {
+        String valid = """
+            {"required_capabilities":["read_xlsx"],"allowed_effects":["read"],
+             "max_risk":"low","pinned_versions":{},"expected_schemas":{}}
+            """;
+        String duplicate = valid.replace("\"max_risk\":\"low\"",
+            "\"max_risk\":\"low\",\"max_risk\":\"critical\"");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> mapper.readValue(
+            duplicate, SelectionRequest.class)).isInstanceOf(RuntimeException.class);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> mapper.readTree(
+            "{\"value\":\"" + "x".repeat(120_000) + "\"}")).isInstanceOf(RuntimeException.class);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> mapper.readTree(
+            "{\"nested\":" + "[".repeat(25) + "0" + "]".repeat(25) + "}"))
+            .isInstanceOf(RuntimeException.class);
+        mvc.perform(post("/v0/registry/select")
+            .with(caller("builder", "tenant-a", "registry:lookup"))
+            .contentType(MediaType.APPLICATION_JSON).content(duplicate))
+            .andExpect(status().isBadRequest());
+    }
+
     @Test void testRegistrationCannotCrossTenantOrAcceptUnknownFields() throws Exception {
         Manifest other = new Manifest("0.1", "http.multi.tenant", "1.0.0", "execute", Transport.MCP,
             Set.of("read_xlsx"), "artifact://schemas/file-input", "artifact://schemas/rows",
