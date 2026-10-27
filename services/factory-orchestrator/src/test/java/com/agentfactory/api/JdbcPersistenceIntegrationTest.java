@@ -40,6 +40,7 @@ final class JdbcPersistenceIntegrationTest {
         dataSource=ds;
         try(Connection c=dataSource.getConnection()) {
             ScriptUtils.executeSqlScript(c,new ClassPathResource("db/migration/V1__control_plane_poc.sql"));
+            ScriptUtils.executeSqlScript(c,new ClassPathResource("db/migration/V2__tenant_event_inbox.sql"));
         }
     }
     @BeforeEach void clearTables() throws Exception {
