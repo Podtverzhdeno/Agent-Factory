@@ -211,6 +211,54 @@ final class JdbcPersistenceIntegrationTest {
         assertEquals(1,new JdbcAgentStore(tx(),codec()).versions(TENANT,"agent-01").size());
     }
 
+    @Test void consumedInboxEventSurvivesRestartAndRejectsConflictingReplay() throws Exception {
+        var scope=tx();
+        var ledger=new JdbcWorkflowLedger(scope,codec());
+        var store=new JdbcAgentStore(scope,codec());
+        var plane=orchestrator(ledger,store);
+        plane.start(principal(),start());
+        var dispatcher=new OutboxDispatcher(ledger,
+            c -> new Protocol.CommandReceipt(c.operationId(),true),
+            c -> new Protocol.CommandReceipt(c.operationId(),true),
+            c -> new Protocol.CommandReceipt(c.operationId(),true),
+            c -> new Protocol.CommandReceipt(c.operationId(),true));
+        assertEquals(1,dispatcher.dispatchPending());
+        var header=new Protocol.Header("0.1","durable-build-event",TENANT,"wf-01",
+            plane.get(principal(),TENANT,"wf-01").pendingOperationId(),"trace-01",NOW);
+        var original=new Protocol.BuildFinished(header,true,"agent-01",
+            "artifact://agent-spec/a1",DIGEST,Map.of("lookup",TOOL),
+            MODEL,"artifact://a2a/card",null,false);
+        var builder=new Protocol.Principal("builder",TENANT,Set.of("factory:events:build"));
+        assertEquals(Workflow.State.TESTING,plane.onBuild(builder,original).state());
+
+        // A fresh ledger/controller instance must load the exact inbox fingerprint
+        // from PostgreSQL rather than treating a duplicate as a new completion.
+        var reloaded=new JdbcWorkflowLedger(tx(),codec());
+        var freshPlane=orchestrator(reloaded,new JdbcAgentStore(tx(),codec()));
+        var before=reloaded.get(TENANT,"wf-01").view();
+        assertEquals(Workflow.State.TESTING,freshPlane.onBuild(builder,original).state());
+        var after=reloaded.get(TENANT,"wf-01").view();
+        assertEquals(before.state(),after.state());
+        assertEquals(before.specDigest(),after.specDigest());
+        assertEquals(1,reloaded.withUndeliveredActions().size());
+        try(Connection c=dataSource.getConnection();var query=c.prepareStatement(
+            "SELECT fingerprint FROM cp_event_inbox WHERE tenant_id=? AND event_id=?")) {
+            query.setString(1,TENANT);query.setString(2,"durable-build-event");
+            try(var rows=query.executeQuery()) {
+                assertTrue(rows.next());
+                assertEquals(EventIdentity.sha256(original),rows.getString(1));
+                assertFalse(rows.next());
+            }
+        }
+        var forged=new Protocol.BuildFinished(header,true,"agent-01",
+            "artifact://agent-spec/evil",DIGEST,Map.of("lookup",TOOL),
+            MODEL,"artifact://a2a/card",null,false);
+        var denied=assertThrows(IllegalStateException.class,()->
+            freshPlane.onBuild(builder,forged));
+        assertEquals("EVENT_ID_COLLISION",denied.getMessage());
+        assertEquals(Workflow.State.TESTING,reloaded.get(TENANT,"wf-01").view().state());
+    }
+
     @Test void tenantWideEventIdCannotCrossWorkflowBoundaries() {
         var scope=tx();var ledger=new JdbcWorkflowLedger(scope,codec());
         var store=new JdbcAgentStore(scope,codec());
