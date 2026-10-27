@@ -3,6 +3,7 @@
 NOT a LangGraph checkpointer, not a production schema. Production DB ownership,
 retention and transactional outbox require ratified ADR-0002.
 """
+
 from __future__ import annotations
 
 import json

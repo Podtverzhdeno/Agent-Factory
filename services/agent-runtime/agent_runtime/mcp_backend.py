@@ -1,4 +1,5 @@
 """Approved MCP client adapter. MCP is transport, NOT authority."""
+
 from __future__ import annotations
 
 from typing import Any, Literal, Mapping, Protocol

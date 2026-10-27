@@ -3,6 +3,7 @@
 Not a production migration or exactly-once guarantee. ADR-0002 must define DB
 ownership, encryption, retention, reconciliation and outbox before deployment.
 """
+
 from __future__ import annotations
 
 import json

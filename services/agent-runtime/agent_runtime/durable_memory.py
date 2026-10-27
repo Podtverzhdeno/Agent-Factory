@@ -1,4 +1,5 @@
 """Tenant-scoped SQLite memory for synthetic tests; plaintext, not production."""
+
 from __future__ import annotations
 
 import json

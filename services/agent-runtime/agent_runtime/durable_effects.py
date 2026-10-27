@@ -2,6 +2,7 @@
 
 Reserve *before* dispatch; uncertain and confirmed keys both block further calls.
 """
+
 from __future__ import annotations
 
 import asyncio

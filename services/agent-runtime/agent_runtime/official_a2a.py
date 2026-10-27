@@ -1,4 +1,5 @@
 """Isolated official A2A SDK v1 adapter; no socket or release side effects."""
+
 from __future__ import annotations
 
 from contextvars import ContextVar

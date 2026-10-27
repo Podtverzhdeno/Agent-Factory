@@ -1,4 +1,5 @@
 """A2A security boundary only; do not invent an ad-hoc A2A wire protocol."""
+
 from __future__ import annotations
 
 import importlib.util
