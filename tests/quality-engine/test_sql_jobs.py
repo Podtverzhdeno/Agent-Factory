@@ -100,3 +100,34 @@ def test_crash_does_not_mutate_released_task_without_claim(store):
     assert store.claim(a, run_id="run-1", worker_id="w2", now=100, max_attempts=1) is None
     with pytest.raises(InvalidEvidence):
         store.complete(a, claim, now=100, status="BLOCKED", error_code="LEASE_EXPIRED")
+
+
+
+def test_only_independent_holdout_can_be_committed_as_passed(store):
+    a = Principal("a", "evaluation")
+    store.submit(a, req())
+    claim = store.claim(a, run_id="run-1", worker_id="w", now=1)
+    with pytest.raises(InvalidEvidence, match="independent holdout"):
+        store.complete(a, claim, now=2, status="PASSED",
+                       result=replace(accepted(), independent_acceptance=False))
+    with pytest.raises(InvalidEvidence):
+        store.complete(a, claim, now=2, status="PASSED",
+                       result=replace(accepted(), tenant_id="other"))
+    assert store.pending_events(a) == ()
+
+
+def test_exhausted_worker_lease_becomes_blocked_once(store):
+    a = Principal("a", "evaluation")
+    store.submit(a, req())
+    store.claim(a, run_id="run-1", worker_id="w", now=0, lease_seconds=10, max_attempts=1)
+    assert store.block_exhausted(a, now=11, max_attempts=1) == 1
+    assert store.get(a, "run-1").error_code == "MAX_ATTEMPTS_EXHAUSTED"
+    assert store.block_exhausted(a, now=12, max_attempts=1) == 0
+    assert len(store.pending_events(a)) == 1
+
+
+def test_invalid_nonfinite_worker_clock_is_rejected(store):
+    a = Principal("a", "evaluation")
+    store.submit(a, req())
+    with pytest.raises(ValueError):
+        store.claim(a, run_id="run-1", worker_id="w", now=float("nan"))
