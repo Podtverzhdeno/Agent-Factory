@@ -86,10 +86,10 @@ public final class ControlPlane {
             AgentStore.filled(h.operationId()) && AgentStore.filled(h.correlationId()) &&
             h.occurredAt()!=null && Objects.equals(h.tenantId(),w.tenantId) &&
             Objects.equals(h.workflowId(),w.workflowId) && Objects.equals(h.correlationId(),w.correlationId), "INVALID_EVENT_HEADER");
-        String fingerprint = event.toString();
-        String existing = w.inbox.get(h.eventId());
+        Object existing = w.inbox.get(h.eventId());
         if (existing != null) {
-            require(existing.equals(fingerprint), "EVENT_ID_COLLISION");
+            // Record equality handles maps structurally and ignores insertion order.
+            require(existing.equals(event), "EVENT_ID_COLLISION");
             return true;
         }
         // Only a dispatch receipt may acknowledge a command.
@@ -135,7 +135,7 @@ public final class ControlPlane {
         Header h=event.header();
         return ledger.transact(h.tenantId(),h.workflowId(),w -> {
             if (sameEvent(w,h,event) || !expected(w,h,Workflow.State.BUILDING)) return w.view();
-            w.inbox.put(h.eventId(),event.toString());
+            w.inbox.put(h.eventId(),event);
             if (!clock.now().isBefore(w.limits.deadline())) {
                 block(w,"TIME_BUDGET_EXHAUSTED","start a new authorized workflow");
             } else if (!event.success()) {
@@ -165,7 +165,7 @@ public final class ControlPlane {
         Workflow.View view = ledger.transact(h.tenantId(),h.workflowId(),w -> {
             if (sameEvent(w,h,event) || !expected(w,h,Workflow.State.TESTING,Workflow.State.RE_TESTING)) return w.view();
             processed[0]=true;
-            w.inbox.put(h.eventId(),event.toString());
+            w.inbox.put(h.eventId(),event);
             if (!Objects.equals(w.specDigest,event.specDigest()) || event.evidence()==null ||
                 !Objects.equals(event.specDigest(),event.evidence().specDigest()) ||
                 !Objects.equals(event.evaluationRunId(),event.evidence().evaluationRunId())) {
@@ -221,7 +221,7 @@ public final class ControlPlane {
         Header h=event.header();
         return ledger.transact(h.tenantId(),h.workflowId(),w -> {
             if (sameEvent(w,h,event) || !expected(w,h,Workflow.State.OPTIMIZING)) return w.view();
-            w.inbox.put(h.eventId(),event.toString());
+            w.inbox.put(h.eventId(),event);
             require(w.actions.stream().anyMatch(a -> a.operationId.equals(h.operationId()) &&
                 a.type == Workflow.ActionType.OPTIMIZE), "UNEXPECTED_OPTIMIZER_EVENT");
             if (!Objects.equals(w.specDigest,event.baseSpecDigest())) {
@@ -278,7 +278,7 @@ public final class ControlPlane {
             if (sameEvent(w,h,event) || !expected(w,h,Workflow.State.TRAINING)) return w.view();
             require(w.actions.stream().anyMatch(a -> a.operationId.equals(h.operationId()) &&
                 a.type==Workflow.ActionType.SOUP), "UNEXPECTED_SOUP_EVENT");
-            w.inbox.put(h.eventId(),event.toString());
+            w.inbox.put(h.eventId(),event);
             if (!Objects.equals(w.specDigest,event.baseSpecDigest())) {
                 block(w,"TRAINING_BASE_MISMATCH","discard stale training artifact");
             } else if (!budgetOkay(w,event.spendUsd())) {
