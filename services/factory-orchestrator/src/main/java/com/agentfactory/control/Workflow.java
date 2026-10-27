@@ -38,7 +38,9 @@ public final class Workflow {
     String tenantId;
     String workflowId;
     String idempotencyKey;
-    String requestFingerprint;
+    RequestIdentity requestFingerprint;
+    record RequestIdentity(String tenantId, String workflowId, String taskSnapshotId,
+                           Protocol.Limits limits) { }
     String taskSnapshotId;
     String snapshotDigest;
     String snapshotRevision;
@@ -78,8 +80,8 @@ public final class Workflow {
         datasetRef = snapshot.datasetVersionRef(); policyRef = snapshot.evaluationPolicyRef();
         correlationId = req.correlationId(); limits = req.limits(); startedAt = Instant.now();
     }
-    static String fingerprint(Protocol.Start r) {
-        return r.tenantId() + "|" + r.workflowId() + "|" + r.taskSnapshotId() + "|" + r.limits();
+    static RequestIdentity fingerprint(Protocol.Start r) {
+        return new RequestIdentity(r.tenantId(), r.workflowId(), r.taskSnapshotId(), r.limits());
     }
     Workflow copy() {
         Workflow w = new Workflow();
