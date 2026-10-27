@@ -17,7 +17,24 @@ final class RegistryTelemetry {
           + "(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)"
           + "(?:-[A-Za-z0-9.-]+)?/[A-Za-z][A-Za-z0-9_.:-]{0,127}/(approve|revoke)$");
 
+    enum LifecycleAction { REGISTERED, APPROVED, REVOKED }
+
     private RegistryTelemetry() {}
+
+    /** Only bounded typed decision metadata, never capability names or denial details. */
+    static String selectionLine(UUID requestId, ToolRegistry.Decision decision, int selectedCount, int denialCount) {
+        if (requestId == null || decision == null || selectedCount < 0 || denialCount < 0)
+            throw new IllegalArgumentException("Invalid selection metadata");
+        return "event=registry_selection request_id=" + requestId + " decision=" + decision.name()
+            + " selected_count=" + selectedCount + " denial_count=" + denialCount;
+    }
+
+    /** Informational lifecycle logs are NOT an authoritative or durable audit record. */
+    static String lifecycleLine(UUID requestId, LifecycleAction action) {
+        if (requestId == null || action == null) throw new IllegalArgumentException("Invalid lifecycle metadata");
+        return "event=registry_lifecycle request_id=" + requestId + " action=" + action.name();
+    }
+
 
     static String route(String method, String path) {
         if (method == null || path == null) return "unmatched";
