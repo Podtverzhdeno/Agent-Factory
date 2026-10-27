@@ -31,8 +31,7 @@ def validated_service_url(base_url: str, *, label: str) -> str:
             and (port is None or 1 <= port <= 65535)
             and (
                 endpoint.scheme == "https"
-                or (endpoint.scheme == "http" and endpoint.host == "127.0.0.1"
-                    and port is not None)
+                or (endpoint.scheme == "http" and endpoint.host == "127.0.0.1")
             )
         )
     except (httpx.InvalidURL, TypeError, ValueError):
