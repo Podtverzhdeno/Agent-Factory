@@ -180,8 +180,9 @@ final class JdbcPersistenceIntegrationTest {
             .get(TENANT,"wf-01").view().state());
         assertTrue(new JdbcAgentStore(tx(),codec()).versions(TENANT,"agent-01").isEmpty());
 
-        var recovered=orchestrator(new JdbcWorkflowLedger(tx(),codec()),
-            new JdbcAgentStore(tx(),codec()),true);
+        var recoveredScope=tx();
+        var recovered=orchestrator(new JdbcWorkflowLedger(recoveredScope,codec()),
+            new JdbcAgentStore(recoveredScope,codec()),true);
         assertEquals(Workflow.State.RELEASED,recovered.onEvaluation(evaluator,outcome).state());
         assertTrue(new JdbcAgentStore(tx(),codec()).active(TENANT,"agent-01").isPresent());
     }
