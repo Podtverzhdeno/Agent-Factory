@@ -59,3 +59,11 @@ mvn -f services/tool-mcp-registry/pom.xml verify
 5. Consumer-driven contract test with Builder and per-call Runtime approval/revalidation, including a negative payment path.
 
 **Decision:** production release must remain BLOCKED until each gate has directly observable evidence. Passing pure Java tests is not proof of secure deployment.
+
+## JSON v0 wire-format and input parser hardening (2026-10-27)
+
+- The frozen OpenAPI contract uses lowercase `risk_level` and `side_effects`. Following the Jackson 3 migration, `RegistryJsonConfig` now registers **type-specific** serializers/deserializers for `Risk` and `Effect` only. `Status`, `Health`, `Decision`, and denial codes preserve their explicitly uppercase wire values. The pure Java enum `toString()` and manifest SHA-256 canonicalization are unchanged.
+- Jackson rejects unrecognized or non-lowercase risk/effect values as typed databind exceptions; no default permissions or effect classes are inferred.
+- The JSON parser is configured with duplicate-field detection, max 16 nested levels, max 1 MiB document, 50,000 tokens, 8,192-character string, 128-character name, and 64-character number. These limits apply before the domain schema validator and are defense-in-depth, not proof that ingress HTTP body streaming is bounded byte-for-byte.
+- `RegistryAuthorizedHttpTest` includes serialization/deserialization compatibility, duplicate-key smuggling, excessive nesting and oversized-string negative cases.
+- The dependency-free `verify_wire_contract.py` guards all 25 static invariants. **Maven/MockMvc tests are authored but have not been executed on the exact PR HEAD**; these protections must not be marked operationally verified before that gate passes.
