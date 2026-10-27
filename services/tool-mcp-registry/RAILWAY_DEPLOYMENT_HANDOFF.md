@@ -76,3 +76,24 @@ Files in this PR:
 When the owner has approved this registry deployment boundary and an integrator has merged the verified code, configure the Railway service source root to `/services/tool-mcp-registry` and Dockerfile path to `Dockerfile` in an isolated test environment. Do not deploy a Draft PR to the existing `production` service and do not auto-install or execute real MCP tools.
 
 A successful image build is only a CI gate; it does not certify tenant authorization, durable persistence, readiness, real JWT verification, or a live service. No readiness/healthcheck is declared yet because trust roots and persistent state are not provisioned. Enable production health only after a true, authenticated readiness check has been implemented and verified.
+
+## Fresh Railway inventory — parallel integration changes in progress
+
+Read-only follow-up during this work turn on 2026-10-27:
+
+- Existing `Agent-Factory` service is now **SUCCESS / online**, deployed from
+  `agent/01-control-plane`. This service is **not** Tool Registry and must not
+  be repointed to agent 03.
+- The production environment has a **STAGED (not applied)** patch
+  `fa217898-cd10-4d37-a54a-56bcac841264` ("Deploy PostgreSQL", 55 changes).
+  It contains proposed `Postgres` and `agent04-integration-gate` services,
+  with a proposed PostgreSQL volume and variables.
+- The staged database and integration service have **no live deployments**.
+  Do not interpret their presence on the canvas as successful persistence or E2E.
+- This workstream did **not** apply, accept, cancel, delete or mutate that
+  shared patch or any live Railway service.
+- Re-inventory all service source branches and active/staged work immediately
+  before eventual integration: concurrent agents are changing this project.
+
+This supersedes the initial observation above that the only service was offline
+and there were no staged databases. Both observations reflect distinct moments.
