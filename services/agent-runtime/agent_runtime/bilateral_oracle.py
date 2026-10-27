@@ -68,7 +68,8 @@ def _money(raw: object) -> Decimal | None:
         value = Decimal(raw)
     except (InvalidOperation, ValueError):
         return None
-    if not value.is_finite() or value < 0 or value.as_tuple().exponent < -2:
+    exponent = value.as_tuple().exponent
+    if not value.is_finite() or value < 0 or not isinstance(exponent, int) or exponent < -2:
         return None
     return value
 
@@ -130,7 +131,7 @@ def evaluate_quote(rfq: RFQ, events: list[Event], quote: Quote | None,
     total = _money(quote.total)
     ceiling = _money(rfq.buyer_max_total)
     floor = _money(rfq.supplier_min_unit_price)
-    if None in (price, total, ceiling, floor):
+    if price is None or total is None or ceiling is None or floor is None:
         return fail('INVALID_MONEY')
     if price * quantity != total:
         return fail('WRONG_QUOTE_TOTAL')

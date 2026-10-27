@@ -13,7 +13,7 @@ from agent_builder import digest
 from .core import RunResult, RuntimeDenied, authorize_spec_for_runtime
 
 
-class GraphState(TypedDict, total=False):
+class GraphState(TypedDict):
     tenant_id: str
     run_id: str
     thread_id: str

@@ -36,10 +36,21 @@ class DemoTools:
         if tool_id == 'source.xlsx':
             book = load_workbook(self.input_path, data_only=True, read_only=True)
             try:
-                rows = list(book.active.values)
+                sheet = book.active
+                if sheet is None:
+                    raise ValueError('missing RFQ worksheet')
+                rows = list(sheet.values)
             finally:
                 book.close()
-            return {'rows':[{'sku':str(row[0]),'qty':int(row[1])} for row in rows[1:]]}
+            parsed = []
+            for row in rows[1:]:
+                if not isinstance(row[0], str) or not row[0].strip():
+                    raise ValueError('invalid RFQ SKU')
+                quantity = row[1]
+                if type(quantity) is not int or quantity <= 0:
+                    raise ValueError('invalid RFQ quantity')
+                parsed.append({'sku': row[0], 'qty': quantity})
+            return {'rows': parsed}
         if tool_id == 'catalog.lookup':
             if args.get('sku') != 'BOLT-1':
                 raise ValueError('unknown product')
@@ -51,6 +62,8 @@ class DemoTools:
             self.output_dir.mkdir(parents=True, exist_ok=True)
             book = Workbook()
             ws = book.active
+            if ws is None:
+                raise RuntimeError('missing draft worksheet')
             ws.append(['SKU','Quantity','Unit USD','Total USD'])
             ws.append(['BOLT-1', args['qty'], args['unit_usd'], args['qty'] * args['unit_usd']])
             book.save(self.output_dir / 'draft-quote.xlsx')
@@ -77,8 +90,11 @@ class DemoModel:
 async def execute_two_tasks(work_dir: Path) -> tuple:
     work_dir.mkdir(parents=True,exist_ok=True)
     wb = Workbook()
-    wb.active.append(['SKU','Quantity'])
-    wb.active.append(['BOLT-1',2])
+    sheet = wb.active
+    if sheet is None:
+        raise RuntimeError('missing RFQ worksheet')
+    sheet.append(['SKU','Quantity'])
+    sheet.append(['BOLT-1',2])
     input_path = work_dir / 'rfq.xlsx'
     wb.save(input_path)
     outcomes = []
