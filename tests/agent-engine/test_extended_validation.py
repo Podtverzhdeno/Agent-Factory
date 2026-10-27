@@ -1,8 +1,7 @@
 """Hardening regressions: version correctness and model argument trust boundary."""
 
 import pytest
-
-from agent_builder import BuildError, Builder
+from agent_builder import BuildError
 from agent_runtime import EffectLedger, RuntimeDenied, ToolPolicy, VerifiedToolGateway
 from test_engine import FakeTools, Registry, build, manifest, task
 

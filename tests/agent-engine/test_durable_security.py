@@ -3,7 +3,6 @@
 import asyncio
 
 import pytest
-
 from agent_runtime import (
     Decision,
     EffectLedger,

@@ -104,13 +104,18 @@ def create_official_a2a_app(*, spec: AgentSpec, runtime: Runtime, boundary: A2AB
     if not principal_scope:
         raise RuntimeDenied('A2A_PRINCIPAL_SCOPE_REQUIRED')
     try:
+        from a2a.helpers import (
+            get_message_text,
+            new_task_from_user_message,
+            new_text_message,
+            new_text_part,
+        )
         from a2a.server.agent_execution import AgentExecutor, RequestContext
         from a2a.server.events import EventQueue
         from a2a.server.request_handlers import DefaultRequestHandler
         from a2a.server.routes import create_agent_card_routes, create_jsonrpc_routes
         from a2a.server.tasks import InMemoryTaskStore, TaskUpdater
         from a2a.types import TaskState
-        from a2a.helpers import get_message_text, new_task_from_user_message, new_text_message, new_text_part
         from starlette.applications import Starlette
     except ImportError as exc:
         raise RuntimeError('Official a2a-sdk v1 with Starlette is required') from exc
