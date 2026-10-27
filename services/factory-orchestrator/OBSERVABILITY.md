@@ -78,3 +78,45 @@ failing or unexpectedly reduced required JUnit suites. Tests include:
 Only cite results for the **exact deployed SHA** shown in Railway. Keep ADR-0002
 pending, PR Draft and production JWT/service credentials disabled until separate
 owner decisions and integration acceptance.
+
+## Railway-native tracing and alert watch (2026-10-27)
+
+The `Agent-Factory` Railway service now has **tracing enabled** and
+**automatic instrumentation active**. This is a control-plane-only service
+setting; it does **not** automatically turn on tracing for agent-engine,
+PostgreSQL, Builder or Evaluation. Verify actual app/exported spans through
+Railway tracing coverage, not from the enabled switch alone. At initial
+activation the verified `spanCount` was **0**, and no cross-service trace
+had been captured. Do not treat /healthz or an empty tracing view as proof
+of real agent-to-agent instrumentation.
+
+An independent **hourly conditional health check** has been configured
+to read Railway service health, deployment failures, CPU/memory usage and
+the `BLOCKED` / `PUBLISH_FAILED` operational log outcomes. The watch
+sends a notification only on a confirmed new problem and does not require
+creating a public HTTP domain or an additional paid monitor service.
+
+**Operational limitations and alert rules:**
+- The monitoring agent checks **hourly**, not continuously: failure
+  detection can lag the incident. For production SLOs use a
+  continuously running monitoring backend with tested on-call delivery.
+- Treat `FAILED`/`CRASHED` current deploys, failing healthchecks,
+  persistent `BLOCKED` actions, repeated `PUBLISH_FAILED`, and
+  persistent saturation as candidates for human action.
+- Exclude synthetic/fail-closed expected errors originating from build
+  regression tests; compare deployment SHA and log type.
+- Confirm at least one actual app-exported trace and test notification
+  delivery before treating distributed tracing or alerts as
+  production-ready. The test service currently has no public domain.
+
+## Cross-service E2E evidence boundary
+
+`JdbcPersistenceIntegrationTest.completeBuildEvaluationGepardRetestLifecycleSurvivesRestarts`
+tests the full **Builder -> Evaluation -> GEPARD -> re-Evaluation -> VERIFIED**
+contract against real loopback HTTP peers and PostgreSQL 16. Every
+stage recreates the workflow ledger, agent registry and outbox relay;
+the two JDBC adapters share one transaction scope. It checks that each
+accepted command is not resent after a restart and a single candidate
+persists as VERIFIED. This is strict **synthetic-peer** contract E2E, not
+proof that deployed Agent Engine, real GEPARD/Evaluation providers, JWT
+identity, or external effects have been tested together.
