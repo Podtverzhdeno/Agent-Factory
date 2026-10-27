@@ -18,6 +18,7 @@ public class SpringSecurityConfiguration {
                 .requestMatchers(HttpMethod.GET, "/healthz").permitAll()
                 .requestMatchers(HttpMethod.GET, "/persistencez").permitAll()
                 .requestMatchers(HttpMethod.GET, "/schemaz").permitAll()
+                .requestMatchers(HttpMethod.GET, "/readyz").permitAll()
                 .requestMatchers(HttpMethod.POST, "/internal/events/build").hasAuthority("SCOPE_factory:events:build")
                 .requestMatchers(HttpMethod.POST, "/internal/events/evaluation").hasAuthority("SCOPE_factory:events:evaluation")
                 .requestMatchers(HttpMethod.POST, "/internal/events/optimization").hasAuthority("SCOPE_factory:events:optimization")
