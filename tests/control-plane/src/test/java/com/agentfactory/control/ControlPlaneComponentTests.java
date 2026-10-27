@@ -367,8 +367,8 @@ public final class ControlPlaneComponentTests {
                 nativeReport.metricsRef(),nativeReport.traceRef(),
                 nativeReport.holdoutEvidenceRef(),nativeReport.independent(),
                 nativeReport.passed(),nativeReport.safetyVeto(),
-                nativeReport.toolsAudited(),nativeReport.businessValidated(),
-                nativeReport.risk(),nativeReport.flags());
+                nativeReport.effectsVerified(),nativeReport.nonRegression(),
+                nativeReport.risk(),nativeReport.approvals());
             Workflow.View out=f.cp.onEvaluation(EVENTS,new EvaluationFinished(
                 f.header("foreign-run"),"foreign-evaluation-run",SPEC1,foreign,
                 new BigDecimal("0.1"),null,false));
