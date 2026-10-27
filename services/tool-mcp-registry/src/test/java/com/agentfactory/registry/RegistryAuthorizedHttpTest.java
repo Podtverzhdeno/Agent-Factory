@@ -1,9 +1,9 @@
 package com.agentfactory.registry;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
@@ -26,7 +26,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 class RegistryAuthorizedHttpTest {
     @Autowired MockMvc mvc;
-    @Autowired ObjectMapper mapper;
+    @Autowired JsonMapper mapper;
 
     private static SecurityMockMvcRequestPostProcessors.JwtRequestPostProcessor caller(
             String subject, String tenant, String scopes) {
