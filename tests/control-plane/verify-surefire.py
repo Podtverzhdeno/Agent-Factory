@@ -18,7 +18,7 @@ REQUIRED = {
     "LifecycleTelemetryTest": 4,
     "ControlPlaneTelemetryJUnitTest": 6,
     "ControlPlaneSecurityTest": 9,
-    "JdbcPersistenceIntegrationTest": 19,
+    "JdbcPersistenceIntegrationTest": 20,
     "JdbcSpringWiringIntegrationTest": 4,
     "RemoteHttpIntegrationTest": 11,
     "RemoteProofOfConceptConfigurationTest": 4,
