@@ -6,9 +6,12 @@ COPY services/factory-orchestrator/pom.xml services/factory-orchestrator/pom.xml
 COPY services/agent-store/src services/agent-store/src
 COPY services/factory-orchestrator/src services/factory-orchestrator/src
 COPY tests/control-plane/src tests/control-plane/src
-# Testcontainers needs a Docker daemon, which a Dockerfile build cannot promise.
-# This compilation/package step is NOT a release gate; run run-acceptance.sh on CI.
-RUN mvn -B -ntp -f services/factory-orchestrator/pom.xml -DskipTests package
+# Testcontainers needs an external Docker-enabled CI runner.
+# But the image build MUST run available Spring/JWT/domain/HTTP JUnit suites.
+# These smoke tests do not replace exact-SHA PostgreSQL acceptance before release.
+RUN mvn -B -ntp -f services/factory-orchestrator/pom.xml clean package \
+    -Dtest=ControlPlaneComponentSuiteTest,ControlPlaneSecurityTest,RemoteHttpIntegrationTest \
+    -DfailIfNoTests=true
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
