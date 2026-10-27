@@ -314,7 +314,12 @@ public final class ToolRegistry {
         String x = records.entrySet().stream()
             .filter(e -> e.getKey().tenantId().equals(tenant) && e.getValue().status() == Status.APPROVED)
             .map(e -> e.getValue().manifest().manifestDigest()).sorted().collect(Collectors.joining("|"));
-        return "sha256:" + sha256(x);
+        // Prevent ABA: revoking the final approved tool must not reset the revision
+        // to its pre-registration value. Include the per-tenant lifecycle sequence,
+        // which advances atomically on REGISTERED, APPROVED and REVOKED events.
+        // Production must persist this sequence in the same transaction as state/audit.
+        long lifecycleSequence = auditSequences.getOrDefault(tenant, 0L);
+        return "sha256:" + sha256(lifecycleSequence + ":" + x);
     }
     private void validate(Manifest m) {
         if (!"0.1".equals(m.schemaVersion())) throw failure("INVALID_MANIFEST", "Unsupported manifest schema version");
