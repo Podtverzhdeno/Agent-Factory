@@ -69,3 +69,12 @@ def test_expired_signer_is_denied_even_with_valid_signature():
     }, clock=lambda: 25)
     with pytest.raises(InvalidEvidence, match="validity"):
         verifier.verify(make_claim(key))
+
+
+def test_invalid_signer_clock_fails_closed():
+    key = Ed25519PrivateKey.generate()
+    verifier = Ed25519EvidenceVerifier({
+        "audit-key-1": RuntimeAuditPublicKey("a", key.public_key(), valid_until=20),
+    }, clock=lambda: float("nan"))
+    with pytest.raises(InvalidEvidence, match="clock"):
+        verifier.verify(make_claim(key))
