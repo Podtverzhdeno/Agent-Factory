@@ -135,17 +135,36 @@ async def invoke_graph(graph, runtime, spec, *, tenant_id: str, thread_id: str,
         raise RuntimeDenied('SPEC_NOT_PINNED')
     if not getattr(runtime.gateway, 'verified', False):
         raise RuntimeDenied('UNVERIFIED_TOOL_GATEWAY')
-    checkpoint_id = digest({'tenant': tenant_id, 'agent': spec.agent_id,
-                            'version': spec.agent_spec_version, 'thread': thread_id})
-    # A new turn must not inherit terminal state, budget or pending actions.
-    # Preserve ONLY the authorized tenant/agent/thread's bounded memory.
-    history = runtime.memory.get(tenant_id, spec.agent_id, thread_id)
-    history.append({'role': 'user', 'content': request})
-    state = {'tenant_id': tenant_id, 'thread_id': thread_id, 'run_id': run_id,
-             'request': request, 'trace_id': trace_id, 'history': history,
-             'steps': 0, 'cost_usd': 0.0, 'effects': [], 'pending_tool': '',
-             'pending_args': {}, 'terminal_error': None, 'answer': ''}
-    final = await graph.ainvoke(state, config={'configurable': {'thread_id': checkpoint_id}})
-    if not isinstance(final, dict) or not isinstance(final.get('result'), dict):
-        raise RuntimeDenied('INVALID_GRAPH_RESULT')
-    return final['result']
+    if (not run_id or not thread_id or not trace_id or len(trace_id) > 128
+            or not request or len(request) > 20000):
+        raise RuntimeDenied('INVALID_RUN_INPUT')
+    request_hash = digest({'agent': spec.artifact_digest, 'thread': thread_id,
+                           'request': request})
+    # The lock protects local workers; the durable store must enforce uniqueness
+    # across processes. External effects use a separate reservation ledger.
+    async with runtime._lock:
+        if runtime.run_store is not None:
+            previous = runtime.run_store.load(tenant_id, run_id)
+            if previous is not None:
+                old_hash, old_result = previous
+                if old_hash != request_hash:
+                    raise RuntimeDenied('RUN_IDEMPOTENCY_CONFLICT')
+                return asdict(old_result)
+        checkpoint_id = digest({'tenant': tenant_id, 'agent': spec.agent_id,
+                                'version': spec.agent_spec_version, 'thread': thread_id})
+        history = runtime.memory.get(tenant_id, spec.agent_id, thread_id)
+        history.append({'role': 'user', 'content': request})
+        state = {'tenant_id': tenant_id, 'thread_id': thread_id, 'run_id': run_id,
+                 'request': request, 'trace_id': trace_id, 'history': history,
+                 'steps': 0, 'cost_usd': 0.0, 'effects': [], 'pending_tool': '',
+                 'pending_args': {}, 'terminal_error': None, 'answer': ''}
+        final = await graph.ainvoke(
+            state, config={'configurable': {'thread_id': checkpoint_id}})
+        if not isinstance(final, dict) or not isinstance(final.get('result'), dict):
+            raise RuntimeDenied('INVALID_GRAPH_RESULT')
+        if runtime.run_store is not None:
+            run_result = RunResult(**final['result'])
+            if run_result.status not in ('COMPLETED', 'BLOCKED') or run_result.run_id != run_id:
+                raise RuntimeDenied('INVALID_GRAPH_RESULT')
+            runtime.run_store.save(tenant_id, run_id, request_hash, run_result)
+        return final['result']
