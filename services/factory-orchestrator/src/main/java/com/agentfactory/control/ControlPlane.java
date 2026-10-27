@@ -164,10 +164,8 @@ public final class ControlPlane {
         require(event != null, "INVALID_EVENT");
         verifyEventActor(actor,event.header(),"factory:events:evaluation");
         Header h=event.header();
-        boolean[] processed={false};
-        Workflow.View view = ledger.transact(h.tenantId(),h.workflowId(),w -> {
+        return ledger.transact(h.tenantId(),h.workflowId(),w -> {
             if (sameEvent(w,h,event) || !expected(w,h,Workflow.State.TESTING,Workflow.State.RE_TESTING)) return w.view();
-            processed[0]=true;
             w.inbox.put(h.eventId(),EventIdentity.sha256(event));
             if (!Objects.equals(w.specDigest,event.specDigest()) || event.evidence()==null ||
                 !Objects.equals(event.specDigest(),event.evidence().specDigest()) ||
@@ -197,6 +195,10 @@ public final class ControlPlane {
                 w.candidateVersion=candidate.version();
                 w.state=Workflow.State.VERIFIED;
                 w.pendingOperationId=null;
+                // Release is part of the same transaction as Evaluation receipt and candidate creation.
+                if (e.risk()==AgentStore.Risk.LOW && releasePolicy.allowAutomaticLowRisk(w.view())) {
+                    promoteVerified(w.tenantId,w.workflowId,"auto:"+event.evaluationRunId(),true,w);
+                }
             } else if (e.passed()) {
                 block(w,"INCOMPLETE_RELEASE_EVIDENCE","complete required audit and tool-effect evidence");
             } else if (event.failureCode()!=null && Set.of("MISSING_CAPABILITY", "NO_APPROVED_CONNECTOR",
@@ -212,11 +214,6 @@ public final class ControlPlane {
             }
             return w.view();
         });
-        if (processed[0] && view.state()==Workflow.State.VERIFIED && event.evidence()!=null &&
-            event.evidence().risk()==AgentStore.Risk.LOW && releasePolicy.allowAutomaticLowRisk(view)) {
-            return promote(h.tenantId(),h.workflowId(),"auto:"+event.evaluationRunId(),true);
-        }
-        return view;
     }
 
     public Workflow.View onOptimization(Principal actor, OptimizationFinished event) {
@@ -313,26 +310,30 @@ public final class ControlPlane {
         return promote(tenant,workflowId,"manual:"+idempotencyKey,false);
     }
     private Workflow.View promote(String tenant, String id, String operation, boolean auto) {
-        return ledger.transact(tenant,id,w -> {
-            if (w.state==Workflow.State.RELEASED) return w.view();
-            require(auto || approvals.approved(tenant,id,"release:approve"),"HUMAN_APPROVAL_REQUIRED");
-            require(w.state==Workflow.State.VERIFIED && w.lastEvidence!=null && w.lastEvidence.complete(),"QUALITY_GATE_BLOCKED");
-            require(Objects.equals(w.specDigest,w.lastEvidence.specDigest()) &&
-                w.spentUsd.compareTo(w.limits.maxUsd())<=0 && clock.now().isBefore(w.limits.deadline()),"RELEASE_CONSTRAINT_FAILED");
-            require(!auto || (w.lastEvidence.risk()==AgentStore.Risk.LOW && releasePolicy.allowAutomaticLowRisk(w.view())),
-                "AUTO_PROMOTION_DENIED");
-            Set<String> signedApprovals = auto ? Set.of() : Set.of("release:approve");
-            AgentStore.Evidence e=w.lastEvidence;
-            AgentStore.Metadata m=new AgentStore.Metadata(tenant,w.agentId,w.specRef,w.specDigest,
-                w.toolDigests,w.modelRouteDigest,w.a2aCardRef,e);
-            AgentStore.Version v=store.registerCandidate(m,"candidate:"+id+":"+w.specDigest);
-            require(v.version()==w.candidateVersion, "CANDIDATE_VERSION_MISMATCH");
-            AgentStore.Version released=store.promote(tenant,w.agentId,v.version(),operation,signedApprovals,auto);
-            w.releasedVersion=released.version();
-            w.state=Workflow.State.RELEASED;
-            w.pendingOperationId=null;
-            return w.view();
-        });
+        return ledger.transact(tenant,id,w -> promoteVerified(tenant,id,operation,auto,w));
+    }
+
+    /** Release and its AgentStore update must share the parent workflow transaction. */
+    private Workflow.View promoteVerified(String tenant, String id, String operation,
+                                          boolean auto, Workflow w) {
+        if (w.state==Workflow.State.RELEASED) return w.view();
+        require(auto || approvals.approved(tenant,id,"release:approve"),"HUMAN_APPROVAL_REQUIRED");
+        require(w.state==Workflow.State.VERIFIED && w.lastEvidence!=null && w.lastEvidence.complete(),"QUALITY_GATE_BLOCKED");
+        require(Objects.equals(w.specDigest,w.lastEvidence.specDigest()) &&
+            w.spentUsd.compareTo(w.limits.maxUsd())<=0 && clock.now().isBefore(w.limits.deadline()),"RELEASE_CONSTRAINT_FAILED");
+        require(!auto || (w.lastEvidence.risk()==AgentStore.Risk.LOW && releasePolicy.allowAutomaticLowRisk(w.view())),
+            "AUTO_PROMOTION_DENIED");
+        Set<String> signedApprovals = auto ? Set.of() : Set.of("release:approve");
+        AgentStore.Evidence e=w.lastEvidence;
+        AgentStore.Metadata m=new AgentStore.Metadata(tenant,w.agentId,w.specRef,w.specDigest,
+            w.toolDigests,w.modelRouteDigest,w.a2aCardRef,e);
+        AgentStore.Version v=store.registerCandidate(m,"candidate:"+id+":"+w.specDigest);
+        require(v.version()==w.candidateVersion, "CANDIDATE_VERSION_MISMATCH");
+        AgentStore.Version released=store.promote(tenant,w.agentId,v.version(),operation,signedApprovals,auto);
+        w.releasedVersion=released.version();
+        w.state=Workflow.State.RELEASED;
+        w.pendingOperationId=null;
+        return w.view();
     }
     public Workflow.View rollback(Principal actor, String tenant, String workflowId, String idempotencyKey) {
         authorize(actor,tenant,"factory:rollback"); required(idempotencyKey);
