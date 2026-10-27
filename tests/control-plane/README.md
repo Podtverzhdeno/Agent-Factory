@@ -58,3 +58,17 @@ Tests are deliberately dependency-free. `mvn test`/Spring Boot startup/PostgreSQ
 - Two local tests exercise deterministic replay-safe IDs, publisher failure recovery, and the fact that notification publishing does not command Builder.
 - This is **at-least-once**. On network timeout after broker acknowledgment the same ID can be delivered twice, requiring consumer deduplication. No Kafka broker or PostgreSQL transaction was tested.
 - Regression tests also reject different payloads whose `toString()` collides and HIGH-risk autopromotion even when a manual approval marker is passed.
+
+## Maven/Surefire execution (source-level integration)
+
+`services/factory-orchestrator/pom.xml` uses `build-helper-maven-plugin` to add this directory as Maven test sources. `ControlPlaneComponentSuiteTest` is a JUnit 5 wrapper that calls the same standalone main-based scenarios.
+
+```bash
+# From repository root, JDK 21 and Maven installed
+bash tests/control-plane/run-core-tests.sh
+mvn -B -ntp -f services/factory-orchestrator/pom.xml clean test
+```
+
+The first command proves the framework-independent Java domain with `javac -Xlint:all -Werror`. The second additionally compiles the Spring Boot application, and Surefire is now configured to execute the component suite through JUnit. Neither command has been executed on the latest PR commit in the current session. The existing GitHub Actions SDD workflow does not invoke Maven; it cannot be changed inside workstream 01's ownership paths.
+
+Additional regression scenarios cover replaying authorized operations after their original approval is withdrawn, deadline-expired start replay, semantic deduplication of event maps, and typed rejection of null event payloads. These are pending a fresh executable run on the exact PR head.
