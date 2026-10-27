@@ -498,6 +498,36 @@ public final class ControlPlaneComponentTests {
             error("INVALID_EVENT",()->f.cp.onSoup(EVENTS,null));
             check(f.get().state()==Workflow.State.BUILDING);
         });
+        test("AF-REQ-015 lifecycle relay publishes stable events without starting work",()->{
+            Fixture f=new Fixture();f.start();
+            List<LifecycleEvent> received=new ArrayList<>();
+            LifecycleEventDispatcher relay=new LifecycleEventDispatcher(f.ledger,received::add);
+            check(relay.publishPending()==2);
+            check(received.get(0).currentState()==Workflow.State.READY);
+            check(received.get(1).currentState()==Workflow.State.BUILDING);
+            check(received.stream().allMatch(e -> e.schemaVersion().equals("0.1") &&
+                e.tenantId().equals(TENANT) && e.correlationId().equals("correlation:"+WF)));
+            check(relay.publishPending()==0);
+            check(f.builds.get()==0);
+            f.build();
+            check(relay.publishPending()==1);
+            check(received.get(2).currentState()==Workflow.State.TESTING);
+            check(relay.publishPending()==0);
+        });
+        test("AF-REQ-015 lifecycle relay retries after transient publisher failure",()->{
+            Fixture f=new Fixture();f.start();
+            AtomicInteger publishAttempts=new AtomicInteger();
+            List<LifecycleEvent> observed=new ArrayList<>();
+            LifecycleEventDispatcher relay=new LifecycleEventDispatcher(f.ledger,e -> {
+                if (publishAttempts.getAndIncrement()==0) throw new IllegalStateException("broker_down");
+                observed.add(e);
+            });
+            error("broker_down",relay::publishPending);
+            check(relay.publishPending()==2);
+            check(observed.size()==2);
+            check(observed.get(0).eventId().endsWith(":lifecycle:1"));
+            check(relay.publishPending()==0);
+        });
         System.out.println("COMPONENT TESTS PASSED: "+run.get());
     }
 }
