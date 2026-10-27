@@ -16,8 +16,23 @@ from .core import (
 )
 
 
+@dataclass(frozen=True)
+class EvidenceEnvelope:
+    """Collector observation bound to tenant, candidate, dataset and case.
+
+    Production collectors must authenticate runtime audit records. This typed
+    envelope is not itself a cryptographic signature.
+    """
+    tenant_id: str
+    agent_spec_digest: str
+    dataset_version_ref: str
+    case_id: str
+    trace_ref: str
+    observation: ObservedRun
+
+
 class EvidenceCollector(Protocol):
-    def collect(self, request: EvaluationRequest, case: Case) -> ObservedRun: ...
+    def collect(self, request: EvaluationRequest, case: Case) -> EvidenceEnvelope: ...
 
 
 @dataclass(frozen=True)
@@ -95,7 +110,18 @@ class EvaluationWorkflow:
         request = self._requests[key]
         try:
             dataset = self._vault.read(principal, request.dataset_version_ref)
-            observations = tuple(self._collector.collect(request, case) for case in dataset.cases)
+            evidence = tuple(self._collector.collect(request, case) for case in dataset.cases)
+            for case, envelope in zip(dataset.cases, evidence):
+                if not isinstance(envelope, EvidenceEnvelope) or (
+                    envelope.tenant_id != request.tenant_id
+                    or envelope.agent_spec_digest != request.agent_spec_digest
+                    or envelope.dataset_version_ref != request.dataset_version_ref
+                    or envelope.case_id != case.case_id
+                    or envelope.observation.case_id != case.case_id
+                    or not envelope.trace_ref
+                ):
+                    raise InvalidEvidence("collector evidence does not match pinned evaluation")
+            observations = tuple(item.observation for item in evidence)
             result = self._engine.evaluate(principal, request, observations, self._policy)
             completed = replace(job, status=result.status, result=result)
         except (InvalidEvidence, AccessDenied):
