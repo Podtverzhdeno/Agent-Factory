@@ -3,9 +3,11 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from decimal import Decimal, InvalidOperation
 from typing import Any
+
+import pytest
 
 
 @dataclass(frozen=True)
@@ -118,7 +120,7 @@ def evaluate_quote(rfq: RFQ, events: list[Event], quote: Quote | None,
             not quote.catalog_digest.startswith('sha256:') or
             any(ch not in '0123456789abcdef' for ch in quote.catalog_digest[7:])):
         return fail('MISSING_VERIFIED_PROVENANCE')
-    if (not isinstance(now, int) or not isinstance(quote.catalog_updated_at, int)
+    if (type(now) is not int or type(quote.catalog_updated_at) is not int
             or now < quote.catalog_updated_at or
             now - quote.catalog_updated_at > max_catalog_age_seconds):
         return fail('EXPIRED_CATALOG_EVIDENCE')
@@ -138,10 +140,6 @@ def evaluate_quote(rfq: RFQ, events: list[Event], quote: Quote | None,
     if events[-2].data.get('artifact_digest') != digest:
         return fail('ARTIFACT_INTEGRITY_DENIED')
     return Verdict(True, 'PASS', True, True, digest)
-
-
-from dataclasses import replace
-import pytest
 
 
 NOW = 200000
