@@ -14,7 +14,7 @@ Statuses: **COMPONENT** = a local mock-backed unit/contract test exists (current
 |---|---|---|---|---|
 | B01 | Buyer supplies XLSX RFQ; catalog lookup produces correct draft (2 × $12 = $24) | 024–027, 029 | COMPONENT `test_synthetic_demo.py` | Real multi-sheet, units, provenance, macro safety absent |
 | B02 | Read-only approved supplier search yields evidence-backed response | 005, 007, 016 | COMPONENT `test_synthetic_demo.py` | Real connector authentication + source freshness |
-| B03 | Buyer A and supplier B approve independently; distinct AgentSpecs and scopes | 031, 038, 040 | CANDIDATE `test_bilateral_business_scenarios.py` | Orchestrator dispatch and real two-tenant storage |
+| B03 | Buyer A and supplier B approve independently; distinct AgentSpecs and scopes | 031, 038, 040 | COMPONENT + real SDK wire smoke `test_bilateral_official_a2a.py` | Independent approvals, orchestrator dispatch and real two-tenant storage still OPEN |
 | B04 | Both parties exchange incomplete RFQ, clarification, quote Artifact, acceptance | 032, 037, 047 | COMPONENT deterministic dialogue oracle (not A2A transport) | Two independent official A2A SDK endpoints and protocol client/server |
 | B05 | Required SKU/quantity absent; ask for missing data, do not invent them | 024, 032 | COMPONENT mock clarification sequence and forgery denial | Runtime-backed question/answer lifecycle and user-confirmed continuation |
 | B06 | Supplier returns quotation with wrong currency, units or totals | 008, 037, 044 | COMPONENT `test_bilateral_quote_oracle.py` (18 local cases, exact Decimal) | Bind oracle to verified ArtifactStore and signed trace; real A2A run |
@@ -102,3 +102,25 @@ issuer authenticity or provenance verification against a trusted ArtifactStore.
 Events in this fixture are authored data, not intercepted official A2A SDK
 messages. Real tenant authorization, privacy-consent enforcement and the
 independent buyer/supplier release gates are still integration blockers.
+
+## Current executable integration evidence (supersedes older notes)
+
+Railway revision `b6d7c526` ran the real optional dependencies on
+2026-10-27. Compile succeeded, Ruff **0**, Pyright **0**, pytest
+**144 passed, 2 skipped**. The official A2A SDK smoke now includes
+independent buyer and supplier servers with separate clients, specs,
+principal scopes and bearer-token denial across company boundaries.
+This is **a real transport test**, not a multi-turn A2A *interaction
+between* two autonomously negotiating agents.
+
+The independent quotation oracle runs typed `Decimal` math, requires
+both trusted catalogue and artifact attestations for PASS and rejects
+fabricated final success. Its fixture is independent of actual SDK
+task/artifact persistence and therefore **does not prove real bilateral
+business acceptance**.
+
+The gate refused shared Railway PostgreSQL with
+`TEST_DATABASE_NOT_ISOLATED`. Two true PostgreSQL tests skipped.
+Dedicated PostgreSQL capacity was denied by the Railway Free-plan limit.
+All production/independent DB recovery, full A2A negotiation and ADR-0002
+release criteria remain open.

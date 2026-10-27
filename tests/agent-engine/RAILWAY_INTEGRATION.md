@@ -76,3 +76,20 @@ execute even when a disposable PostgreSQL service cannot be provisioned.
 Passing this first phase does not count as full integration acceptance; any
 PostgreSQL skips are independently blocked by the strict phase, whose DSN
 identity validator refuses the shared database.
+
+## Latest measured gate (2026-10-27)
+
+Agent Engine feature revision `b6d7c526`:
+- Ruff **0**, Pyright **0**.
+- Credential-free complete pytest run **144 passed, 2 skipped**.
+- Official SDK client/server smoke plus **two-organization isolation** passed.
+- Dedicated PostgreSQL gate intentionally **FAILED** with
+  `TEST_DATABASE_NOT_ISOLATED`: Railway shared database variables
+  are not a substitute for an isolated test resource.
+- Consequently Railway deployment health is not SUCCESS and this is not a
+  deployable business API.
+
+When disposable isolated PostgreSQL capacity becomes available, change the
+test service's `AGENT_ENGINE_TEST_PG_DSN` only to the verified isolated
+`agent04-test-postgres` credentials; then repeat the exact strict gate
+with no skips. No production database credentials should be copied.

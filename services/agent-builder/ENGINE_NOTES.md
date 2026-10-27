@@ -192,3 +192,33 @@ AGENT_ENGINE_REQUIRE_INTEGRATIONS=1 python -m pytest -q tests/agent-engine/test_
 
 Status discipline: until a complete build runs on the **current SHA**, do
 not repeat earlier test counts as acceptance evidence on this SHA.
+
+## Verified Agent 04 acceptance evidence — 2026-10-27
+
+At executable source revision `b6d7c52692b377695bca8c3b74ca9175c553efa1`
+Railway `agent04-integration-gate` deployment
+`0c85f4dd-1d03-4862-ae3e-2486d0a93527` logged:
+
+- `python -m compileall`: **PASS** (entrypoint proceeded).
+- **Ruff: 0 violations** across the Agent 04 folders.
+- **Pyright: 0 errors, 0 warnings** across the same folders.
+- **pytest without any PostgreSQL credentials: 144 passed, 2 skipped**.
+- Official LangGraph in-memory tests and official A2A SDK (HTTP client/server)
+  tests **ran**, including two independently authorized buyer/supplier
+  SDK servers with distinct pinned AgentSpecs and cross-tenant token denial.
+- PostgreSQL saver and PostgreSQL effect-ledger integration tests were the
+  two expected skips. The subsequent fail-closed guard logged
+  `TEST_DATABASE_NOT_ISOLATED` and exited nonzero; **production acceptance
+  is NOT achieved and /readyz is not available**.
+- Railway Free plan refused a dedicated test Postgres resource due to
+  `Free plan resource provision limit exceeded`. Shared `Postgres` is
+  owned by the wider project and must not be used for destructive/DDL tests.
+- Legacy `88 passed` or `18 passed` evidence refers to earlier test
+  snapshots. **This section supersedes those test counts for the executable
+  revision above.**
+
+A2A wire-level **isolation** and client/server round-trips are now covered;
+multi-turn buyer-supplier RFQ negotiation, real signed Quote Artifact
+provenance, cross-party release governance, production MCP/Proxy and the
+independent database recovery suite are still **OPEN**. ADR-0002 remains an
+owner decision, not an automatic release flag.
