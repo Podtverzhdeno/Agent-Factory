@@ -79,8 +79,15 @@ public final class RemoteHttpClients {
                         throw new Protocol.RemoteCommandFailure("REMOTE_UNAVAILABLE",true);
                     }
                     JsonNode body;
-                    try { body=mapper.readTree(response.getBody()); }
-                    catch(Exception e) { throw new Protocol.RemoteCommandFailure("REMOTE_RECEIPT_INVALID",false); }
+                    try {
+                        // Command receipts are small metadata documents. Reject oversized
+                        // responses before parsing to bound memory use from remote peers.
+                        byte[] bytes=response.getBody().readNBytes(8_193);
+                        if(bytes.length>8_192) throw new IllegalArgumentException("receipt exceeds 8 KiB");
+                        body=mapper.readTree(bytes);
+                    } catch(Exception e) {
+                        throw new Protocol.RemoteCommandFailure("REMOTE_RECEIPT_INVALID",false);
+                    }
                     if(body==null || body.path(acceptedIdField).asText("").isBlank())
                         throw new Protocol.RemoteCommandFailure("REMOTE_RECEIPT_INVALID",false);
                     // Only Evaluation promises a caller-assigned run ID. Never accept
