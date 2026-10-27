@@ -8,8 +8,10 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Literal, Protocol
 
-from agent_builder import AgentSpec, ToolBinding, digest
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from agent_builder import AgentSpec, digest, ToolBinding
+
 
 class RuntimeDenied(Exception):
     def __init__(self, code: str):

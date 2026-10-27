@@ -9,6 +9,7 @@ from typing import Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+
 class Frozen(BaseModel):
     model_config = ConfigDict(frozen=True, extra='forbid')
 

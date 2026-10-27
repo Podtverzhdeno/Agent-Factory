@@ -6,7 +6,8 @@ from typing import Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .core import AgentSpec, BuildCommand, BuildError, Builder, TaskSnapshot, digest
+from .core import AgentSpec, BuildCommand, Builder, BuildError, digest, TaskSnapshot
+
 
 class TaskPort(Protocol):
     def ready_snapshot(self, tenant_id: str, snapshot_id: str) -> TaskSnapshot | None: ...

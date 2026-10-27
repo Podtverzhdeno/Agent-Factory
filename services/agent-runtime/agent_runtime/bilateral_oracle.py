@@ -9,7 +9,6 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 
-
 @dataclass(frozen=True)
 class RFQ:
     buyer: str
