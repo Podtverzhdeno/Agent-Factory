@@ -96,6 +96,18 @@ public final class OutboxRaceTests {
         check(transientCalls.get()==5);
         check("OUTBOX_DELIVERY_EXHAUSTED".equals(transientFailure.get(TENANT,WORKFLOW).errorCode));
 
+        // A 202 with a wrong operation ID must not be retried as a transport outage.
+        var malformedReceipt=pending();
+        AtomicInteger badReceipts=new AtomicInteger();
+        var mismatchRelay=withBuilder(malformedReceipt,command -> {
+            badReceipts.incrementAndGet();
+            return new Protocol.CommandReceipt("other-tenant:operation",true);
+        });
+        check(mismatchRelay.dispatchPending()==0);
+        check(mismatchRelay.dispatchPending()==0);
+        check(badReceipts.get()==1);
+        check("REMOTE_RECEIPT_MISMATCH".equals(malformedReceipt.get(TENANT,WORKFLOW).errorCode));
+
         var ordinary=pending();
         AtomicInteger calls=new AtomicInteger();
         var relay=withBuilder(ordinary,command -> {
@@ -105,6 +117,6 @@ public final class OutboxRaceTests {
         check(relay.dispatchPending()==1);
         check(relay.dispatchPending()==0);
         check(calls.get()==1 && ordinary.get(TENANT,WORKFLOW).actions.getFirst().delivered);
-        System.out.println("OUTBOX RACE TESTS PASSED: 6");
+        System.out.println("OUTBOX RACE TESTS PASSED: 7");
     }
 }
