@@ -42,12 +42,16 @@ public final class OutboxDispatcher {
                         // A stale failed request must never poison a newer or terminal state.
                         if (!stillPending(active,action)) return null;
                         active.actions.stream().filter(a->a.operationId.equals(action.operationId))
-                            .forEach(a->{ a.attempts++; a.lastError=exception.getClass().getSimpleName();
-                                if(a.attempts>=5 && active.state!=Workflow.State.RELEASED &&
-                                    active.state!=Workflow.State.ROLLED_BACK) {
+                            .forEach(a->{
+                                boolean permanent = exception instanceof Protocol.RemoteCommandFailure remote &&
+                                    !remote.retryable();
+                                a.attempts = permanent ? 5 : a.attempts + 1;
+                                a.lastError=exception.getClass().getSimpleName();
+                                if(a.attempts>=5) {
                                     active.state=Workflow.State.BLOCKED;
-                                    active.errorCode="OUTBOX_DELIVERY_EXHAUSTED";
-                                    active.requiredAction="reconcile external operation before retry";
+                                    active.errorCode=permanent ? exception.getMessage() : "OUTBOX_DELIVERY_EXHAUSTED";
+                                    active.requiredAction=permanent ? "resolve remote authorization or contract rejection" :
+                                        "reconcile external operation before retry";
                                     active.pendingOperationId=null;
                                 }
                             });
