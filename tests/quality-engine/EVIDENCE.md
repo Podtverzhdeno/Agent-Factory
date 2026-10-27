@@ -36,3 +36,19 @@ Do NOT mark end-to-end SDD implementation tasks complete, and do NOT merge witho
 - Published evaluation events cannot claim a foreign tenant or omit correlation identity.
 - Added deterministic fail → prompt candidate → held-out retest synthetic smoke (not live GEPA or LLM).
 - Latest local run: 50 unit/component tests passed; 96% statement coverage on Python 3.13.5.
+
+## Current extension — signed runtime evidence + LiteLLM HTTP transport
+
+- Added HMAC-SHA256 keyed `EvidenceEnvelope` canonicalization and verification with a configured trusted signer; altered tenant/case/spec/tool-effect data invalidate signature. Keys are injected by trusted infrastructure; never embedded in AgentSpec. This is an integration adapter, not independently established authorization from live Runtime.
+- EvaluationWorkflow supports `require_attestation=True`: mandatory verifier, missing/invalid signatures lead to BLOCKED. Legacy `require_attestation=False` remains for isolated mock fixtures only; must be forbidden at deployment configuration.
+- Added typed `LiteLLMClient` using HTTP POST `/v1/chat/completions` with TLS requirement, bearer key, model allowlist, timeout, safe error redaction, input validation and usage parsing. Tests execute a real httpx request/response path through `httpx.MockTransport`, not the external proxy.
+- Locally executed on Python 3.13: `cd /mnt/data/agent05 && pytest -q tests/quality-engine` -> **58 passed in 0.35s**.
+- Existing 96% coverage is from the earlier 50 tests; coverage was NOT re-measured after these additions and is not claimed for latest commit.
+
+### Still not proven
+
+- Actual connected authorized Runtime signing its own events with service-owned secrets and out-of-band audit reconciliation.
+- External LiteLLM Proxy availability, real provider inference, actual cost reconciliation or budget DB. A HTTP mock cannot prove these.
+- Persistent PostgreSQL gold/job repositories; cross-process workers; streaming and Kafka.
+- Running real DSPy GEPA with licensed examples and approved model budget; currently no connected credentials or available DSPy library in local environment.
+- Full independent integration with workstreams 01–04 and owner-ratified ADR-0002.
