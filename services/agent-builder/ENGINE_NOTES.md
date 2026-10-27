@@ -18,10 +18,10 @@ No shared OpenSpec, ADR, other agents' directories or production infrastructure 
 
 ## Actual local evidence (Python 3.13)
 
-- `python -m pytest -q tests/agent-engine -ra`: **63 passed, 4 skipped**.
+- `python -m pytest -q tests/agent-engine -ra`: **75 passed, 4 skipped**.
 - `python -m compileall -q services tests`: completed.
 - `pytest --cov=agent_builder --cov=agent_runtime --cov=litellm_adapter`:
-  ~80% aggregate coverage, mostly optional integrations absent.
+  81% aggregate coverage, mostly optional integrations absent.
 - `AGENT_ENGINE_REQUIRE_INTEGRATIONS=1 python -m pytest -q tests/agent-engine/test_official_integrations.py -k real_langgraph -ra`:
   **exit code 1** on skipped SDK test; verified fail-closed integration gate.
 - GitHub SDD workflow checks specification, **not** the full Agent Engine test suite.
@@ -108,3 +108,27 @@ access for the missing dependencies and no disposable PostgreSQL.
 Revert/disable candidate feature branch. No production traffic, schema migrations,
 external A2A exposure, live orders/payments or actual customer data exist.
 No merges performed by this workstream.
+
+## 2026-10-27 security/consistency regression addendum
+
+- AgentSpec version now hashes the **full frozen TaskSnapshot** (including its
+  objective, budget, scopes, effects and policy), plus approved model, Registry
+  revision and actual pinned tools. A changed objective cannot reuse the old
+  AgentSpec version just because an external snapshot digest remains unchanged.
+- Hashes canonicalize unordered set/frozenset inputs. Separate real Python
+  subprocesses with three distinct `PYTHONHASHSEED` values produce identical
+  AgentSpec versions/digests.
+- Builder rejects tools that omit side-effect declarations. Tool identifiers are
+  syntactically bounded (safe for inclusion as serialized prompt data).
+- Tool arguments are recursively scanned for nested credential fields,
+  unrepresentable JSON, deep structures and oversized UTF-8 payloads **before**
+  any effect reservation or external call; alias `X-API-Key` is forbidden.
+- The LiteLLM request now includes an explicit, JSON-defined ReAct decision
+  contract and the complete pinned allowed tool-ID list. The provider still
+  cannot authorize arbitrary tools: Gateway validates the returned action.
+- Independent local test: `75 passed, 4 skipped` (Python 3.13).
+  Coverage via `pytest --cov` is **81% overall**, Agent Builder core 94%,
+  Runtime core 95%; LangGraph/official A2A/Postgres adapters need real SDK/DB
+  integration. Compilation passes.
+- SDK smoke tests and Ruff/Pyright are **NOT accepted** without executing the
+  strict integration script successfully on the exact PR commit.
