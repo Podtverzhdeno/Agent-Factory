@@ -79,6 +79,21 @@ public final class RegistryTelemetryTest {
         String good = RegistryTelemetry.eventLine(id,"POST", "/v0/registry/manifests/tool.a/1.0.0/execute/approve",200,0);
         check(good.contains("route=manifests.approve") && !good.contains("tool.a"), "Do not log tool ID");
         check(RegistryTelemetry.eventLine(id, "POST\nBearer secret", "/v0/registry/select",404,1).contains("method=OTHER route=unmatched"), "Sanitize method");
+        for (var action : RegistryTelemetry.LifecycleAction.values()) {
+            String lifecycle = RegistryTelemetry.lifecycleLine(id, action);
+            check(lifecycle.equals("event=registry_lifecycle request_id=" + id + " action=" + action.name()),
+                "Lifecycle log must have only a fixed action and server-generated correlation ID");
+        }
+        check(RegistryTelemetry.selectionLine(id, ToolRegistry.Decision.SELECTED, 3, 0)
+            .equals("event=registry_selection request_id=" + id + " decision=SELECTED selected_count=3 denial_count=0"),
+            "Safe selected cardinality");
+        check(RegistryTelemetry.selectionLine(id, ToolRegistry.Decision.BLOCKED, 0, 10)
+            .contains("decision=BLOCKED selected_count=0 denial_count=10"), "Safe blocked selection logging");
+        rejects(() -> RegistryTelemetry.selectionLine(null, ToolRegistry.Decision.BLOCKED, 0, 0));
+        rejects(() -> RegistryTelemetry.selectionLine(id, null, 0, 0));
+        rejects(() -> RegistryTelemetry.selectionLine(id, ToolRegistry.Decision.SELECTED, -1, 0));
+        rejects(() -> RegistryTelemetry.selectionLine(id, ToolRegistry.Decision.BLOCKED, 0, -1));
+        rejects(() -> RegistryTelemetry.lifecycleLine(id, null));
         rejects(() -> RegistryTelemetry.eventLine(null,"GET","/",200,0));
         rejects(() -> RegistryTelemetry.eventLine(id,"GET","/",0,0));
         rejects(() -> RegistryTelemetry.eventLine(id,"GET","/",600,0));
