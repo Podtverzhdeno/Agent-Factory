@@ -1,4 +1,5 @@
 """AF-REQ-007/012/016/029: disk crash, tenant and tool authority tests."""
+
 import asyncio
 
 import pytest
@@ -13,7 +14,7 @@ from agent_runtime import (
     ToolPolicy,
     VerifiedToolGateway,
 )
-from test_engine import build, FakeTools, manifest, Registry, ScriptedModel, task
+from test_engine import FakeTools, Registry, ScriptedModel, build, manifest, task
 
 
 def spec():

@@ -1,6 +1,6 @@
 """Contract-level tenant/version checkpoint isolation without fake LangGraph compliance claims."""
+
 import pytest
-from agent_runtime.langgraph_adapter import invoke_graph
 
 from agent_builder import digest
 from agent_runtime import (
@@ -11,7 +11,8 @@ from agent_runtime import (
     ToolPolicy,
     VerifiedToolGateway,
 )
-from test_engine import build, FakeTools, manifest, Registry, ScriptedModel, task
+from agent_runtime.langgraph_adapter import invoke_graph
+from test_engine import FakeTools, Registry, ScriptedModel, build, manifest, task
 
 
 @pytest.mark.asyncio

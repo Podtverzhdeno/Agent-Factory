@@ -1,4 +1,5 @@
 """Input bounds, memory retention and expiry regression tests."""
+
 import pytest
 
 from agent_runtime import (
@@ -11,7 +12,7 @@ from agent_runtime import (
     ToolPolicy,
     VerifiedToolGateway,
 )
-from test_engine import build, FakeTools, manifest, Registry, ScriptedModel, task
+from test_engine import FakeTools, Registry, ScriptedModel, build, manifest, task
 
 
 def make_runtime():

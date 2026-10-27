@@ -1,4 +1,5 @@
 """No Railway integration can connect to a shared database by accident."""
+
 from ruff_report import summarize_ruff
 from verify_test_database import validate_isolated_test_database
 
