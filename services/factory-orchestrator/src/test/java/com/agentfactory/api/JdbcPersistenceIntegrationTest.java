@@ -76,6 +76,13 @@ final class JdbcPersistenceIntegrationTest {
             "artifact://metrics/01","artifact://traces/01","artifact://holdout/independent",
             true,true,false,true,true,AgentStore.Risk.HIGH,Set.of());
     }
+    private static AgentStore.Evidence forRun(AgentStore.Evidence source,String runId) {
+        return new AgentStore.Evidence(runId,source.specDigest(),source.datasetRef(),
+            source.baselineDigest(),source.metricsRef(),source.traceRef(),
+            source.holdoutEvidenceRef(),source.independent(),source.passed(),
+            source.safetyVeto(),source.effectsVerified(),source.nonRegression(),
+            source.risk(),source.approvals());
+    }
     private static AgentStore.Metadata metadata() {
         return new AgentStore.Metadata(TENANT,"agent-01","artifact://agent-spec/v1",DIGEST,
             Map.of("lookup.v1",TOOL),MODEL,"artifact://a2a/card-v1",evidence());
@@ -132,11 +139,11 @@ final class JdbcPersistenceIntegrationTest {
         var before=ledger.get(TENANT,"wf-01").view().revision();
         var evaluationHeader=new Protocol.Header("0.1","evaluation-pass",TENANT,"wf-01",
             ledger.get(TENANT,"wf-01").view().pendingOperationId(),"trace-01",NOW);
-        var lowRisk=new AgentStore.Evidence("eval-01",DIGEST,"artifact://datasets/holdout-v1",
+        var lowRisk=new AgentStore.Evidence(evaluationHeader.operationId(),DIGEST,"artifact://datasets/holdout-v1",
             DIGEST,"artifact://metrics/01","artifact://traces/01","artifact://holdout/independent",
             true,true,false,true,true,AgentStore.Risk.LOW,Set.of());
         var released=control.onEvaluation(evaluationPrincipal,new Protocol.EvaluationFinished(
-            evaluationHeader,"eval-01",DIGEST,lowRisk,new BigDecimal("0.1"),null,false));
+            evaluationHeader,evaluationHeader.operationId(),DIGEST,lowRisk,new BigDecimal("0.1"),null,false));
 
         assertEquals(Workflow.State.RELEASED,released.state());
         assertEquals(before+1,released.revision());
@@ -185,13 +192,14 @@ final class JdbcPersistenceIntegrationTest {
         assertEquals(1,relay.dispatchPending());
 
         var evaluator=new Protocol.Principal("evaluator",TENANT,Set.of("factory:events:evaluation"));
-        var holdout=new AgentStore.Evidence("eval-01",DIGEST,"artifact://datasets/holdout-v1",
+        String evaluationOperation=ledger.get(TENANT,"wf-01").view().pendingOperationId();
+        var holdout=new AgentStore.Evidence(evaluationOperation,DIGEST,"artifact://datasets/holdout-v1",
             DIGEST,"artifact://metrics/01","artifact://traces/01","artifact://holdout/01",
             true,true,false,true,true,AgentStore.Risk.LOW,Set.of());
         var outcome=new Protocol.EvaluationFinished(new Protocol.Header(
             "0.1","evaluation-complete",TENANT,"wf-01",
-            ledger.get(TENANT,"wf-01").view().pendingOperationId(),"trace-01",NOW),
-            "eval-01",DIGEST,holdout,new BigDecimal("0.1"),null,false);
+            evaluationOperation,"trace-01",NOW),
+            evaluationOperation,DIGEST,holdout,new BigDecimal("0.1"),null,false);
         assertEquals("INJECTED_AFTER_PROMOTION",
             assertThrows(IllegalStateException.class,()->
                 control.onEvaluation(evaluator,outcome)).getMessage());
@@ -541,7 +549,9 @@ final class JdbcPersistenceIntegrationTest {
                         new Protocol.Header("0.1","evaluation-complete",TENANT,"wf-01",
                             finalLedger.get(TENANT,"wf-01").view().pendingOperationId(),
                             "trace-01",NOW),
-                        "eval-01",DIGEST,evidence(),new BigDecimal("0.1"),null,false));
+                        finalLedger.get(TENANT,"wf-01").view().pendingOperationId(),DIGEST,
+                        forRun(evidence(),finalLedger.get(TENANT,"wf-01").view().pendingOperationId()),
+                        new BigDecimal("0.1"),null,false));
             assertEquals(Workflow.State.VERIFIED,result.state());
             assertEquals(1,new JdbcAgentStore(tx(),codec()).versions(TENANT,"agent-01").size());
         } finally { server.stop(0); }
