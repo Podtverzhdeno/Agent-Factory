@@ -10,15 +10,15 @@ No shared OpenSpec, ADR, other agents' directories or production infrastructure 
 | Requirement | Candidate implementation | Evidence |
 | --- | --- | --- |
 | AF-REQ-005/006/029 | READY snapshot + BuildCommand, immutable versioned AgentSpec, deterministic minimum approved coverage, least-risk/grants tie-break, tenant-scoped idempotent BuildHandler | `test_build_handler.py`, `test_engine.py` |
-| AF-REQ-007/016 | bounded ReAct candidate runtime, two different synthetic tasks, real generated RFQ XLSX and read-only supplier check | `test_engine.py`, `test_synthetic_demo.py`, `test_limits.py` |
-| AF-REQ-012 | SQLite synthetic durable effect reservations, replay conflict and process-kill test; optional PostgreSQL transactional reservation + test | `test_durable_security.py`, `test_process_restart.py`, `test_postgres_effects.py` |
+| AF-REQ-007/016 | bounded ReAct candidate runtime, two different synthetic tasks, real generated RFQ XLSX and read-only supplier check | `test_engine.py`, `test_synthetic_demo.py`, `test_limits.py`, `test_security_authority.py` |
+| AF-REQ-012 | SQLite synthetic durable effect reservations, replay conflict and process-kill test; optional PostgreSQL transactional reservation + test | `test_durable_security.py`, `test_process_restart.py`, `test_postgres_effects.py`, `test_langgraph_idempotency.py` |
 | AF-REQ-013 | authenticated ASGI/A2A boundary with dynamic release-revocation check; official SDK v1 route/client test (optional) | `test_a2a_security.py`, `test_official_integrations.py` |
 | AF-REQ-023 | LiteLLM-compatible allowlisted model adapter; proxy-side token injection, authoritative cost header, max-output limit, model timeout | `test_litellm.py`, `test_limits.py` |
 | AF-REQ-039/040/042/043 | LangGraph graph adapter, tenant/version-scoped checkpoint identity, SQLite thread/long-term TTL memory, optional AsyncPostgresSaver reopened-connection test | `test_langgraph_boundary.py`, `test_official_integrations.py`, `test_durable_security.py` |
 
 ## Actual local evidence (Python 3.13)
 
-- `python -m pytest -q tests/agent-engine -ra`: **55 passed, 4 skipped**.
+- `python -m pytest -q tests/agent-engine -ra`: **63 passed, 4 skipped**.
 - `python -m compileall -q services tests`: completed.
 - `pytest --cov=agent_builder --cov=agent_runtime --cov=litellm_adapter`:
   ~80% aggregate coverage, mostly optional integrations absent.
@@ -56,7 +56,8 @@ access for the missing dependencies and no disposable PostgreSQL.
   must precede release. No credentials in the spec or system prompt.
 - A2A official SDK adapter constructs routes *only* for released/pinned versions,
   behind a bearer identity resolver. Its dynamic release lookup prevents stale
-  release snapshots; full SDK conformance is **not verified**.
+  release snapshots. Malformed resolvers and authorization outages fail closed.
+  Full SDK conformance is **not verified**.
 - MCP calls use explicit injected read-only transport and verified schema/scopes;
   remote MCP never grants authority and cannot dispatch consequential writes.
 - LiteLLM HTTP adapter reads `x-litellm-response-cost` or mock `usage.cost`.
@@ -68,12 +69,17 @@ access for the missing dependencies and no disposable PostgreSQL.
 
 - Persist external effect reservation BEFORE executing a draft; an ambiguous
   outcome remains UNCERTAIN, and replay is DENIED pending reconciliation.
+  A ReAct step has one stable effect slot (tenant + agent + run + step);
+  changed LLM arguments or a different tool at the same step cannot sidestep
+  the replay reservation.
   SQLite tests demonstrate a real process termination. A PostgreSQL candidate
   ledger is provided but not run against a real database.
 - No exactly-once guarantee: external tools must honor durable idempotency keys,
   and reconciliation/outbox must be implemented at the approved boundary.
 - SQLite checkpoints/memory/run store are isolated plaintext synthetic fixtures:
   tenant/agent/thread isolation, bounded context and TTL covered by tests.
+  Candidate LangGraph invocations use the same saved terminal-run result so a
+  repeated run ID does not replay a completed graph.
   Production encryption, TTL sweeper, right-to-delete and data retention pending.
 - Tool schema validation rejects remote refs and nonfinite JSON. Independent
   sandbox egress/network restrictions, signed Registry manifests and credential
