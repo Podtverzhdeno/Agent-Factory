@@ -255,6 +255,37 @@ final class JdbcPersistenceIntegrationTest {
         assertEquals(1,new JdbcAgentStore(tx(),codec()).versions(TENANT,"agent-01").size());
     }
 
+    @Test void lateOutboxFailureCannotOverwritePersistedDeadlineReason() {
+        var scope=tx();
+        var ledger=new JdbcWorkflowLedger(scope,codec());
+        var store=new JdbcAgentStore(scope,codec());
+        orchestrator(ledger,store).start(principal(),start());
+        // The fifth failure normally blocks with OUTBOX_DELIVERY_EXHAUSTED.
+        // A deadline may terminate that workflow while the fifth HTTP call is in flight.
+        var deadlineSweeper=new ControlPlane(ledger,
+            (tenant,snapshot)->{ throw new IllegalStateException("NOT_USED"); },
+            (actor,tenant,permission)->{throw new IllegalStateException("NOT_USED");},
+            (tenant,id,permission)->false, view->false,
+            ()->NOW.plusSeconds(4_000), store,
+            (tenant,id,digest,evidence)->{throw new IllegalStateException("NOT_USED");});
+        var calls=new java.util.concurrent.atomic.AtomicInteger();
+        var relay=new OutboxDispatcher(ledger,
+            command -> {
+                if(calls.incrementAndGet()==5)
+                    assertEquals(1,deadlineSweeper.expireDueWorkflows());
+                throw new IllegalStateException("REMOTE_UNAVAILABLE");
+            },
+            command->{throw new AssertionError("Unexpected Evaluation");},
+            command->{throw new AssertionError("Unexpected optimization");},
+            command->{throw new AssertionError("Unexpected Soup");});
+        for(int i=0;i<5;i++) assertEquals(0,relay.dispatchPending());
+        assertEquals(5,calls.get());
+        var recovered=new JdbcWorkflowLedger(tx(),codec());
+        assertEquals(Workflow.State.BLOCKED,recovered.get(TENANT,"wf-01").view().state());
+        assertEquals("TIME_BUDGET_EXHAUSTED",recovered.get(TENANT,"wf-01").view().errorCode());
+        assertTrue(recovered.withUndeliveredActions().isEmpty());
+    }
+
     @Test void consumedInboxEventSurvivesRestartAndRejectsConflictingReplay() throws Exception {
         var scope=tx();
         var ledger=new JdbcWorkflowLedger(scope,codec());
