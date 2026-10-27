@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from agent_builder import AgentSpec
+from agent_builder.audit import audit_event
 
 from .a2a_adapter import A2ABoundary
 from .core import Runtime, RuntimeDenied
@@ -79,8 +80,11 @@ class AuthenticatedA2AASGI:
         finally:
             _active_identity.reset(marker)
 
-    @staticmethod
-    async def _deny(send, status: int) -> None:
+    async def _deny(self, send, status: int) -> None:
+        # Do not log bearer tokens, URL paths, bodies or identity resolver errors.
+        audit_event("a2a", "a2a.denied", "DENIED",
+                    tenant_id=self.spec.tenant_id,
+                    code="A2A_UNAUTHENTICATED" if status == 401 else "A2A_FORBIDDEN")
         body = b'{"error":"access_denied"}'
         await send({'type': 'http.response.start', 'status': status,
                     'headers': [(b'content-type', b'application/json'),
