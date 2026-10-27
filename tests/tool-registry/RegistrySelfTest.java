@@ -72,6 +72,13 @@ public final class RegistrySelfTest {
         check(r.select(charged,noPay).denials().stream().anyMatch(d->d.code()==DenialCode.EFFECT_NOT_ALLOWED),"Explicit side effects veto");
         SelectionRequest wrongRisk = new SelectionRequest(Set.of("charge_card"),Set.of(Effect.PAYMENT),Risk.LOW,Map.of(),Map.of());
         check(r.select(charged,wrongRisk).denials().stream().anyMatch(d->d.code()==DenialCode.RISK_NOT_ALLOWED),"Risk veto");
+        // A malicious or overly permissive task must not turn Registry v0 into a payment capability grant.
+        SelectionRequest authorizePayment = new SelectionRequest(Set.of("charge_card"),
+            Set.of(Effect.PAYMENT), Risk.CRITICAL, Map.of(), Map.of());
+        Selection deniedPayment = r.select(charged, authorizePayment);
+        check(deniedPayment.decision() == Decision.BLOCKED
+                && deniedPayment.denials().stream().anyMatch(d -> d.code() == DenialCode.EFFECT_NOT_ALLOWED),
+            "Explicit payment scope and CRITICAL allowance must not bypass autonomous effect veto");
         SelectionRequest wrongSchema = new SelectionRequest(Set.of("catalog_lookup"),Set.of(Effect.READ),Risk.LOW,Map.of(),Map.of("catalog_lookup",new Requirement(FILE_IN,null)));
         check(r.select(user,wrongSchema).denials().stream().anyMatch(d->d.code()==DenialCode.SCHEMA_INCOMPATIBLE),"Schema compatibility veto");
         SelectionRequest wrongVersion = new SelectionRequest(Set.of("catalog_lookup"),Set.of(Effect.READ),Risk.LOW,Map.of("catalog.lookup","2.0.0"),Map.of());
