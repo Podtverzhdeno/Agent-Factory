@@ -6,9 +6,10 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Protocol
 
+from agent_builder import AgentSpec
+
 from .a2a_adapter import A2ABoundary
 from .core import Runtime, RuntimeDenied
-from agent_builder import AgentSpec
 
 
 @dataclass(frozen=True)
@@ -55,7 +56,7 @@ class AuthenticatedA2AASGI:
         try:
             token = authorization[0][7:].decode('ascii')
             identity = self.authenticate(token) if token else None
-        except Exception:
+        except Exception:  # noqa: BLE001 - identity provider errors fail closed.  # noqa: BLE001 - identity provider errors fail closed.
             identity = None
         if not isinstance(identity, A2AIdentity) or not identity.tenant_id or not identity.principal:
             await self._deny(send, 401)

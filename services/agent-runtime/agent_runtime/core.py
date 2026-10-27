@@ -265,7 +265,7 @@ class Runtime:
                     raise RuntimeDenied('MAX_STEPS_EXCEEDED')
             except RuntimeDenied as exc:
                 code = exc.code
-            except Exception:
+            except Exception:  # noqa: BLE001 - unknown external result is uncertain.
                 code = 'EXECUTION_UNCERTAIN'
             if code is None:
                 self.memory.append(tenant_id, spec.agent_id, thread_id,

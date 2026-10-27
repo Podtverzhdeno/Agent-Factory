@@ -48,8 +48,8 @@ def main() -> int:
     try:
         diagnostics = json.loads(result.stdout)
         if not isinstance(diagnostics, list):
-            raise ValueError("Expected JSON diagnostic array")
-    except (json.JSONDecodeError, ValueError):
+            raise TypeError("Expected JSON diagnostic array")
+    except (json.JSONDecodeError, ValueError, TypeError):
         print("Ruff produced non-JSON diagnostics (aborting closed)", file=sys.stderr)
         print(result.stderr[:1500], file=sys.stderr)
         return result.returncode or 2

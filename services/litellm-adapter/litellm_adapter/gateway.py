@@ -6,9 +6,10 @@ import json
 import re
 from collections.abc import Callable
 
-import httpx
 import math
 from urllib.parse import urlsplit
+
+import httpx
 
 from agent_runtime.core import Decision, RuntimeDenied
 
@@ -20,7 +21,7 @@ class LiteLLMGateway:
         # Parse the actual URL authority, not a string prefix: the latter accepts
         # http://127.0.0.1:8080@external-host and leaks the tenant proxy token.
         if not isinstance(base_url, str):
-            raise ValueError('invalid proxy URL')
+            raise TypeError('invalid proxy URL')
         try:
             parsed = urlsplit(base_url)
             port = parsed.port  # Also rejects invalid/out-of-range ports.
