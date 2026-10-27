@@ -82,6 +82,13 @@ final class JdbcSpringWiringIntegrationTest {
     }
 
     @Test
+    void jdbcProfileReportsRealDatabaseConnectivityIndependentlyOfLiveness() throws Exception {
+        http.perform(get("/persistencez")).andExpect(status().isOk())
+            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                .jsonPath("$.persistence").value("available"));
+    }
+
+    @Test
     void jdbcProfileNeverOpensPrivateWorkflowApisToUnauthenticatedClients() throws Exception {
         http.perform(get("/healthz")).andExpect(status().isOk());
         http.perform(get("/v1/workflows/test").param("tenantId", "tenant-a"))
