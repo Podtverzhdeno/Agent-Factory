@@ -74,6 +74,14 @@ final class ControlPlaneSecurityTest {
     }
 
     @Test
+    void publicRuntimeReadinessCannotClaimSmokeIsProductionReady() throws Exception {
+        http.perform(get("/healthz")).andExpect(status().isOk());
+        http.perform(get("/readyz")).andExpect(status().isServiceUnavailable())
+            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                .jsonPath("$.readiness").value("unavailable"));
+    }
+
+    @Test
     void noJwtCannotReadWorkflow() throws Exception {
         http.perform(get("/v1/workflows/w1").param("tenantId", "tenant-a"))
             .andExpect(status().isUnauthorized());
