@@ -145,6 +145,27 @@ public final class ControlPlaneComponentTests {
             error("IDEMPOTENCY_CONFLICT",()->f.cp.start(COMMAND,new Start(TENANT,"different",SNAP,
                 "idem:"+WF,new Limits(2,new BigDecimal("5.00"),NOW.plusSeconds(3600)),"correlation:"+WF)));
         });
+        test("AF-REQ-015 concurrent duplicate starts persist a single Builder action",()->{
+            Fixture f=new Fixture();
+            java.util.concurrent.ExecutorService pool=java.util.concurrent.Executors.newFixedThreadPool(8);
+            try {
+                java.util.List<java.util.concurrent.Future<Workflow.View>> requests=new java.util.ArrayList<>();
+                for(int i=0;i<24;i++) {
+                    requests.add(pool.submit(()->f.cp.start(COMMAND,f.request(WF))));
+                }
+                for(var future:requests) {
+                    check(future.get().state()==Workflow.State.BUILDING);
+                }
+                check(f.ledger.get(TENANT,WF).actions.size()==1);
+                check(f.dispatcher.dispatchPending()==1);
+                check(f.builds.get()==1);
+            } catch(java.util.concurrent.ExecutionException | InterruptedException exception) {
+                Thread.currentThread().interrupt();
+                throw new AssertionError("Concurrent idempotency failed",exception);
+            } finally {
+                pool.shutdownNow();
+            }
+        });
         test("AF-REQ-015 replay remains stable past expiry and correlation mismatch conflicts",()->{
             Fixture f=new Fixture();
             Workflow.View accepted=f.start();
