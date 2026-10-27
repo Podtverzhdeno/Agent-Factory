@@ -30,5 +30,6 @@ public final class Ports {
         Workflow get(String tenant, String workflowId);
         <T> T transact(String tenant, String workflowId, Function<Workflow,T> operation);
         List<Key> withUndeliveredActions();
+        List<Key> activeKeys();
     }
 }
