@@ -1,7 +1,6 @@
 """Return saved terminal evidence after restart without repeating external effects."""
 
 import pytest
-
 from agent_runtime import (
     Decision,
     EffectLedger,

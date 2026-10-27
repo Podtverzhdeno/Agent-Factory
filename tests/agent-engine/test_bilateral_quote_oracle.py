@@ -3,9 +3,7 @@
 from dataclasses import replace
 
 import pytest
-
-from agent_runtime.bilateral_oracle import Event, Quote, RFQ, evaluate_quote
-
+from agent_runtime.bilateral_oracle import RFQ, Event, Quote, evaluate_quote
 
 NOW = 200000
 
