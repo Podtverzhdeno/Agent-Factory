@@ -197,7 +197,10 @@ class RuntimeAuditReadAPI:
             await self._respond(send, 400, {"error": "invalid_query"})
             return
         value = self._audit.lookup(tenant_id, run_id)
-        envelope = value["envelope"] if value else None
+        if value is None:
+            await self._respond(send, 404, {"error": "not_found"})
+            return
+        envelope = value["envelope"]
         if (envelope is None or params["tenant_id"][0] != tenant_id
                 or params["case_id"][0] != envelope["case_id"]
                 or params["agent_spec_digest"][0] != envelope["agent_spec_digest"]
