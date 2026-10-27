@@ -59,6 +59,17 @@ class RegistryAuthorizedHttpTest {
             .contentType(MediaType.APPLICATION_JSON).content(query))
             .andExpect(status().isOk()).andExpect(jsonPath("$.decision").value("SELECTED"))
             .andExpect(jsonPath("$.selected_tools[0].tool_id").value("http.test.read"));
+        mvc.perform(get("/v0/registry/builder/manifests")
+            .with(caller("builder", "tenant-a", "registry:lookup xlsx:read")))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].approved").value(true))
+            .andExpect(jsonPath("$[0].risk_level").value("low"))
+            .andExpect(jsonPath("$[0].tool_id").value("http.test.read"));
+        mvc.perform(get("/v0/registry/builder/manifests")
+            .with(caller("builder", "tenant-b", "registry:lookup xlsx:read")))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.length()").value(0));
+
         mvc.perform(post("/v0/registry/select").with(caller("builder", "tenant-b", "registry:lookup xlsx:read"))
             .contentType(MediaType.APPLICATION_JSON).content(query))
             .andExpect(status().isOk()).andExpect(jsonPath("$.decision").value("BLOCKED"))
