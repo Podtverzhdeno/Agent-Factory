@@ -1,6 +1,7 @@
 """Quality non-inferiority and cost-per-correct-task benchmark."""
 from __future__ import annotations
 from dataclasses import dataclass
+from math import exp, lgamma, log, log1p, sqrt
 from typing import Literal
 from .primitives import InvalidEvidence
 
@@ -53,16 +54,31 @@ class BenchmarkResult:
 
 
 def _binomial_cdf(k: int, n: int, p: float) -> float:
-    if p >= 1:
-        return 1.0 if k >= n else 0.0
-    if p <= 0:
+    """Stable binomial CDF: sum downwards from k using the log-PMF.
+
+    Starting from P(X=0) underflows for large n and can falsely certify
+    lower-quality models; tail shortcuts only apply more than 12 sigma away.
+    """
+    if k >= n or p <= 0:
         return 1.0
-    term = (1-p)**n
-    total = term
-    for i in range(1, k+1):
-        term *= (n-i+1)*p/(i*(1-p))
-        total += term
-    return total
+    if k < 0 or p >= 1:
+        return 0.0
+    mean = n * p
+    sigma = sqrt(n * p * (1 - p))
+    if k > mean + 12 * sigma + 1:
+        return 1.0
+    if k < mean - 12 * sigma - 1:
+        return 0.0
+    log_pmf = (lgamma(n + 1) - lgamma(k + 1) - lgamma(n - k + 1)
+               + k * log(p) + (n - k) * log1p(-p))
+    term = exp(log_pmf)
+    result = term
+    for i in range(k, 0, -1):
+        term *= (i / (n - i + 1)) * ((1 - p) / p)
+        result += term
+        if i < mean and term < result * 1e-16:
+            break
+    return max(0.0, min(1.0, result))
 
 
 def _loss_upper_bound(losses: int, n: int, alpha: float) -> float:
