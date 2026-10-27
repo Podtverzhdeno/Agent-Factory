@@ -43,6 +43,17 @@ class BenchmarkPolicy:
 
 
 @dataclass(frozen=True)
+class BenchmarkEvidence:
+    """Evaluator-owned references; infrastructure must verify their authenticity."""
+    tenant_id: str
+    dataset_version_ref: str
+    dataset_digest: str
+    split: str
+    baseline_trace_ref: str
+    candidate_trace_ref: str
+
+
+@dataclass(frozen=True)
 class BenchmarkResult:
     status: Literal["PASSED", "FAILED", "INCONCLUSIVE"]
     baseline_cost_per_success: float | None
@@ -97,7 +108,7 @@ def _loss_upper_bound(losses: int, n: int, alpha: float) -> float:
 class BenchmarkEngine:
     def compare(self, baseline_model: ModelProfile, candidate_model: ModelProfile,
                 baseline: tuple[ModelRun, ...], candidate: tuple[ModelRun, ...],
-                policy: BenchmarkPolicy) -> BenchmarkResult:
+                policy: BenchmarkPolicy, *, evidence: BenchmarkEvidence | None = None) -> BenchmarkResult:
         if not 0 < policy.alpha < 1 or not 0 <= policy.max_quality_drop < 1 or not 0 <= policy.min_savings_fraction < 1:
             raise ValueError("invalid benchmark policy")
         if not baseline or not candidate or len(baseline) != len(candidate):
@@ -106,6 +117,12 @@ class BenchmarkEngine:
         if bid != cid or len(set(bid)) != len(bid):
             raise InvalidEvidence("baseline/candidate must be aligned, unique and in same order")
         reasons: list[str] = []
+        if (evidence is None or evidence.split != "holdout"
+            or not all((evidence.tenant_id, evidence.dataset_version_ref,
+                        evidence.dataset_digest, evidence.baseline_trace_ref,
+                        evidence.candidate_trace_ref))
+            or evidence.baseline_trace_ref == evidence.candidate_trace_ref):
+            reasons.append("INDEPENDENT_DATASET_NOT_VERIFIED")
         if baseline_model.model_id == candidate_model.model_id:
             reasons.append("SAME_MODEL")
         if (policy.needs_tools and not candidate_model.supports_tools or
