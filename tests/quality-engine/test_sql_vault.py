@@ -9,7 +9,8 @@ from quality_engine.sql_vault import SqlDatasetVault, metadata
 def sql():
     engine = create_engine("sqlite+pysqlite:///:memory:")
     metadata.create_all(engine)
-    return SqlDatasetVault(engine)
+    yield SqlDatasetVault(engine)
+    engine.dispose()
 
 
 def test_persistent_gold_separation_and_roundtrip(sql):
@@ -62,3 +63,4 @@ def test_sql_vault_survives_new_repository_instance(tmp_path):
     SqlDatasetVault(engine).register(owner, Dataset(
         "tenant", "v1", "holdout", (Case("a", {"ok": True}),)))
     assert SqlDatasetVault(engine).read(owner, "v1").cases[0].expected_artifact == {"ok": True}
+    engine.dispose()
