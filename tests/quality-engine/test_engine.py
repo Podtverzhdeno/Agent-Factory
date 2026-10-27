@@ -159,7 +159,10 @@ def models():
 
 def test_benchmark_cheaper_verified_noninferior():
     p, c, b, runs = models()
-    r = BenchmarkEngine().compare(p, c, b, runs, BenchmarkPolicy())
+    from quality_engine import BenchmarkEvidence
+    evidence = BenchmarkEvidence("tenant-a", "dataset-v1", "sha256:holdout", "holdout",
+                                 "trace:baseline", "trace:candidate")
+    r = BenchmarkEngine().compare(p, c, b, runs, BenchmarkPolicy(), evidence=evidence)
     assert r.status == "PASSED"
     assert 0 < r.loss_upper_bound < 0.05
     assert r.candidate_cost_per_success < r.baseline_cost_per_success
@@ -334,3 +337,15 @@ def test_nan_cost_never_passes_model_benchmark():
     bad = (ModelRun("case-0", True, False, float("nan")),) + runs[1:]
     with pytest.raises(InvalidEvidence):
         BenchmarkEngine().compare(p, c, b, bad, BenchmarkPolicy())
+
+
+def test_benchmark_cannot_pass_without_independent_holdout_provenance():
+    from quality_engine import BenchmarkEvidence
+    p, c, b, runs = models()
+    missing = BenchmarkEngine().compare(p, c, b, runs, BenchmarkPolicy())
+    assert missing.status == "INCONCLUSIVE"
+    assert "INDEPENDENT_DATASET_NOT_VERIFIED" in missing.reasons
+    training = BenchmarkEvidence("tenant-a", "dataset-v1", "sha256:test", "tune",
+                                 "trace:baseline", "trace:candidate")
+    result = BenchmarkEngine().compare(p, c, b, runs, BenchmarkPolicy(), evidence=training)
+    assert result.status == "INCONCLUSIVE"
