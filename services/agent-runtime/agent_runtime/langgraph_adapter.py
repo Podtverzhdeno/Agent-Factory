@@ -132,8 +132,14 @@ async def invoke_graph(graph, runtime, spec, *, tenant_id: str, thread_id: str,
         raise RuntimeDenied('UNVERIFIED_TOOL_GATEWAY')
     checkpoint_id = digest({'tenant': tenant_id, 'agent': spec.agent_id,
                             'version': spec.agent_spec_version, 'thread': thread_id})
+    # A new turn must not inherit terminal state, budget or pending actions.
+    # Preserve ONLY the authorized tenant/agent/thread's bounded memory.
+    history = runtime.memory.get(tenant_id, spec.agent_id, thread_id)
+    history.append({'role': 'user', 'content': request})
     state = {'tenant_id': tenant_id, 'thread_id': thread_id, 'run_id': run_id,
-             'request': request, 'trace_id': trace_id}
+             'request': request, 'trace_id': trace_id, 'history': history,
+             'steps': 0, 'cost_usd': 0.0, 'effects': [], 'pending_tool': '',
+             'pending_args': {}, 'terminal_error': None, 'answer': ''}
     final = await graph.ainvoke(state, config={'configurable': {'thread_id': checkpoint_id}})
     if not isinstance(final, dict) or not isinstance(final.get('result'), dict):
         raise RuntimeDenied('INVALID_GRAPH_RESULT')
