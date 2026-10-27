@@ -1,5 +1,7 @@
 """Real ASGI authorization boundary test; official SDK conformance is separate."""
 
+from typing import cast
+
 import httpx
 import pytest
 from agent_runtime import A2ABoundary
@@ -49,14 +51,14 @@ async def test_a2a_revoked_spec_denies_valid_token():
         assert (await client.get('/', headers={'Authorization': 'Bearer good'})).status_code == 403
 
 def test_sdk_factory_rejects_unreleased_spec_before_import():
-    from agent_runtime import RuntimeDenied
+    from agent_runtime import Runtime, RuntimeDenied
     from agent_runtime.official_a2a import create_official_a2a_app
     spec = build(task('read', ['read'], ['read'], []),
                  Registry([manifest('read', ['read'], ['read'], [])]))
     with pytest.raises(RuntimeDenied, match='A2A_NOT_RELEASED'):
-        create_official_a2a_app(spec=spec, runtime=None,
+        create_official_a2a_app(spec=spec, runtime=cast(Runtime, None),
             boundary=A2ABoundary(released_spec_digests=frozenset(), authorize=lambda *_: True),
-            agent_card=None, authenticate=lambda _: None)
+            agent_card=None, authenticate=lambda token: None)
 
 @pytest.mark.asyncio
 async def test_a2a_lifespan_delegates_without_authentication():
@@ -67,7 +69,7 @@ async def test_a2a_lifespan_delegates_without_authentication():
         received.append(scope['type'])
     app = AuthenticatedA2AASGI(inner, spec=spec,
         boundary=A2ABoundary(released_spec_digests=frozenset({spec.artifact_digest}),
-                             authorize=lambda *_: True), authenticate=lambda _: None)
+                             authorize=lambda *_: True), authenticate=lambda token: None)
     await app({'type': 'lifespan'}, None, None)
     assert received == ['lifespan']
 
@@ -93,7 +95,8 @@ async def test_external_release_revocation_takes_effect_without_restart():
 @pytest.mark.asyncio
 async def test_a2a_invalid_identity_resolver_response_fails_closed():
     app = make_app()
-    app.authenticate = lambda token: {'tenant_id': 'buyer', 'principal': 'trusted'}
+    # Deliberately inject a dynamically malformed identity provider.
+    setattr(app, 'authenticate', lambda token: {'tenant_id': 'buyer', 'principal': 'trusted'})
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),
                                  base_url='http://example.test') as client:
         response = await client.get('/', headers={'Authorization': 'Bearer good'})

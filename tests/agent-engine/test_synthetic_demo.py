@@ -17,6 +17,8 @@ async def test_two_business_tasks_with_real_synthetic_excel(tmp_path):
     assert all('draft' not in call[1] for call in supplier_tools.calls)
     workbook = load_workbook(tmp_path / 'draft-quote.xlsx', data_only=True, read_only=True)
     try:
-        assert workbook.active['D2'].value == 24
+        sheet = workbook.active
+        assert sheet is not None
+        assert sheet['D2'].value == 24
     finally:
         workbook.close()

@@ -52,5 +52,6 @@ async def test_mcp_remote_error_and_unstructured_reply_denied():
 def test_effectful_mcp_is_denied_until_remote_idempotency_review():
     from pydantic import ValidationError
     with pytest.raises(ValidationError):
-        MCPBinding(tenant_id='buyer',tool_id='payment',remote_tool_name='send_payment',
-                   client_alias='trusted',allowed_effect='payment')
+        MCPBinding.model_validate({'tenant_id':'buyer','tool_id':'payment',
+                                   'remote_tool_name':'send_payment',
+                                   'client_alias':'trusted','allowed_effect':'payment'})

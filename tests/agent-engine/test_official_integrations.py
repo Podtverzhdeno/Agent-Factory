@@ -2,6 +2,8 @@
 
 import os
 
+from langchain_core.runnables.config import RunnableConfig
+
 import pytest
 
 
@@ -58,7 +60,7 @@ async def test_real_postgres_saver_initialization():
         graph.add_edge('increment',END)
         return graph.compile(checkpointer=saver)
 
-    config={'configurable':{'thread_id':'af04-test-'+str(uuid4())}}
+    config: RunnableConfig = {'configurable':{'thread_id':'af04-test-'+str(uuid4())}}
     async with AsyncPostgresSaver.from_conn_string(dsn) as first:
         await first.setup()
         graph=compile_graph(first)
@@ -66,7 +68,9 @@ async def test_real_postgres_saver_initialization():
     async with AsyncPostgresSaver.from_conn_string(dsn) as reopened:
         graph=compile_graph(reopened)
         checkpoint=await graph.aget_state(config)
-        assert checkpoint.values['counter']==2
+        values = checkpoint.values
+        assert isinstance(values, dict)
+        assert values['counter']==2
         assert (await graph.ainvoke({'counter':2},config=config))['counter']==3
 
 @pytest.mark.asyncio

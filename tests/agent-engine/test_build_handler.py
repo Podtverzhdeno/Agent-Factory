@@ -35,7 +35,10 @@ async def test_same_build_key_idempotent_and_immutable():
     result = await handler.build(cmd)
     assert result.status == 'ASSEMBLED'
     assert await handler.build(cmd) == result
-    assert store.get(snapshot.tenant_id,result.agent_spec_ref).artifact_digest == result.agent_spec_digest
+    assert result.agent_spec_ref is not None
+    stored = store.get(snapshot.tenant_id, result.agent_spec_ref)
+    assert stored is not None
+    assert stored.artifact_digest == result.agent_spec_digest
     assert store.get('other-tenant',result.agent_spec_ref) is None
     with pytest.raises(BuildError,match='BUILD_IDEMPOTENCY_CONFLICT'):
         await handler.build(cmd.model_copy(update={'build_id':'different'}))
