@@ -30,6 +30,27 @@ public final class RegistryRegressionTest {
         register(registry, read);
         register(registry, catalog);
 
+        // Scenario: revision fencing must reject ABA after the last approval is revoked.
+        ToolRegistry lifecycle = fixture();
+        String emptyRevision = lifecycle.select(user, task("read_xlsx")).registryRevision();
+        lifecycle.registerDraft(author, read);
+        String draftRevision = lifecycle.select(user, task("read_xlsx")).registryRevision();
+        lifecycle.approve(reviewer, "xlsx.read", "1.0.0", "execute");
+        String approvedRevision = lifecycle.select(user, task("read_xlsx")).registryRevision();
+        lifecycle.revoke(reviewer, "xlsx.read", "1.0.0", "execute");
+        Selection revokedAll = lifecycle.select(user, task("read_xlsx"));
+        String revokedRevision = revokedAll.registryRevision();
+        check(!emptyRevision.equals(draftRevision) && !draftRevision.equals(approvedRevision)
+                && !approvedRevision.equals(revokedRevision) && !emptyRevision.equals(revokedRevision),
+            "Revision fence must change at every lifecycle step, including after last revocation");
+        check(revokedAll.decision() == Decision.BLOCKED, "No eligible tools after final revocation");
+        Manifest newVersion = manifest("xlsx.read", "1.0.1", "read_xlsx", FILE_IN, ROWS,
+            XLSX_ENDPOINT, Set.of(Effect.READ), Set.of("xlsx:read"), Risk.LOW);
+        lifecycle.registerDraft(author, newVersion);
+        lifecycle.approve(reviewer, "xlsx.read", "1.0.1", "execute");
+        check(!lifecycle.select(user, task("read_xlsx")).registryRevision().equals(approvedRevision),
+            "Reissued new version must not reuse stale approval snapshot revision");
+
         // Pinning one tool must not veto unpinned tools.
         Selection partialPin = registry.select(user, new SelectionRequest(
             Set.of("read_xlsx", "catalog_lookup"), Set.of(Effect.READ), Risk.LOW,
@@ -128,7 +149,7 @@ public final class RegistryRegressionTest {
             "Find exact single-tool minimum among 30 choices");
         check(chosen.selectedTools().getFirst().toolId().equals("alt.0"), "Deterministic tie break");
 
-        // True least privilege minimizes the union of effective scopes, not a sum of duplicates.
+        // Least privilege is based on the union of scopes, not the sum of scope counts.
         ToolRegistry minimumGrants = fixture();
         Manifest aRead = manifest("a.reader", "1.0.0", "read_xlsx", FILE_IN, ROWS,
             XLSX_ENDPOINT, Set.of(Effect.READ), Set.of("xlsx:read"), Risk.LOW);
@@ -140,10 +161,10 @@ public final class RegistryRegressionTest {
             CATALOG_ENDPOINT, Set.of(Effect.READ), Set.of("xlsx:read"), Risk.LOW);
         for (Manifest m : List.of(aRead, aCatalog, zRead, zCatalog)) register(minimumGrants, m);
         Selection granted = minimumGrants.select(user, task("read_xlsx", "catalog_lookup"));
-        Set<String> effective = new HashSet<>();
-        granted.selectedTools().forEach(binding -> effective.addAll(binding.grantedScopes()));
-        check(granted.decision() == Decision.SELECTED && effective.equals(Set.of("xlsx:read")),
-            "Effective grants must contain only the minimal unique scope set");
+        Set<String> effectiveGrants = new HashSet<>();
+        granted.selectedTools().forEach(binding -> effectiveGrants.addAll(binding.grantedScopes()));
+        check(granted.decision() == Decision.SELECTED && effectiveGrants.equals(Set.of("xlsx:read")),
+            "Minimum covering set must also minimize distinct runtime scopes");
 
         // A change in another tenant's register/approve cycle does not change our revision.
         ToolRegistry isolated = fixture();
@@ -183,6 +204,13 @@ public final class RegistryRegressionTest {
             "Tenant-local revocation takes effect");
         reject("NOT_FOUND", () -> isolated.approve(reviewerB, "catalog.lookup", "1.0.0", "execute"));
         reject("UNAUTHENTICATED", () -> new Caller("builder", "tenant\nspoof", Set.of("registry:lookup")));
+        reject("UNAUTHENTICATED", () -> new Caller("user\nFORGED AUDIT EVENT", "tenant-a", Set.of("registry:lookup")));
+        reject("UNAUTHENTICATED", () -> new Caller("user\u202e", "tenant-a", Set.of("registry:lookup")));
+        Manifest forgedProvenance = new Manifest("0.1", "forged.origin", "1.0.0", "execute", Transport.MCP,
+            Set.of("read_xlsx"), FILE_IN, ROWS, Set.of(Effect.READ), Set.of("xlsx:read"),
+            Risk.LOW, Set.of("tenant-a"), XLSX_ENDPOINT, Health.HEALTHY,
+            "trusted:unreviewed", "Claimed trust", "").withComputedDigest();
+        reject("UNTRUSTED_PROVENANCE", () -> isolated.registerDraft(author, forgedProvenance));
         check(isolated.select(builderB, task("catalog_lookup")).decision() == Decision.SELECTED,
             "Tenant B should retain its own catalogue implementation after a reader revocation");
         // Use a fresh tenant with no catalog to prove no cross-tenant capability-existence oracle.
