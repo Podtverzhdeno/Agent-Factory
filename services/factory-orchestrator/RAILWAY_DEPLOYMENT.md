@@ -1,0 +1,191 @@
+# Agent Factory workstream 01 — Railway deployment proposal
+
+**Status:** PREPARED / NOT RELEASED. This is an isolated service proposal, not owner
+ratification of ADR-0002. Do not interpret an HTTP 200 from `/healthz` as
+production readiness, Evaluation provenance, or working real upstream services.
+
+## Identified Railway infrastructure (2026-10-27)
+
+- Project: `ed32802c-7f84-47c3-b744-45e1fe2e6236`
+- Project dashboard: https://railway.com/project/ed32802c-7f84-47c3-b744-45e1fe2e6236
+- Name: `adequate-respect`
+- Environment: `production` (`eacbc53d-a71c-4078-ad68-7e85329d2ab4`)
+- Existing service: `Agent-Factory` (`b0239f26-72d9-4a6e-a0d0-9a429ea0f384`)
+- GitHub source: `Podtverzhdeno/Agent-Factory`, currently branch `main`.
+- First deployment `90730d91-ec61-434a-84a3-effb584cb764`: **FAILED**.
+  Build logs: `Railpack could not determine how to build the app`;
+  its source checkout contained **README.md only**. This is not a Java compile failure.
+- No PostgreSQL service, volumes, publicly exposed domain, or build secrets
+  were present when inspected.
+
+## Monorepo Docker image
+
+`services/factory-orchestrator/Dockerfile` is a multi-stage Java 21 build.
+Railway must keep repository root as the build context because Maven requires
+the sibling `services/agent-store` and shared `tests/control-plane`.
+Set custom Dockerfile path to
+`/services/factory-orchestrator/Dockerfile`; do NOT set root directory to
+`/services/factory-orchestrator`, which would hide these required sources.
+
+The Maven image packaging step compiles sources and tests but does **not**
+execute the full acceptance suite: Testcontainers requires an external
+Docker-enabled CI runner. Release only after a matching exact PR SHA runs:
+`EXPECTED_HEAD_SHA=<sha> bash tests/control-plane/run-acceptance.sh`.
+A production deploy must point to the same, reviewed code revision.
+
+The runtime uses non-root UID 10001, Java 21 JRE, Railway's `PORT` environment
+variable and Java's memory-percentage limit. Public `GET /healthz` returns only
+`{"status":"alive"}` (liveness, not readiness). All workflow and event API
+routes still require validated service/user JWTs.
+
+## Mandatory deployment gates
+
+1. Owner ratifies ADR-0002 with traceable GitHub evidence and defines the
+   service topology, persistent database owner, A2A exposure and API consumers.
+2. Execute exact-SHA Maven/JUnit/Spring Security, PostgreSQL Testcontainers and
+   independent Builder/Evaluation/GEPARD contract security tests.
+3. The current production branch `main` does **not** contain this PR's Java
+   application. Do not accept staged Railway config or switch its repo branch
+   until source is approved and quality gates pass.
+4. Configure a real trusted JWT issuer/audience, runtime token provider and
+   independently verifiable Evaluation evidence; no dummy JWTs, fake credentials,
+   public PostgreSQL TCP proxy, or anonymous command ingress.
+5. Provision a dedicated private PostgreSQL service in the ratified data
+   ownership boundary, stage/apply forward-only migrations V1 and V2, and
+   inject credentials using Railway service-to-service variable references.
+6. Set `/healthz` liveness check; separately verify DB readiness, actual
+   authenticated HTTP endpoint behavior, durable outbox recovery, and monitored
+   canary/rollback. Do not silently turn a POC into a public production endpoint.
+
+A pending staged Railway config is a draft proposal only. No successful
+runtime deployment or production acceptance is claimed.
+
+## Follow-up: actual Railway smoke evidence and concurrent staging
+
+Railway project environment was re-inspected during ongoing parallel work.
+**This is observational evidence, not an approval to apply staged resources.**
+
+- The source was subsequently switched to `agent/01-control-plane` for
+  smoke checks by parallel work. The prior `main`/README-only failure is
+  historical, not evidence that the current branch has no application.
+- Smoke build `0685b3be-8ce4-44e8-af33-2317579921f9` at `9a69fbbf` failed
+  at Maven `testCompile`: duplicate local variable `before` in the
+  component test. The newer GitHub branch had already corrected it.
+- Smoke build `97a8668d-eb32-45af-b6e7-052038384564` at `797b543b`
+  compiled 26 main and 9 test Java sources, executed the component suite
+  (48 component scenarios, JDBC transaction 3, event identity 4, outbox race 7),
+  but **FAILED** because one HTTP JUnit test still expected
+  `IllegalStateException` after the protocol changed to
+  `RemoteCommandFailure`. That assertion has since been fixed in a
+  later GitHub revision.
+- A newer smoke build on `6e4f0ef0` was still `BUILDING` at the time of
+  inspection; **no successful deployment or full Maven acceptance was
+  confirmed**. The tested smoke image uses `Dockerfile.railway-smoke`,
+  distinct from the future `Dockerfile`.
+- A `Postgres` service, `postgres-volume` and
+  `agent04-integration-gate` appear as **staged-create** resources in
+  environment `production`. They are not live until their staged patch is
+  explicitly applied; Railway's staged patch may include changes from
+  other workers. Do not indiscriminately accept or discard that patch.
+- The future `Dockerfile` now compiles **and executes** targeted Spring/JWT/
+  HTTP JUnit suites during image build. Real PostgreSQL Testcontainers
+  checks still require the exact-SHA independent acceptance environment.
+
+The Railway project URL identifies **the intended hosting provider/project**
+selected by the owner; it is **not** evidence that service topology,
+database ownership, public access and ADR-0002 have been ratified.
+
+## Updated evidence: Railway Maven/Spring smoke on 6e4f0ef0
+
+The non-production Railway smoke deployment
+`d77d2bca-038b-45c1-ad3d-8de84178113a` (commit `6e4f0ef0`)
+ended in **FAILED**:
+
+- Actual `ControlPlaneSecurityTest`: **7 tests, 0 failures, 0 errors**.
+  This confirms the duplicate `GET /healthz` registration and Spring
+  `ApplicationContext` startup error from the previous deployment were resolved
+  for this commit.
+- Actual `ControlPlaneComponentSuiteTest`: **1 failing JUnit method**
+  (`componentScenariosMustPassBeforeMavenBuildSucceeds`), which internally
+  delegates to the dependency-free domain scenarios. The build log's summary
+  reported `assertion failed` without identifying a stable individual scenario.
+  Do not infer full domain-suite PASS from its older results.
+- Actual total Maven smoke: **20 JUnit tests, 1 failure, 0 errors, 0 skipped**.
+  The build aborted before a verified runnable image existed.
+- This historical result does **not** attest the current GitHub branch,
+  which has advanced since this Railway build. Fresh immutable-SHA smoke plus
+  independent PostgreSQL Testcontainers are mandatory.
+
+## Verified Railway smoke build — 0f960966
+
+Build `edf72f3f-6262-4c44-ab21-af6316be6b31` in project `adequate-respect`
+successfully deployed commit `0f960966fe79f340d9f862d7462fe7e21b06eb01`
+from `agent/01-control-plane`:
+
+| Maven JUnit suite | Tests | Failures | Errors | Skipped |
+| --- | ---: | ---: | ---: | ---: |
+| RemoteHttpIntegrationTest | 9 | 0 | 0 | 0 |
+| ControlPlaneComponentSuiteTest | 4 | 0 | 0 | 0 |
+| ControlPlaneSecurityTest | 7 | 0 | 0 | 0 |
+| JdbcPersistenceIntegrationTest | 14 | 0 | 0 | 0 |
+| **Total** | **34** | **0** | **0** | **0** |
+
+The four component JUnit methods invoke the independent domain checks; the
+source at this immutable commit still includes **48** domain scenarios.
+
+`Dockerfile.railway-smoke` installs **actual, disposable PostgreSQL** inside
+its image build layer, starts `pg_ctlcluster`, creates localhost
+`control_plane_test`, and executes Maven `clean verify` with
+`CONTROL_PLANE_TEST_JDBC_URL=jdbc:postgresql://127.0.0.1:5432/control_plane_test`.
+`JdbcPersistenceIntegrationTest` checks that only a localhost URL ending in
+`/control_plane_test` can be used; it runs migrations and real JDBC operations.
+The smoke build finally runs `verify-surefire.py` and removes the test-only DB
+on completion. This **does not test the staged Railway-managed Postgres service**,
+which remains unprovisioned.
+
+Railway runtime logs confirm Spring Boot 3.5.6 / Java 21 started as unprivileged
+UID 10001 with `railway-smoke` profile and bound port 8080. The
+`/healthz` check passed according to the successful deployment. No public
+domain was present in the subsequent service inspection, and no live external
+Builder/Evaluation/GEPARD or production JWT verifier was demonstrated.
+
+**Acceptance caveat:** the shared PR branch has continued to advance after
+`0f960966`. Its latest head is **not** proven by this previous smoke build,
+and owner ADR-0002, external live E2E, and production database persistence
+remain open.
+
+## Latest exact-head Railway acceptance smoke: 04e7f5e (2026-10-27)
+
+At the time of inspection the current PR head was
+`04e7f5e65ecb729d42522709546d97d0af5d66c0`, and Railway service
+`Agent-Factory` deployment `f5093189-eeeb-4965-ab4b-8ef43544b6d5`
+ended in **SUCCESS** on that exact commit.
+
+Railway Docker build logs show **Maven BUILD SUCCESS** and **40/40 JUnit
+tests passed, 0 failures, 0 errors, 0 skipped**:
+
+- `RemoteHttpIntegrationTest`: 11/11, including new non-202 responses
+  (200, 302, 404) and invalid 202 content type.
+- `ControlPlaneComponentSuiteTest`: 4/4, wrapping 48 domain business scenarios,
+  7 outbox races, 3 JDBC transaction cases and 4 event identity cases.
+- `ControlPlaneSecurityTest`: 7/7.
+- `JdbcSpringWiringIntegrationTest`: 2/2.
+- `JdbcPersistenceIntegrationTest`: 16/16 with disposable localhost PostgreSQL
+  created in Docker build.
+
+The build also ran **9/9 Python Surefire validator tests**, followed by
+`SUREFIRE ACCEPTANCE PASSED`. The smoke runtime started with
+`railway-smoke`, whose decoder deliberately rejects **all** bearer JWTs.
+That profile is **not suitable for a real client/API integration test**.
+
+The **Railway-managed PostgreSQL service and its mounted volume are now live**,
+but the `Agent-Factory` smoke service has **no database connection
+variables** and does not run with `jdbc-poc`: durable state on Railway's
+persistent PostgreSQL and restart/replay behavior remain **unverified**.
+No public domain was configured when inspected. Do not connect or mutate the
+shared database without the owner-ratified data migration and tenancy plan.
+
+Remaining non-smoke gates: true independently authenticated Builder/Evaluation/
+GEPARD integration, production issuer and evidence attestation, live PostgreSQL
+ownership/migrations/recovery, exact final merged SHA, and ADR-0002 ratification.
+No claim of production readiness.

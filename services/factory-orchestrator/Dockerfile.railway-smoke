@@ -1,0 +1,31 @@
+# Non-production Railway smoke build. Uses a disposable, build-local PostgreSQL.
+# ADR-0002 still PENDING; service rejects every JWT and is not a production API.
+FROM maven:3.9.11-eclipse-temurin-21 AS build
+WORKDIR /workspace
+# The test DB exists only in this isolated Docker build layer. No Railway DB costs
+# or production/staged database credentials are involved.
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    postgresql python3 && rm -rf /var/lib/apt/lists/*
+COPY services/agent-store/ services/agent-store/
+COPY services/factory-orchestrator/ services/factory-orchestrator/
+COPY tests/control-plane/ tests/control-plane/
+RUN set -eu; \
+    cluster="$(ls /etc/postgresql | head -n 1)"; \
+    pg_ctlcluster "$cluster" main start; \
+    runuser -u postgres -- psql -v ON_ERROR_STOP=1 -c "CREATE ROLE factory_test LOGIN PASSWORD 'synthetic_only'"; \
+    runuser -u postgres -- createdb --owner=factory_test control_plane_test; \
+    python3 -m unittest discover -s tests/control-plane -p test_verify_surefire.py -v; \
+    CONTROL_PLANE_TEST_JDBC_URL=jdbc:postgresql://127.0.0.1:5432/control_plane_test \
+       mvn -B -ntp -f services/factory-orchestrator/pom.xml clean verify; \
+    python3 tests/control-plane/verify-surefire.py \
+       services/factory-orchestrator/target/surefire-reports; \
+    pg_ctlcluster "$cluster" main stop
+
+FROM eclipse-temurin:21-jre
+WORKDIR /opt/control-plane
+COPY --from=build /workspace/services/factory-orchestrator/target/factory-orchestrator-0.1.0-SNAPSHOT.jar /opt/control-plane/app.jar
+USER 10001:10001
+ENV SERVER_PORT=8080
+ENV SPRING_PROFILES_ACTIVE=railway-smoke
+EXPOSE 8080
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75.0", "-jar", "/opt/control-plane/app.jar"]
