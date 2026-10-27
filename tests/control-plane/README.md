@@ -238,3 +238,21 @@ assertions, there are **14 confirmed passing isolated checks**. This does
   production security approval. Maven and Docker are unavailable in the
   current execution environment. GitHub's SDD validation does not cover Java.
   ADR-0002 remains owner-pending.
+
+## Immutable SHA acceptance command
+
+A complete release-gate report must be tied to an immutable reviewed commit.
+The acceptance script now **requires** `EXPECTED_HEAD_SHA` and refuses uncommitted
+changes inside workstream 01. A green run from an unknown or stale checkout is
+not accepted.
+
+```bash
+# Set to the full, reviewed PR head SHA copied from GitHub.
+EXPECTED_HEAD_SHA="<40-character-reviewed-pr-head>" \
+  bash tests/control-plane/run-acceptance.sh
+```
+
+The script requires Java 21, Maven, Docker, Python 3 and actual PostgreSQL
+Testcontainers; it runs the dependency-free Java tests and the Surefire validator
+and refuses absent, skipped or failed mandatory suites. This command has **not
+passed** on the current GitHub head in the assistant's local environment.
