@@ -57,6 +57,7 @@ public final class ControlPlaneComponentTests {
             return new Header("0.1",event,TENANT,WF,get().pendingOperationId(),"correlation:"+WF,NOW);
         }
         void build() {
+            dispatcher.dispatchPending();
             cp.onBuild(EVENTS,new BuildFinished(header("build-complete"),true,"agent-01",
                 "artifact://agents/a1",SPEC1,Map.of("catalog.lookup",TOOL),MODEL,
                 "artifact://a2a/card-v1",null,false));
@@ -66,11 +67,13 @@ public final class ControlPlaneComponentTests {
                 "artifact://traces/1",holdout?"artifact://holdout/1":null,true,passed,veto,true,true,risk,Set.of());
         }
         Workflow.View eval(boolean passed,boolean veto,boolean holdout,AgentStore.Risk risk, String digest, String cost) {
+            dispatcher.dispatchPending();
             return cp.onEvaluation(EVENTS,new EvaluationFinished(header("eval-"+UUID.randomUUID()),
                 "evaluation-1",digest,evidence(passed,veto,holdout,risk,digest),
                 new BigDecimal(cost),null,false));
         }
         Workflow.View optimize(String cost) {
+            dispatcher.dispatchPending();
             return cp.onOptimization(EVENTS,new OptimizationFinished(header("optimization-complete"),
                 true,SPEC1,"artifact://agents/a2",SPEC2,new BigDecimal(cost),null,false));
         }
@@ -123,6 +126,7 @@ public final class ControlPlaneComponentTests {
             f.eval(false,false,true,AgentStore.Risk.LOW,SPEC1,"0.1");f.optimize("0.1");
             f.eval(false,false,true,AgentStore.Risk.LOW,SPEC2,"0.1");
             check(f.get().repairs()==2);
+            f.dispatcher.dispatchPending();
             f.cp.onOptimization(EVENTS,new OptimizationFinished(f.header("opt-2"),true,SPEC2,
                 "artifact://agents/a3",hash('f'),new BigDecimal("0.1"),null,false));
             check(f.get().state()==Workflow.State.RE_TESTING);
@@ -143,7 +147,8 @@ public final class ControlPlaneComponentTests {
             check(f.get().state()==Workflow.State.BUILDING);
         });
         test("AF-REQ-015 duplicate completed event idempotent",()->{
-            Fixture f=new Fixture();f.start();BuildFinished event=new BuildFinished(f.header("b1"),true,
+            Fixture f=new Fixture();f.start();f.dispatcher.dispatchPending();
+            BuildFinished event=new BuildFinished(f.header("b1"),true,
                 "agent-01","artifact://agents/a1",SPEC1,Map.of("t",TOOL),MODEL,null,null,false);
             f.cp.onBuild(EVENTS,event);f.cp.onBuild(EVENTS,event);
             check(f.ledger.get(TENANT,WF).actions.size()==2);
@@ -164,7 +169,8 @@ public final class ControlPlaneComponentTests {
             check(f.dispatcher.dispatchPending()==0);
         });
         test("AF-REQ-014 no version on unpinned build artifact",()->{
-            Fixture f=new Fixture();f.start();Workflow.View result=f.cp.onBuild(EVENTS,
+            Fixture f=new Fixture();f.start();f.dispatcher.dispatchPending();
+            Workflow.View result=f.cp.onBuild(EVENTS,
                 new BuildFinished(f.header("build-invalid"),true,"agent-01","artifact://bad", "not-a-digest",
                 Map.of("t",TOOL),MODEL,null,null,false));
             check(result.errorCode().equals("INVALID_AGENT_SPEC"));check(f.store.versions(TENANT,"agent-01").isEmpty());
@@ -199,6 +205,7 @@ public final class ControlPlaneComponentTests {
             f.eval(true,false,true,AgentStore.Risk.HIGH,SPEC1,"0.1");
             f.approvals.add("training:approve");
             f.cp.requestSoup(COMMAND,TENANT,WF,"artifact://rights/valid");
+            f.dispatcher.dispatchPending();
             error("UNEXPECTED_OPTIMIZER_EVENT", ()->f.cp.onOptimization(EVENTS,
                 new OptimizationFinished(f.header("forged-gepard"),true,SPEC1,
                     "artifact://agents/poison",SPEC2,new BigDecimal("0"),null,false)));
@@ -216,10 +223,19 @@ public final class ControlPlaneComponentTests {
         test("AF-REQ-014 mismatched evidence run id rejected",()->{
             Fixture f=new Fixture();f.start();f.build();
             AgentStore.Evidence e=f.evidence(true,false,true,AgentStore.Risk.LOW,SPEC1);
+            f.dispatcher.dispatchPending();
             Workflow.View out=f.cp.onEvaluation(EVENTS,new EvaluationFinished(f.header("bad-run-id"),
                 "different-evaluation-run",SPEC1,e,new BigDecimal("0.1"),null,false));
             check(out.errorCode().equals("SPEC_VERSION_MISMATCH"));
             check(f.store.active(TENANT,"agent-01").isEmpty());
+        });
+        test("AF-REQ-001 early completion cannot bypass direct Builder receipt",()->{
+            Fixture f=new Fixture();f.start();
+            BuildFinished early=new BuildFinished(f.header("early"),true,"agent-01",
+                "artifact://agents/a1",SPEC1,Map.of("t",TOOL),MODEL,null,null,false);
+            check(f.cp.onBuild(EVENTS,early).state()==Workflow.State.BUILDING);
+            check(f.dispatcher.dispatchPending()==1);
+            check(f.cp.onBuild(EVENTS,early).state()==Workflow.State.TESTING);
         });
         System.out.println("COMPONENT TESTS PASSED: "+run.get());
     }
