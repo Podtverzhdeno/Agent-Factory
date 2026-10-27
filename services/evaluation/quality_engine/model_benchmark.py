@@ -2,7 +2,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from math import exp, isfinite, lgamma, log, log1p, sqrt
-from typing import Literal
+from typing import Callable, Literal
 from .primitives import InvalidEvidence
 
 @dataclass(frozen=True)
@@ -107,6 +107,13 @@ def _loss_upper_bound(losses: int, n: int, alpha: float) -> float:
 
 
 class BenchmarkEngine:
+    def __init__(self, evidence_verifier: Callable[[BenchmarkEvidence], bool] | None = None):
+        """Require independent verification of Eval-owned holdout references.
+
+        A caller-provided string saying 'holdout' must not be accepted as proof.
+        """
+        self._evidence_verifier = evidence_verifier
+
     def compare(self, baseline_model: ModelProfile, candidate_model: ModelProfile,
                 baseline: tuple[ModelRun, ...], candidate: tuple[ModelRun, ...],
                 policy: BenchmarkPolicy, *, evidence: BenchmarkEvidence | None = None) -> BenchmarkResult:
@@ -124,7 +131,9 @@ class BenchmarkEngine:
             or not all((evidence.tenant_id, evidence.dataset_version_ref,
                         evidence.dataset_digest, evidence.baseline_trace_ref,
                         evidence.candidate_trace_ref))
-            or evidence.baseline_trace_ref == evidence.candidate_trace_ref):
+            or evidence.baseline_trace_ref == evidence.candidate_trace_ref
+            or self._evidence_verifier is None
+            or not self._evidence_verifier(evidence)):
             reasons.append("INDEPENDENT_DATASET_NOT_VERIFIED")
         if baseline_model.model_id == candidate_model.model_id:
             reasons.append("SAME_MODEL")
