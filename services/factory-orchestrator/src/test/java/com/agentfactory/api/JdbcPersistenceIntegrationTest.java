@@ -133,6 +133,59 @@ final class JdbcPersistenceIntegrationTest {
         assertEquals("IDEMPOTENCY_CONFLICT",duplicateWithDifferentKey.getMessage());
     }
 
+    @Test void injectedCrashInsideAutoReleaseRollsBackEntireEvaluationAndCanRetry() {
+        var shared=tx();
+        var ledger=new JdbcWorkflowLedger(shared,codec());
+        var realStore=new JdbcAgentStore(shared,codec());
+        AgentStore failingStore=(AgentStore)java.lang.reflect.Proxy.newProxyInstance(
+            AgentStore.class.getClassLoader(),new Class<?>[]{AgentStore.class},
+            (proxy,method,args)->{
+                try {
+                    Object result=method.invoke(realStore,args);
+                    if("promote".equals(method.getName()))
+                        throw new IllegalStateException("INJECTED_AFTER_PROMOTION");
+                    return result;
+                } catch(java.lang.reflect.InvocationTargetException wrapped) {
+                    throw wrapped.getCause();
+                }
+            });
+        var control=orchestrator(ledger,failingStore,true);
+        control.start(principal(),start());
+        var relay=new OutboxDispatcher(ledger,
+            command -> new Protocol.CommandReceipt(command.operationId(),true),
+            command -> new Protocol.CommandReceipt(command.operationId(),true),
+            command -> {throw new AssertionError("Unexpected optimization");},
+            command -> {throw new AssertionError("Unexpected training");});
+        assertEquals(1,relay.dispatchPending());
+        var builder=new Protocol.Principal("builder",TENANT,Set.of("factory:events:build"));
+        control.onBuild(builder,new Protocol.BuildFinished(
+            new Protocol.Header("0.1","build-complete",TENANT,"wf-01",
+                ledger.get(TENANT,"wf-01").view().pendingOperationId(),"trace-01",NOW),
+            true,"agent-01","artifact://agent-spec/v1",DIGEST,Map.of("lookup",TOOL),
+            MODEL,"artifact://a2a/card-v1",null,false));
+        assertEquals(1,relay.dispatchPending());
+
+        var evaluator=new Protocol.Principal("evaluator",TENANT,Set.of("factory:events:evaluation"));
+        var holdout=new AgentStore.Evidence("eval-01",DIGEST,"artifact://datasets/holdout-v1",
+            DIGEST,"artifact://metrics/01","artifact://traces/01","artifact://holdout/01",
+            true,true,false,true,true,AgentStore.Risk.LOW,Set.of());
+        var outcome=new Protocol.EvaluationFinished(new Protocol.Header(
+            "0.1","evaluation-complete",TENANT,"wf-01",
+            ledger.get(TENANT,"wf-01").view().pendingOperationId(),"trace-01",NOW),
+            "eval-01",DIGEST,holdout,new BigDecimal("0.1"),null,false);
+        assertEquals("INJECTED_AFTER_PROMOTION",
+            assertThrows(IllegalStateException.class,()->
+                control.onEvaluation(evaluator,outcome)).getMessage());
+        assertEquals(Workflow.State.TESTING,new JdbcWorkflowLedger(tx(),codec())
+            .get(TENANT,"wf-01").view().state());
+        assertTrue(new JdbcAgentStore(tx(),codec()).versions(TENANT,"agent-01").isEmpty());
+
+        var recovered=orchestrator(new JdbcWorkflowLedger(tx(),codec()),
+            new JdbcAgentStore(tx(),codec()),true);
+        assertEquals(Workflow.State.RELEASED,recovered.onEvaluation(evaluator,outcome).state());
+        assertTrue(new JdbcAgentStore(tx(),codec()).active(TENANT,"agent-01").isPresent());
+    }
+
     @Test void workflowAndInboxOutboxSurviveFreshAdapterInstance() {
         var scope=tx();var store=new JdbcAgentStore(scope,codec());
         var first=new JdbcWorkflowLedger(scope,codec());
