@@ -528,6 +528,20 @@ public final class ControlPlaneComponentTests {
             check(observed.get(0).eventId().endsWith(":lifecycle:1"));
             check(relay.publishPending()==0);
         });
+        test("AF-REQ-020 lifecycle event IDs distinguish embedded delimiters",()->{
+            InMemoryWorkflowLedger ledger=new InMemoryWorkflowLedger();
+            Protocol.Limits limits=new Protocol.Limits(1,new BigDecimal("1"),NOW.plusSeconds(3600));
+            Workflow a=new Workflow(new Start("a:b","c","snapshot-a","key1",limits,"corr-a"),
+                new Snapshot("a:b","snapshot-a","READY",hash('a'),POLICY,DATASET,"owner","r1"));
+            Workflow b=new Workflow(new Start("a","b:c","snapshot-b","key2",limits,"corr-b"),
+                new Snapshot("a","snapshot-b","READY",hash('b'),POLICY,DATASET,"owner","r1"));
+            a.audit.add(new Workflow.Audit(NOW,Workflow.State.DRAFT,Workflow.State.READY,null,"corr-a"));
+            b.audit.add(new Workflow.Audit(NOW,Workflow.State.DRAFT,Workflow.State.READY,null,"corr-b"));
+            ledger.open(a);ledger.open(b);
+            List<LifecycleEvent> events=new ArrayList<>();
+            check(new LifecycleEventDispatcher(ledger,events::add).publishPending()==2);
+            check(!events.get(0).eventId().equals(events.get(1).eventId()));
+        });
         System.out.println("COMPONENT TESTS PASSED: "+run.get());
     }
 }
