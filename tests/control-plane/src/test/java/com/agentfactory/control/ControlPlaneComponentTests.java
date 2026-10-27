@@ -514,7 +514,9 @@ public final class ControlPlaneComponentTests {
                 SPEC1,crafted,MODEL,null,null,false);
             BuildFinished two=new BuildFinished(h,true,"agent-01","artifact://agents/a1",
                 SPEC1,other,MODEL,null,null,false);
-            check(one.toString().equals(two.toString()));
+            // Map.copyOf may reorder keys, so record.toString() is not a stable
+            // fingerprint. Two distinct payloads MUST have distinct canonical identities.
+            check(!EventIdentity.sha256(one).equals(EventIdentity.sha256(two)));
             check(f.cp.onBuild(EVENTS,one).state()==Workflow.State.BLOCKED);
             error("EVENT_ID_COLLISION",()->f.cp.onBuild(EVENTS,two));
         });
