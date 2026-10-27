@@ -1,7 +1,6 @@
 """Production PostgreSQL checkpoint adapter must refuse permissive deserialization."""
 
 import pytest
-
 from agent_runtime import RuntimeDenied
 from agent_runtime.langgraph_adapter import postgres_checkpointer
 

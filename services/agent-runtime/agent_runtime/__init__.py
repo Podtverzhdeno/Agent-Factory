@@ -16,7 +16,6 @@ from .mcp_backend import MCPBackend, MCPBinding
 from .run_store import SqliteRunStore
 from .verified_tools import ToolPolicy, VerifiedToolGateway
 
-
 __all__ = [
     "A2ABoundary",
     "Decision",

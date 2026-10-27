@@ -7,7 +7,7 @@ from typing import Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .core import AgentSpec, BuildCommand, BuildError, Builder, TaskSnapshot, digest
+from .core import AgentSpec, BuildCommand, Builder, BuildError, TaskSnapshot, digest
 
 
 class TaskPort(Protocol):
