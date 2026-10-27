@@ -42,7 +42,18 @@ for method, local in re.findall(r'@(PostMapping|GetMapping)\("([^"]+)"\)', contr
 assert controller_routes == paths, (
     f'OpenAPI and HTTP adapter route mismatch: {sorted(controller_routes ^ paths)}'
 )
+# All references in the standalone runner must exist. This prevents a green SDD-only
+# workflow from concealing a missing Java test source in the PR.
+runner = (ROOT / 'tests' / 'tool-registry' / 'run.sh').read_text(encoding='utf-8')
+referenced = re.findall(r'"\$ROOT/([^"\n]+\.(?:java|py))"', runner)
+assert referenced, 'Test runner declares no source files'
+for relative in referenced:
+    assert (ROOT / relative).is_file(), f'Test runner references missing source: {relative}'
+for test_file in (ROOT / 'tests' / 'tool-registry').glob('Registry*Test.java'):
+    assert test_file.name in runner, f'Test runner skips security/component test: {test_file.name}'
+
 assert 'anyRequest().denyAll()' in (DOMAIN / 'RegistrySecurity.java').read_text(encoding='utf-8')
 print(f'PASS: Java domain architecture boundary ({len(DOMAINS)} modules), '
-      f'JWT-deny-all default, {len(paths)} HTTP/OpenAPI path mappings, Maven dependencies')
+      f'JWT-deny-all default, {len(paths)} HTTP/OpenAPI path mappings, '
+      f'{len(referenced)} verified runner source references, Maven dependencies')
 print(f'GATE OPEN: Spring Boot parent {version.text} requires supported-line migration and Maven/JWT tests')
