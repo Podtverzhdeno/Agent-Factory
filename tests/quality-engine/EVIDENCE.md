@@ -52,3 +52,11 @@ Do NOT mark end-to-end SDD implementation tasks complete, and do NOT merge witho
 - Persistent PostgreSQL gold/job repositories; cross-process workers; streaming and Kafka.
 - Running real DSPy GEPA with licensed examples and approved model budget; currently no connected credentials or available DSPy library in local environment.
 - Full independent integration with workstreams 01–04 and owner-ratified ADR-0002.
+
+## SQL-backed dataset repository (latest local evidence)
+
+- `SqlDatasetVault` uses injected SQLAlchemy Engine, tenant-scoped dataset/case/fingerprint tables and atomic inserts; exposes `register/read` analogous to in-memory vault. Schema creation is external; the repository does not silently migrate production DB.
+- SQLite SQL integration cases exercise roundtrip gold, retrieval across repository instances, role and tenant isolation, immutable versions, and holdout/source collision rejection.
+- Local command: `cd /mnt/data/agent05 && pytest -q tests/quality-engine` → **63 passed in 0.53s** (Python 3.13).
+- **Not a PostgreSQL integration proof:** PostgreSQL server is unavailable locally; migration planning, DB roles/encryption/backups, cross-process job persistence and schema tenancy still need deployed verification.
+- Test and implementation code corresponding to the latest additions were checked locally against an equivalent staging copy; GitHub Actions SDD validation is independent and still does not execute the Python test suite.
