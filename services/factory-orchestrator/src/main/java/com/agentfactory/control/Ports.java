@@ -22,7 +22,7 @@ public final class Ports {
     public interface ApprovalReader { boolean approved(String tenant, String workflow, String purpose); }
     public interface ReleasePolicy { boolean allowAutomaticLowRisk(Workflow.View workflow); }
     public interface TimeSource { java.time.Instant now(); }
-    public interface OutboxPublisher { void publish(String tenant, String workflow, Workflow.State state, String correlationId); }
+    public interface OutboxPublisher { void publish(LifecycleEvent event); }
     public record Key(String tenantId, String workflowId) { }
     public interface WorkflowLedger {
         Workflow open(Workflow initial);
@@ -31,5 +31,6 @@ public final class Ports {
         <T> T transact(String tenant, String workflowId, Function<Workflow,T> operation);
         List<Key> withUndeliveredActions();
         List<Key> activeKeys();
+        List<Key> withUndeliveredEvents();
     }
 }
