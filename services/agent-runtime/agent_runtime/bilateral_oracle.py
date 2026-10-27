@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Any
@@ -73,7 +74,9 @@ def _money(raw: object) -> Decimal | None:
 
 
 def evaluate_quote(rfq: RFQ, events: list[Event], quote: Quote | None,
-                   *, now: int, max_catalog_age_seconds: int = 86400) -> Verdict:
+                   *, now: int, max_catalog_age_seconds: int = 86400,
+                   attest_catalog: Callable[[Quote], bool] | None = None,
+                   attest_artifact: Callable[[Quote], bool] | None = None) -> Verdict:
     """Verify observed event contract and independently supplied business evidence.
 
     This is deliberately not based on agent-generated final response text.
@@ -138,6 +141,15 @@ def evaluate_quote(rfq: RFQ, events: list[Event], quote: Quote | None,
     digest = quote.digest()
     if events[-2].data.get('artifact_digest') != digest:
         return fail('ARTIFACT_INTEGRITY_DENIED')
+    # A hash proves structural integrity, never provenance or issuer authority.
+    # Two independent injected trusted ports must attest the evidence.
+    if attest_catalog is None or attest_artifact is None:
+        return fail('ATTESTATION_REQUIRED')
+    try:
+        if not attest_catalog(quote) or not attest_artifact(quote):
+            return fail('ATTESTATION_FAILED')
+    except Exception:  # noqa: BLE001 - external attestation outage must fail closed.
+        return fail('ATTESTATION_FAILED')
     return Verdict(True, 'PASS', True, True, digest)
 
 
