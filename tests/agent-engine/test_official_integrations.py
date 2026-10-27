@@ -2,8 +2,6 @@
 
 import os
 
-from langchain_core.runnables.config import RunnableConfig
-
 import pytest
 
 
@@ -47,6 +45,7 @@ async def test_real_postgres_saver_initialization():
     from typing import TypedDict
     from uuid import uuid4
 
+    from langchain_core.runnables.config import RunnableConfig
     from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
     from langgraph.graph import END, START, StateGraph
 
