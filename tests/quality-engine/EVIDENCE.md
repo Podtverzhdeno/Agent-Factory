@@ -6,10 +6,10 @@ Updated 2026-10-27. Workstream branch: agent/05-quality-engine. PR #2.
 ## Latest executed local verification
 
 - Python 3.13, pytest 9, SQLAlchemy 2, cryptography 46, FastAPI/httpx
-- `pytest -q tests/quality-engine -W error::ResourceWarning` → **81 passed, 1 skipped** (no warnings)
-- `pytest --cov=quality_engine --cov=gepard_optimizer --cov-report=term -q tests/quality-engine` → **81 passed, 1 skipped, 94% statement coverage** (961 statements; 53 missed, before warning-only test fixture cleanup)
+- `pytest -q tests/quality-engine -W error::ResourceWarning` → **81 passed, 3 skipped** (no warnings)
+- `pytest --cov=quality_engine --cov=gepard_optimizer --cov-report=term -q tests/quality-engine` → **81 passed, 3 skipped, 94% statement coverage** (961 statements; 53 missed, before warning-only test fixture cleanup)
 - `python -m compileall -q services` → **passed**
-- Skipped: opt-in REAL PostgreSQL test, because dedicated PG test DSN, psycopg and explicit consent were unavailable. **Not counted as passed**.
+- Skipped (not counted as passing): opt-in REAL PostgreSQL test (no dedicated PG test service/driver), live DSPy GEPA via LiteLLM (no approved budget/API), and live LiteLLM Proxy smoke (no approved endpoint/credentials).
 - GitHub Actions checks in this repo currently validate OpenSpec/SDD, NOT this executable Python suite. CI green alone is not Quality Engine E2E proof.
 
 ## Domain and security evidence
@@ -46,4 +46,12 @@ Never mark main project-wide requirements fully closed from these test doubles o
 
 `SqlDatasetVault` fails at construction without an injected tenant cipher unless explicitly configured `require_encryption=False` for isolated tests. AES-256-GCM authenticates tenant/version/case in AAD. Wrong key, tampered ciphertext and swapped record identity are rejected. This is application encryption, not a replacement for KMS, key rotation, PostgreSQL IAM, backup controls or mTLS.
 
-The latest strict local run remains **81 passed, 1 skipped** using `pytest -q tests/quality-engine -W error::ResourceWarning`, with no reported warnings. The skipped real PostgreSQL test is not counted as passed.
+The latest strict local run remains **81 passed, 3 skipped** using `pytest -q tests/quality-engine -W error::ResourceWarning`, with no reported warnings. The skipped real PostgreSQL test is not counted as passed.
+
+## Executable opt-in external integration checks
+
+- `tests/quality-engine/test_postgres_integration.py` — PostgreSQL schema, tenant gold, recovery. Isolated Docker recipe in `services/evaluation/POSTGRES_INTEGRATION.md`. No dedicated PostgreSQL binary is installed in this execution environment.
+- `tests/quality-engine/test_litellm_live_optin.py` — real HTTP Proxy smoke; requires approved model, endpoint, credentials and `AF_QUALITY_ALLOW_PAID_INFERENCE=YES`. It measures response/usage; does not certify price-quality.
+- `tests/quality-engine/test_gepa_live_optin.py` — genuine DSPy GEPA compile with a synthetic training/validation corpus and a LiteLLM reflection model, capped to 8 metric calls; requires separately authorized credentials and the optional `dspy` package. Not executed in this environment.
+
+**Result of latest strict local run:** 81 PASS, 3 SKIP, no ResourceWarnings. All skipped external integrations remain OPEN, not silently treated as proof.
