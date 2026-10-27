@@ -23,6 +23,9 @@ if [[ -n "${EXPECTED_HEAD_SHA:-}" ]]; then
     exit 7
   fi
 fi
+echo "Checking acceptance report verifier against known passing and failing fixtures"
+python3 -m unittest discover -s "$HERE" -p "test_verify_surefire.py" -v
+
 echo "Checking pure JDK domain/control-plane tests"
 bash "$HERE/run-core-tests.sh"
 
