@@ -6,6 +6,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import static com.agentfactory.registry.ToolRegistry.*;
 
@@ -13,24 +16,28 @@ import static com.agentfactory.registry.ToolRegistry.*;
 @RestController
 @RequestMapping("/v0/registry")
 public final class RegistryApi {
+    private static final Logger LOG = LoggerFactory.getLogger(RegistryApi.class);
     private final ToolRegistry registry;
     public RegistryApi(ToolRegistry registry) { this.registry = registry; }
 
     @PostMapping("/manifests")
     public ResponseEntity<Map<String,String>> draft(@AuthenticationPrincipal Jwt jwt, @RequestBody Manifest manifest) {
         registry.registerDraft(caller(jwt), manifest);
+        LOG.info("{}", RegistryTelemetry.lifecycleLine(correlationId(), RegistryTelemetry.LifecycleAction.REGISTERED));
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("status","DRAFT","digest",manifest.manifestDigest()));
     }
     @PostMapping("/manifests/{toolId}/{version}/{operation}/approve")
     public Map<String,String> approve(@AuthenticationPrincipal Jwt jwt, @PathVariable String toolId,
                                       @PathVariable String version, @PathVariable String operation) {
         registry.approve(caller(jwt),toolId,version,operation);
+        LOG.info("{}", RegistryTelemetry.lifecycleLine(correlationId(), RegistryTelemetry.LifecycleAction.APPROVED));
         return Map.of("status","APPROVED");
     }
     @PostMapping("/manifests/{toolId}/{version}/{operation}/revoke")
     public Map<String,String> revoke(@AuthenticationPrincipal Jwt jwt, @PathVariable String toolId,
                                      @PathVariable String version, @PathVariable String operation) {
         registry.revoke(caller(jwt), toolId, version, operation);
+        LOG.info("{}", RegistryTelemetry.lifecycleLine(correlationId(), RegistryTelemetry.LifecycleAction.REVOKED));
         return Map.of("status", "REVOKED");
     }
     @GetMapping("/audit")
@@ -48,7 +55,10 @@ public final class RegistryApi {
 
     @PostMapping("/select")
     public Selection select(@AuthenticationPrincipal Jwt jwt, @RequestBody SelectionRequest request) {
-        return registry.select(caller(jwt),request);
+        Selection selected = registry.select(caller(jwt),request);
+        LOG.info("{}", RegistryTelemetry.selectionLine(correlationId(), selected.decision(),
+            selected.selectedTools().size(), selected.denials().size()));
+        return selected;
     }
     public record PayloadCheck(String toolId, String version, String operation, boolean input, Map<String,Object> payload) {}
     @PostMapping("/payloads/validate")
@@ -56,6 +66,15 @@ public final class RegistryApi {
         registry.validatePayload(caller(jwt),request.toolId(),request.version(),request.operation(),request.input(),request.payload());
         return Map.of("valid",true);
     }
+    private static UUID correlationId() {
+        String stored = MDC.get("request_id");
+        if (stored != null) {
+            try { return UUID.fromString(stored); }
+            catch (IllegalArgumentException ignored) { /* Never trust arbitrary MDC content. */ }
+        }
+        return UUID.randomUUID();
+    }
+
     private static Caller caller(Jwt jwt) {
         if (jwt == null) throw new RegistryFailure("UNAUTHENTICATED","Bearer JWT required");
         String tenant = jwt.getClaimAsString("tenant_id");
