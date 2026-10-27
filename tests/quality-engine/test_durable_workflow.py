@@ -172,3 +172,24 @@ def test_durable_workflow_with_runtime_ed25519_verify_only_key(scenario):
     assert workflow.submit(owner, request).status == "QUEUED"
     assert workflow.process(owner, request.evaluation_run_id).status == "PASSED"
     assert not hasattr(verifier, "sign")
+
+
+def test_slow_signed_evaluation_renews_lease_and_commits(scenario):
+    """A slow model-backed evaluation must not lose its worker lease."""
+    import time
+    engine, vault, owner, signer, _, store, request, _ = scenario
+
+    class SlowCollector(SignedCollector):
+        def collect(self, req, case):
+            time.sleep(0.38)
+            return super().collect(req, case)
+
+    runner = DurableEvaluationWorkflow(
+        vault, SlowCollector(signer), store,
+        verifier=signer, clock=time.time,
+        worker_id="slow-real-clock", lease_seconds=0.24,
+    )
+    assert runner.submit(owner, request).status == "QUEUED"
+    result = runner.process(owner, request.evaluation_run_id)
+    assert result.status == "PASSED"
+    assert len(store.pending_events(owner)) == 1
