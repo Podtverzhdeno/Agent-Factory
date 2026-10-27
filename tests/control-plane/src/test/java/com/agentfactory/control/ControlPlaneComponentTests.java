@@ -378,6 +378,14 @@ public final class ControlPlaneComponentTests {
             check(f.dispatcher.dispatchPending()==0);
             check(f.builds.get()==0);
         });
+        test("AF-REQ-020 incomplete event header rejected without NPE",()->{
+            Fixture f=new Fixture();f.start();
+            Header invalid=new Header("0.1","event-x",null,WF,"build-op","correlation:"+WF,NOW);
+            error("INVALID_EVENT_HEADER",()->f.cp.onBuild(EVENTS,new BuildFinished(invalid,
+                true,"agent-01","artifact://agents/a1",SPEC1,Map.of("t",TOOL),
+                MODEL,null,null,false)));
+            check(f.get().state()==Workflow.State.BUILDING);
+        });
         System.out.println("COMPONENT TESTS PASSED: "+run.get());
     }
 }
