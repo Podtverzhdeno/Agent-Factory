@@ -94,6 +94,39 @@ def authorize_spec_for_runtime(spec: AgentSpec) -> None:
             raise RuntimeDenied('EFFECT_POLICY_DENIED')
 
 
+def validate_model_tool_args(args: object) -> None:
+    """Reject non-JSON data, hidden credentials and excessively deep payloads.
+
+    A schema-conformant JSON document is not necessarily safe to deliver to an
+    external tool: credential-bearing nested keys are never model-authorized.
+    """
+    blocked = {'authorization', 'auth', 'secret', 'api_key', 'apikey',
+               'password', 'access_token', 'refresh_token', 'private_key',
+               'client_secret', 'x-api-key'}
+    stack = [(args, 0)]
+    nodes = 0
+    while stack:
+        value, depth = stack.pop()
+        nodes += 1
+        if nodes > 2048 or depth > 16:
+            raise RuntimeDenied('INVALID_TOOL_ARGS')
+        if isinstance(value, dict):
+            for key, child in value.items():
+                if not isinstance(key, str):
+                    raise RuntimeDenied('INVALID_TOOL_ARGS')
+                if key.lower().replace('-', '_') in blocked:
+                    raise RuntimeDenied('CREDENTIAL_IN_TOOL_ARGS')
+                stack.append((child, depth + 1))
+        elif isinstance(value, list):
+            stack.extend((child, depth + 1) for child in value)
+    try:
+        encoded = json.dumps(args, ensure_ascii=False, allow_nan=False)
+    except (TypeError, ValueError, OverflowError, RecursionError) as exc:
+        raise RuntimeDenied('INVALID_TOOL_ARGS') from exc
+    if len(encoded.encode('utf-8')) > 16000:
+        raise RuntimeDenied('INVALID_TOOL_ARGS')
+
+
 class ToolGateway:
     verified = False  # unverified fake port, denied by Runtime
 
@@ -108,10 +141,9 @@ class ToolGateway:
         authorize_spec_for_runtime(spec)
         if binding not in spec.selected_tools:
             raise RuntimeDenied('TOOL_DENIED')
-        if not isinstance(args, dict) or len(json.dumps(args)) > 16000:
+        if not isinstance(args, dict):
             raise RuntimeDenied('INVALID_TOOL_ARGS')
-        if any(k.lower() in ('auth', 'secret', 'api_key', 'password') for k in args):
-            raise RuntimeDenied('CREDENTIAL_IN_TOOL_ARGS')
+        validate_model_tool_args(args)
         effect = any(e not in ('read',) for e in binding.side_effects)
         # Reserve one stable effect slot per ReAct step. Never key by model-supplied
         # args or tool choice: both may drift on resume after an uncertain commit.

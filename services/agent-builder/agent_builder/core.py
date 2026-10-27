@@ -10,8 +10,22 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 class Frozen(BaseModel):
     model_config = ConfigDict(frozen=True, extra='forbid')
 
+def _canonical(value: object) -> object:
+    """Preserve sequence order, but sort unordered collections across processes."""
+    if isinstance(value, dict):
+        return {key: _canonical(item) for key, item in value.items()}
+    if isinstance(value, (set, frozenset)):
+        items = [_canonical(item) for item in value]
+        return sorted(items, key=lambda item: json.dumps(
+            item, sort_keys=True, separators=(',', ':'), ensure_ascii=True))
+    if isinstance(value, (list, tuple)):
+        return [_canonical(item) for item in value]
+    return value
+
+
 def digest(value: object) -> str:
-    blob = json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=True)
+    blob = json.dumps(_canonical(value), sort_keys=True, separators=(',', ':'), ensure_ascii=True,
+                      allow_nan=False)
     return 'sha256:' + hashlib.sha256(blob.encode()).hexdigest()
 
 class BuildError(Exception):
@@ -121,6 +135,7 @@ class Builder:
         valid = [m for m in raw if m.approved
                  and task.tenant_id in m.tenant_availability
                  and m.required_scopes <= task.authorized_scopes
+                 and bool(m.side_effects)
                  and m.side_effects <= task.allowed_effects
                  and (m.capabilities & requested)
                  and m.input_schema_ref.startswith('artifact://schemas/')
@@ -156,8 +171,11 @@ class Builder:
                                      digest=m.manifest_digest,
                                      granted_scopes=tuple(sorted(m.required_scopes)),
                                      side_effects=tuple(sorted(m.side_effects))) for m in selected)
-        version = digest({'snapshot': task.snapshot_digest, 'registry': cmd.capability_registry_revision,
-                          'tools': [b.model_dump() for b in bindings], 'model': cmd.model_route})[7:19]
+        version = digest({'snapshot': task.model_dump(mode='python'),
+                          'registry': cmd.capability_registry_revision,
+                          'tools': [b.model_dump() for b in bindings],
+                          'model': cmd.model_route,
+                          'policy': cmd.evaluation_policy_ref})[7:19]
         agent_id = str(uuid.uuid5(uuid.NAMESPACE_URL, task.tenant_id + '/' + task.task_id))
         prompt = ('You are a specialized business agent. Objective: ' + task.objective + '\n'
                   'Only invoke pinned authorized tools. Do not claim external success without tool evidence. '
