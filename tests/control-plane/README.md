@@ -92,3 +92,11 @@ Additional regression scenarios cover replaying authorized operations after thei
   nested-transaction rollback-only, version release/rollback recovery, canonical
   idempotency, tenant and stored-row identity isolation. These cases are committed,
   **but not yet verified by executable PostgreSQL results**.
+
+## JDBC + HTTP adapter integration added after earlier baseline
+
+- `JdbcWorkflowLedger`, `JdbcAgentStore`, `JdbcTransactionScope` and `JacksonStateCodec`: opt-in SQL PoC behind `jdbc-poc`; all data is tenant-scoped; transactions cover state plus inbox/command/notification outboxes and local AgentStore changes.
+- Forward-only V1 and V2 migrations; V2 enforces tenant-wide event IDs. Updated Testcontainers tests exercise restart, atomic rollback after injected failure, stable idempotency receipts, tenant isolation and collisions across workflows.
+- `RemoteHttpClients` and `RemoteHttpIntegrationTest`: real HTTP transport over three local servers with JWT/token port, request headers, host allowlist, redirect denial, typed 202 receipts, and the full FAILED Evaluation → GEPARD → PASSED Evaluation workflow.
+- The independent live Builder/Evaluation/GEPARD services, verified artifact provenance, sealed holdout ACL, live A2A promotion and real Broker are **not** part of this isolated test.
+- Run the strict acceptance script on an environment with JDK 21, Maven and Docker. The latest PR SHA **has not passed the full exact-revision suite here** because Maven/Docker are unavailable. Do not mark integrated acceptance complete based on committed tests.
