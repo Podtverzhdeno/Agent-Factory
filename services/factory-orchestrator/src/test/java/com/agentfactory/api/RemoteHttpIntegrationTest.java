@@ -214,7 +214,7 @@ final class RemoteHttpIntegrationTest {
 
 
     @Test void non202SuccessOrRedirectDoesNotRetryExternalSideEffects() throws Exception {
-        for(int statusCode : List.of(200,302)) {
+        for(int statusCode : List.of(200,302,404)) {
             HttpServer server=HttpServer.create(new InetSocketAddress("127.0.0.1",0),0);
             var attempts=new java.util.concurrent.atomic.AtomicInteger();
             server.createContext("/internal/builds", exchange -> {
@@ -223,6 +223,9 @@ final class RemoteHttpIntegrationTest {
                     // A redirect must never make a credentialled second request.
                     exchange.getResponseHeaders().set("Location","http://169.254.169.254/latest/meta-data/");
                     exchange.sendResponseHeaders(302,-1);
+                } else if(statusCode==404) {
+                    // Missing upstream route is a contract/deployment mismatch.
+                    exchange.sendResponseHeaders(404,-1);
                 } else {
                     byte[] receipt="{\"build_id\":\"external-id\",\"status\":\"QUEUED\"}"
                         .getBytes(StandardCharsets.UTF_8);
