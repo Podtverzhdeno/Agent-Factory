@@ -181,6 +181,28 @@ public final class ControlPlaneComponentTests {
             error("EVENT_ID_COLLISION",()->f.cp.onBuild(EVENTS,new BuildFinished(event.header(),false,
                 null,null,null,null,null,null,"FAIL",false)));
         });
+        test("AF-REQ-015 inbox compares map payloads independent of order and mutation",()->{
+            Fixture f=new Fixture();f.start();check(f.dispatcher.dispatchPending()==1);
+            Header same=f.header("build-immutable-event");
+            Map<String,String> original=new LinkedHashMap<>();
+            original.put("b",TOOL);original.put("a",hash('f'));
+            BuildFinished first=new BuildFinished(same,true,"agent-01",
+                "artifact://agents/a1",SPEC1,original,MODEL,null,null,false);
+            original.put("b",hash('e'));
+            check(first.toolDigests().get("b").equals(TOOL));
+            check(f.cp.onBuild(EVENTS,first).state()==Workflow.State.TESTING);
+            Map<String,String> reordered=new LinkedHashMap<>();
+            reordered.put("a",hash('f'));reordered.put("b",TOOL);
+            BuildFinished replay=new BuildFinished(same,true,"agent-01",
+                "artifact://agents/a1",SPEC1,reordered,MODEL,null,null,false);
+            check(f.cp.onBuild(EVENTS,replay).state()==Workflow.State.TESTING);
+            check(f.ledger.get(TENANT,WF).actions.size()==2);
+            reordered.put("b",hash('e'));
+            check(replay.toolDigests().get("b").equals(TOOL));
+            error("EVENT_ID_COLLISION",()->f.cp.onBuild(EVENTS,
+                new BuildFinished(same,true,"agent-01","artifact://agents/a1",
+                    SPEC1,Map.of("a",hash('f'),"b",hash('e')),MODEL,null,null,false)));
+        });
         test("AF-REQ-015 stale/out-of-order event ignored",()->{
             Fixture f=new Fixture();f.start();BuildFinished stale=new BuildFinished(new Header("0.1", "stale",
                 TENANT,WF,"wrong-op","correlation:"+WF,NOW),true,"agent", "artifact://agents/a",SPEC1,
