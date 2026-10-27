@@ -42,6 +42,7 @@ class RegistryHttpTest {
             assertThat(generated).isNotEqualTo("malicious-value").isNotBlank();
             assertThat(java.util.UUID.fromString(generated).toString()).isEqualTo(generated);
 
+            assertThat(org.slf4j.MDC.get("request_id")).isNull(); // no thread-local leak after filter
             var records = sink.list.stream().map(ch.qos.logback.classic.spi.ILoggingEvent::getFormattedMessage)
                 .filter(s -> s.contains("request_id=" + generated)).toList();
             assertThat(records).hasSize(1);
