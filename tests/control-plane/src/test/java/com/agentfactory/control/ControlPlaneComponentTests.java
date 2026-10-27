@@ -478,6 +478,18 @@ public final class ControlPlaneComponentTests {
             check(f.cp.onBuild(EVENTS,one).state()==Workflow.State.BLOCKED);
             error("EVENT_ID_COLLISION",()->f.cp.onBuild(EVENTS,two));
         });
+        test("AF-REQ-014 manual approval cannot bypass auto-promotion risk gate",()->{
+            Fixture f=new Fixture();
+            AgentStore.Evidence e=f.evidence(true,false,true,AgentStore.Risk.HIGH,SPEC1);
+            AgentStore.Metadata m=new AgentStore.Metadata(TENANT,"agent-01",
+                "artifact://agents/a1",SPEC1,Map.of("catalog.lookup",TOOL),MODEL,null,e);
+            long v=f.store.registerCandidate(m,"candidate-high").version();
+            error("HUMAN_APPROVAL_REQUIRED",()->f.store.promote(TENANT,"agent-01",v,
+                "bad-auto",Set.of("release:approve"),true));
+            check(f.store.active(TENANT,"agent-01").isEmpty());
+            check(f.store.promote(TENANT,"agent-01",v,"approved-manual",
+                Set.of("release:approve"),false).channel()==AgentStore.Channel.RELEASED);
+        });
         System.out.println("COMPONENT TESTS PASSED: "+run.get());
     }
 }
