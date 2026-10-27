@@ -15,6 +15,7 @@ from sqlalchemy.engine import make_url
 from quality_engine.core import Case, Dataset, EvaluationRequest, Principal
 from quality_engine.sql_jobs import SqlEvaluationJobStore, metadata as jobs_meta
 from quality_engine.sql_vault import SqlDatasetVault, metadata as gold_meta
+from quality_engine.gold_crypto import AesGcmGoldCipher
 
 
 def test_postgres_gold_and_job_recovery():
@@ -35,7 +36,7 @@ def test_postgres_gold_and_job_recovery():
             jobs_meta.create_all(test_engine)
             gold_meta.create_all(test_engine)
             owner = Principal("pg-tenant", "evaluation")
-            vault = SqlDatasetVault(test_engine)
+            vault = SqlDatasetVault(test_engine, cipher=AesGcmGoldCipher(lambda t: b"c"*32))
             vault.register(owner, Dataset("pg-tenant", "holdout-v1", "holdout",
                                           (Case("case", {"ok": True}, input_ref="artifact://case"),)))
             store = SqlEvaluationJobStore(test_engine)
@@ -47,7 +48,7 @@ def test_postgres_gold_and_job_recovery():
             resumed = SqlEvaluationJobStore(test_engine).claim(
                 owner, run_id="run", worker_id="w2", now=12)
             assert resumed.attempt == 2
-            assert SqlDatasetVault(test_engine).read(owner, "holdout-v1").cases[0].expected_artifact == {"ok": True}
+            assert SqlDatasetVault(test_engine, cipher=AesGcmGoldCipher(lambda t: b"c"*32)).read(owner, "holdout-v1").cases[0].expected_artifact == {"ok": True}
             assert store.block_exhausted(owner, now=13, max_attempts=2) == 0
         finally:
             test_engine.dispose()
