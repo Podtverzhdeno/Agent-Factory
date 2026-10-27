@@ -8,6 +8,12 @@ public final class InMemoryAgentStore implements AgentStore {
     private final Map<String, Object> operationFingerprints = new HashMap<>();
     private final Map<String, Version> operationVersions = new HashMap<>();
     private final Map<String, Rollback> rollbacks = new HashMap<>();
+    private final Map<String, List<Transition>> transitions = new HashMap<>();
+    private void record(String tenant, String agent, long version, Channel from, Channel to,
+                        String operation, String evaluationRun, Set<String> approvals) {
+        transitions.computeIfAbsent(key(tenant,agent), ignored -> new ArrayList<>())
+            .add(new Transition(version,from,to,operation,evaluationRun,approvals));
+    }
 
     private static String key(String tenant, String agent) { return tenant + "\u001f" + agent; }
     private static String op(String tenant, String operation) { return tenant + "\u001f" + operation; }
@@ -31,6 +37,8 @@ public final class InMemoryAgentStore implements AgentStore {
             m.specDigest(), m.toolDigests(), m.modelRouteDigest(), m.a2aCardRef(),
             null, m.evidence(), Channel.VERIFIED);
         list.add(v);
+        record(m.tenantId(),m.agentId(),v.version(),Channel.CANDIDATE,Channel.VERIFIED,
+            key,m.evidence().evaluationRunId(),Set.of());
         operationFingerprints.put(op, fingerprint);
         operationVersions.put(op, v);
         return v;
@@ -55,12 +63,18 @@ public final class InMemoryAgentStore implements AgentStore {
         String rollbackRef = active(tenant, agent).map(v -> "agentstore://" + tenant + "/" + agent + "/" + v.version()).orElse(null);
         for (int i = 0; i < list.size(); i++) {
             Version prior = list.get(i);
-            if (prior.channel() == Channel.RELEASED) list.set(i, prior.withChannel(Channel.VERIFIED));
+            if (prior.channel() == Channel.RELEASED) {
+                list.set(i, prior.withChannel(Channel.VERIFIED));
+                record(tenant,agent,prior.version(),Channel.RELEASED,Channel.VERIFIED,
+                    operation,prior.evidence().evaluationRunId(),Set.of());
+            }
         }
         Version released = new Version(candidate.tenantId(), candidate.agentId(), candidate.version(),
             candidate.specRef(), candidate.specDigest(), candidate.toolDigests(), candidate.modelRouteDigest(),
             candidate.a2aCardRef(), rollbackRef, candidate.evidence(), Channel.RELEASED);
         list.set((int)version - 1, released);
+        record(tenant,agent,version,Channel.VERIFIED,Channel.RELEASED,
+            operation,candidate.evidence().evaluationRunId(),approvals);
         operationFingerprints.put(op, fp);
         operationVersions.put(op, released);
         return released;
@@ -84,9 +98,13 @@ public final class InMemoryAgentStore implements AgentStore {
             require(previous.channel() == Channel.VERIFIED, "ROLLBACK_TARGET_NOT_VERIFIED");
             Version active = previous.withChannel(Channel.RELEASED);
             list.set((int)older - 1, active);
+            record(tenant,agent,older,Channel.VERIFIED,Channel.RELEASED,
+                operation,previous.evidence().evaluationRunId(),Set.of());
             restored = Optional.of(active);
         }
         list.set((int)version - 1, target.withChannel(Channel.ROLLED_BACK));
+        record(tenant,agent,version,Channel.RELEASED,Channel.ROLLED_BACK,
+            operation,target.evidence().evaluationRunId(),Set.of());
         Rollback result = new Rollback(target.specDigest(), restored);
         operationFingerprints.put(op, fp);
         rollbacks.put(op, result);
@@ -96,6 +114,9 @@ public final class InMemoryAgentStore implements AgentStore {
     @Override public synchronized Optional<Version> active(String tenant, String agent) {
         return catalogue.getOrDefault(key(tenant, agent), List.of()).stream()
             .filter(v -> v.channel() == Channel.RELEASED).findFirst();
+    }
+    @Override public synchronized List<Transition> history(String tenant, String agent) {
+        return List.copyOf(transitions.getOrDefault(key(tenant,agent),List.of()));
     }
     @Override public synchronized List<Version> versions(String tenant, String agent) {
         return List.copyOf(catalogue.getOrDefault(key(tenant, agent), List.of()));
