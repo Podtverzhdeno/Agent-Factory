@@ -102,7 +102,10 @@ public class ControlPlaneRestController {
         String raw = error.getMessage();
         String code = raw != null && raw.matches("[A-Z0-9_]{2,80}") ? raw : "WORKFLOW_REJECTED";
         HttpStatus status = code.equals("UNAUTHENTICATED") ? HttpStatus.UNAUTHORIZED
-            : code.startsWith("UNAUTHORIZED") ? HttpStatus.FORBIDDEN : HttpStatus.CONFLICT;
+            : code.startsWith("UNAUTHORIZED") ? HttpStatus.FORBIDDEN
+            : Set.of("INVALID_EVENT", "INVALID_EVENT_HEADER", "INVALID_REQUEST",
+                     "REQUIRED_FIELD_MISSING", "INVALID_LIMITS").contains(code)
+                ? HttpStatus.BAD_REQUEST : HttpStatus.CONFLICT;
         boolean retryable = code.equals("EVENT_AWAITING_COMMAND_RECEIPT");
         return ResponseEntity.status(status).body(Map.of("code",code,"retryable",Boolean.toString(retryable)));
     }
