@@ -56,3 +56,13 @@ def test_leasekeeper_heartbeats_while_slow_evaluation_runs(state):
     time.sleep(0.27)
     new = store.claim(owner, run_id="run", worker_id="competitor", now=time.time())
     assert new and new.attempt == 2
+
+
+def test_leasekeeper_failure_prevents_false_success(state):
+    store, owner = state
+    claim = store.claim(owner, run_id="run", worker_id="slow", now=0, lease_seconds=0.05)
+    with pytest.raises(InvalidEvidence, match="lease lost"):
+        with LeaseKeeper(store, owner, claim, lease_seconds=0.05, clock=lambda: 100):
+            time.sleep(0.06)
+    assert store.get(owner, "run").status == "RUNNING"
+    assert store.pending_events(owner) == ()
