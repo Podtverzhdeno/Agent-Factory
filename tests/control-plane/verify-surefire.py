@@ -15,8 +15,8 @@ from xml.etree import ElementTree
 REQUIRED = {
     "ControlPlaneComponentSuiteTest": 4,
     "ControlPlaneSecurityTest": 6,
-    "JdbcPersistenceIntegrationTest": 15,
-    "RemoteHttpIntegrationTest": 8,
+    "JdbcPersistenceIntegrationTest": 14,
+    "RemoteHttpIntegrationTest": 9,
 }
 
 
@@ -48,6 +48,18 @@ def verify(directory: Path) -> tuple[bool, list[str]]:
             if any(n < 0 for n in counts):
                 problems.append(f"Negative counters in {report.name} ({name})")
                 continue
+            cases = suite.findall("testcase")
+            if len(cases) != counts[0]:
+                problems.append(
+                    f"{name}: reported {counts[0]} tests but XML contains {len(cases)} testcases"
+                )
+            child_skips=sum(case.find("skipped") is not None for case in cases)
+            child_failures=sum(case.find("failure") is not None for case in cases)
+            child_errors=sum(case.find("error") is not None for case in cases)
+            if (child_skips,child_failures,child_errors) != (counts[3],counts[2],counts[1]):
+                problems.append(
+                    f"{name}: suite counters disagree with testcase-level skip/failure/error elements"
+                )
             suites[name].append(counts)
 
     for name, minimum in REQUIRED.items():
