@@ -27,6 +27,13 @@ checks = {
     "wire JUnit rejects unknown values": 'unknown_effect' in http_tests,
     "status enums left unchanged": "module.addSerializer(Status.class" not in source and "module.addSerializer(Decision.class" not in source,
     "manifest digest untouched": "String.valueOf(m.riskLevel())" in core,
+    "duplicate JSON keys rejected before domain": "STRICT_DUPLICATE_DETECTION" in source,
+    "input nesting bounded": ".maxNestingDepth(16)" in source,
+    "input document size bounded": ".maxDocumentLength(1_048_576)" in source,
+    "input token count bounded": ".maxTokenCount(50_000)" in source,
+    "input field values bounded": ".maxStringLength(8_192)" in source,
+    "input JSON name length bounded": ".maxNameLength(128)" in source,
+    "parser negative JUnit included": 'testJsonParserRejectsDuplicateKeysAndExcessivePayload' in http_tests,
     "test wired into runner": 'verify_wire_contract.py' in runner,
 }
 failed = [name for name, ok in checks.items() if not ok]
