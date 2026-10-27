@@ -681,4 +681,102 @@ final class JdbcPersistenceIntegrationTest {
             assertEquals(1,attempts.get());
         } finally { server.stop(0); }
     }
+
+    /**
+     * Cross-service contract acceptance on real HTTP sockets plus PostgreSQL.
+     * Tests the complete repair path with durable state after each simulated
+     * application restart. The remote ports are strict local stubs, NOT
+     * production Builder/Evaluation/GEPARD services.
+     */
+    @Test void completeBuildEvaluationGepardRetestLifecycleSurvivesRestarts() throws Exception {
+        try(RemoteHttpIntegrationTest.RemoteStub builder=
+                new RemoteHttpIntegrationTest.RemoteStub("/internal/builds","build_id");
+            RemoteHttpIntegrationTest.RemoteStub evaluator=
+                new RemoteHttpIntegrationTest.RemoteStub("/internal/evaluations","evaluation_run_id");
+            RemoteHttpIntegrationTest.RemoteStub optimizer=
+                new RemoteHttpIntegrationTest.RemoteStub("/internal/optimizations","optimization_run_id")) {
+
+            var build=RemoteHttpClients.builder(builder.transport("builder"));
+            var eval=RemoteHttpClients.evaluator(evaluator.transport("evaluation"));
+            var optimize=RemoteHttpClients.optimizer(optimizer.transport("gepard"));
+            java.util.function.Function<JdbcWorkflowLedger,OutboxDispatcher> relay=ledger ->
+                new OutboxDispatcher(ledger,build,eval,optimize,
+                    c->{throw new AssertionError("Soup was not requested");});
+            java.util.function.Function<JdbcWorkflowLedger,ControlPlane> plane=ledger ->
+                orchestrator(ledger,new JdbcAgentStore(tx(),codec()));
+
+            var l1=new JdbcWorkflowLedger(tx(),codec());
+            plane.apply(l1).start(principal(),start());
+            assertEquals(1,relay.apply(l1).dispatchPending());
+            assertEquals(1,builder.requests.size());
+
+            var l2=new JdbcWorkflowLedger(tx(),codec());
+            assertEquals(0,relay.apply(l2).dispatchPending());
+            var p2=plane.apply(l2);
+            String buildOperation=l2.get(TENANT,"wf-01").view().pendingOperationId();
+            assertEquals(Workflow.State.TESTING,p2.onBuild(
+                new Protocol.Principal("builder",TENANT,Set.of("factory:events:build")),
+                new Protocol.BuildFinished(
+                    new Protocol.Header("0.1","build-complete",TENANT,"wf-01",
+                        buildOperation,"trace-01",NOW),
+                    true,"agent-01","artifact://agent-spec/v1",DIGEST,
+                    Map.of("lookup",TOOL),MODEL,"artifact://a2a/card-v1",null,false)).state());
+            assertEquals(1,relay.apply(l2).dispatchPending());
+            assertEquals(1,evaluator.requests.size());
+
+            var l3=new JdbcWorkflowLedger(tx(),codec());
+            assertEquals(0,relay.apply(l3).dispatchPending());
+            String firstRun=l3.get(TENANT,"wf-01").view().pendingOperationId();
+            var rejected=new AgentStore.Evidence(firstRun,DIGEST,"artifact://datasets/holdout-v1",
+                DIGEST,"artifact://metrics/failure","artifact://traces/failure",
+                "artifact://holdout/independent",true,false,false,true,true,
+                AgentStore.Risk.HIGH,Set.of());
+            assertEquals(Workflow.State.OPTIMIZING,plane.apply(l3).onEvaluation(
+                new Protocol.Principal("evaluator",TENANT,Set.of("factory:events:evaluation")),
+                new Protocol.EvaluationFinished(
+                    new Protocol.Header("0.1","eval-reject",TENANT,"wf-01",
+                        firstRun,"trace-01",NOW),
+                    firstRun,DIGEST,rejected,new BigDecimal("0.1"),null,false)).state());
+            assertEquals(1,relay.apply(l3).dispatchPending());
+            assertEquals(1,optimizer.requests.size());
+
+            var l4=new JdbcWorkflowLedger(tx(),codec());
+            assertEquals(0,relay.apply(l4).dispatchPending());
+            String optimizeRun=l4.get(TENANT,"wf-01").view().pendingOperationId();
+            String improved="sha256:"+"f".repeat(64);
+            assertEquals(Workflow.State.RE_TESTING,plane.apply(l4).onOptimization(
+                new Protocol.Principal("optimizer",TENANT,Set.of("factory:events:optimization")),
+                new Protocol.OptimizationFinished(
+                    new Protocol.Header("0.1","gepard-complete",TENANT,"wf-01",
+                        optimizeRun,"trace-01",NOW),
+                    true,DIGEST,"artifact://agents/improved-v2",improved,
+                    new BigDecimal("0.2"),null,false)).state());
+            assertEquals(1,relay.apply(l4).dispatchPending());
+            assertEquals(2,evaluator.requests.size());
+
+            var l5=new JdbcWorkflowLedger(tx(),codec());
+            assertEquals(0,relay.apply(l5).dispatchPending());
+            String finalRun=l5.get(TENANT,"wf-01").view().pendingOperationId();
+            var approved=new AgentStore.Evidence(finalRun,improved,
+                "artifact://datasets/holdout-v1",DIGEST,"artifact://metrics/pass",
+                "artifact://traces/pass","artifact://holdout/independent",
+                true,true,false,true,true,AgentStore.Risk.HIGH,Set.of());
+            assertEquals(Workflow.State.VERIFIED,plane.apply(l5).onEvaluation(
+                new Protocol.Principal("evaluator",TENANT,Set.of("factory:events:evaluation")),
+                new Protocol.EvaluationFinished(
+                    new Protocol.Header("0.1","eval-pass",TENANT,"wf-01",
+                        finalRun,"trace-01",NOW),
+                    finalRun,improved,approved,new BigDecimal("0.2"),null,false)).state());
+
+            var durable=new JdbcWorkflowLedger(tx(),codec());
+            assertEquals(0,relay.apply(durable).dispatchPending());
+            assertEquals(Workflow.State.VERIFIED,
+                durable.get(TENANT,"wf-01").view().state());
+            assertEquals(1,new JdbcAgentStore(tx(),codec())
+                .versions(TENANT,"agent-01").size());
+            assertEquals(1,builder.requests.size());
+            assertEquals(1,optimizer.requests.size());
+            assertEquals(2,evaluator.requests.size());
+        }
+    }
 }
