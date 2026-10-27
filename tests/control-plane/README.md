@@ -7,7 +7,7 @@ cd <repository root>
 bash tests/control-plane/run-core-tests.sh
 ```
 
-OpenJDK 21: `javac -Xlint:all -Werror` completed; **21/21 PASS**. Framework-independent, synthetic fixtures only. No external services, secrets or real customer data.
+OpenJDK 21: `javac -Xlint:all -Werror` completed; **22/22 PASS**. Framework-independent, synthetic fixtures only. No external services, secrets or real customer data.
 
 ## Requirement → task → executable checks
 
