@@ -38,13 +38,22 @@ final class RemoteHttpIntegrationTest {
         final String path;
         final String receiptId;
         volatile boolean forgedOperationId;
+        volatile boolean forgedEvaluationRunId;
         RemoteStub(String path,String receiptId) throws Exception {
             this.path=path;this.receiptId=receiptId;
             server=HttpServer.create(new InetSocketAddress("127.0.0.1",0),0);
             server.createContext(path,exchange->{
                 try {
-                    requests.add(new String(exchange.getRequestBody().readAllBytes(),StandardCharsets.UTF_8));
-                    String response="{\""+receiptId+"\":\"accepted-001\",\"status\":\"QUEUED\""+(forgedOperationId?",\"operation_id\":\"wrong-operation\"":"")+"}";
+                    String requestJson=new String(exchange.getRequestBody().readAllBytes(),StandardCharsets.UTF_8);
+                    requests.add(requestJson);
+                    // Evaluation team 05 accepts caller-generated evaluation_run_id,
+                    // unlike the independently assigned build_id.
+                    String receiptValue="evaluation_run_id".equals(receiptId)
+                        ? new ObjectMapper().readTree(requestJson).path("evaluation_run_id").asText("")
+                        : "accepted-001";
+                    if(forgedEvaluationRunId) receiptValue="wrong-run-id";
+                    String response="{\""+receiptId+"\":\""+receiptValue+"\",\"status\":\"QUEUED\""+
+                        (forgedOperationId?",\"operation_id\":\"wrong-operation\"":"")+"}";
                     byte[] body=response.getBytes(StandardCharsets.UTF_8);
                     exchange.getResponseHeaders().set("Content-Type","application/json");
                     if(!"Bearer synthetic-test-token".equals(exchange.getRequestHeaders().getFirst("Authorization")) ||
@@ -120,6 +129,20 @@ final class RemoteHttpIntegrationTest {
             assertEquals(Workflow.State.VERIFIED,finalState.state());
             assertEquals(1,builder.requests.size());
             assertEquals(2,evaluator.requests.size());
+            // Match actual strict EvaluationRequestBody from workstream 05.
+            var evaluationRequest=new ObjectMapper().readTree(evaluator.requests.getFirst());
+            assertEquals(7,evaluationRequest.size());
+            assertEquals(TENANT,evaluationRequest.path("tenant_id").asText());
+            assertEquals("artifact://agents/first",evaluationRequest.path("agent_spec_ref").asText());
+            assertEquals(HASH,evaluationRequest.path("agent_spec_digest").asText());
+            assertEquals("artifact://datasets/v1",evaluationRequest.path("dataset_version_ref").asText());
+            assertEquals("artifact://policies/v1",evaluationRequest.path("policy_ref").asText());
+            assertTrue(evaluationRequest.path("evaluation_run_id").asText().contains("evaluate"));
+            assertTrue(evaluationRequest.path("idempotency_key").asText().startsWith("control:"));
+            assertFalse(evaluationRequest.has("operation_id"));
+            assertFalse(evaluationRequest.has("baseline_spec_digest"));
+            assertFalse(evaluationRequest.has("schema_version"));
+
             assertEquals(1,optimizer.requests.size());
             assertTrue(builder.requests.getFirst().contains("\"tenant_id\":\"tenant-a\""));
             assertTrue(optimizer.requests.getFirst().contains("\"baseline_spec_ref\""));
@@ -128,6 +151,19 @@ final class RemoteHttpIntegrationTest {
             assertTrue(store.active(TENANT,"agent-01").isPresent());
         }
     }
+    @Test void rejectEvaluationReceiptForAnotherRunId() throws Exception {
+        try(RemoteStub evaluator=new RemoteStub("/internal/evaluations","evaluation_run_id")) {
+            evaluator.forgedEvaluationRunId=true;
+            var command=new Protocol.EvaluationCommand(TENANT,"wf-01","eval-request-01",
+                "artifact://agents/first",HASH,HASH,"artifact://datasets/v1",
+                "artifact://policies/v1","control:eval-01","corr-01");
+            var error=assertThrows(Protocol.RemoteCommandFailure.class,()->
+                RemoteHttpClients.evaluator(evaluator.transport("evaluation")).submit(command));
+            assertEquals("REMOTE_RECEIPT_MISMATCH",error.getMessage());
+            assertFalse(error.retryable());
+        }
+    }
+
     @Test void rejectsReceiptEchoingAnotherOperationId() throws Exception {
         try(RemoteStub builder=new RemoteStub("/internal/builds","build_id")) {
             builder.forgedOperationId=true;
