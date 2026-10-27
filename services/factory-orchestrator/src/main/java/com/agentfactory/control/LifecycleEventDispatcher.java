@@ -23,12 +23,23 @@ public final class LifecycleEventDispatcher {
                     snapshot.workflowId.length()+":"+snapshot.workflowId+":lifecycle:"+(seq+1),
                     audit.occurredAt(),snapshot.tenantId,snapshot.workflowId,
                     audit.correlationId(),audit.from(),audit.to(),audit.reason(),seq+1);
-                publisher.publish(event);
+                try {
+                    publisher.publish(event);
+                } catch (RuntimeException failure) {
+                    // Event contents and publisher exception details are never logged.
+                    ControlPlaneTelemetry.lifecycle(
+                        ControlPlaneTelemetry.NotificationOutcome.PUBLISH_FAILED,event);
+                    throw failure;
+                }
                 final long expected=seq;
-                ledger.transact(snapshot.tenantId,snapshot.workflowId,w -> {
-                    if (w.publishedAuditCount==expected) w.publishedAuditCount++;
-                    return null;
+                boolean acknowledged=ledger.transact(snapshot.tenantId,snapshot.workflowId,w -> {
+                    if (w.publishedAuditCount!=expected) return false;
+                    w.publishedAuditCount++;
+                    return true;
                 });
+                ControlPlaneTelemetry.lifecycle(acknowledged
+                    ? ControlPlaneTelemetry.NotificationOutcome.PUBLISHED
+                    : ControlPlaneTelemetry.NotificationOutcome.SUPERSEDED,event);
                 count++;
             }
         }
