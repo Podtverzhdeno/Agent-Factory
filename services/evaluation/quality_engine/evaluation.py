@@ -1,6 +1,7 @@
 """Evidence-based business evaluation. No agent self-grading."""
 from __future__ import annotations
 from dataclasses import dataclass
+from math import isfinite
 from typing import Any, Literal
 from .primitives import AccessDenied, InvalidEvidence, Principal, digest
 from .datasets import DatasetVault
@@ -168,7 +169,7 @@ class EvaluationEngine:
                     valid_memory_keys.add(read.key)
             if not set(case.required_memory_keys).issubset(valid_memory_keys):
                 flag("REQUIRED_MEMORY_MISSING"); bad = True
-            if observed.cost_usd < 0 or observed.latency_ms < 0 or observed.token_count < 0:
+            if not isfinite(observed.cost_usd) or observed.cost_usd < 0 or observed.latency_ms < 0 or observed.token_count < 0:
                 raise InvalidEvidence("negative usage metrics")
             if not bad:
                 success += 1
