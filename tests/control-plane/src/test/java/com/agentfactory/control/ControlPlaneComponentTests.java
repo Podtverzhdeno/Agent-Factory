@@ -181,6 +181,41 @@ public final class ControlPlaneComponentTests {
             error("EVENT_ID_COLLISION",()->f.cp.onBuild(EVENTS,new BuildFinished(event.header(),false,
                 null,null,null,null,null,null,"FAIL",false)));
         });
+        test("AF-REQ-015 release and rollback replay survive approval revocation",()->{
+            Fixture f=new Fixture();f.start();f.build();
+            check(f.eval(true,false,true,AgentStore.Risk.HIGH,SPEC1,"0.1")
+                .state()==Workflow.State.VERIFIED);
+            f.approvals.add("release:approve");
+            Workflow.View released=f.cp.release(COMMAND,TENANT,WF,"release-1");
+            check(released.state()==Workflow.State.RELEASED);
+            f.approvals.remove("release:approve");
+            check(f.cp.release(COMMAND,TENANT,WF,"release-1").state()==Workflow.State.RELEASED);
+            check(f.store.history(TENANT,"agent-01").stream()
+                .filter(t->t.to()==AgentStore.Channel.RELEASED).count()==1);
+            f.approvals.add("rollback:approve");
+            check(f.cp.rollback(COMMAND,TENANT,WF,"rollback-1")
+                .state()==Workflow.State.ROLLED_BACK);
+            f.approvals.remove("rollback:approve");
+            check(f.cp.rollback(COMMAND,TENANT,WF,"rollback-1")
+                .state()==Workflow.State.ROLLED_BACK);
+            check(f.store.history(TENANT,"agent-01").stream()
+                .filter(t->t.to()==AgentStore.Channel.ROLLED_BACK).count()==1);
+        });
+        test("AF-REQ-017 Soup replay survives approval revocation without new effects",()->{
+            Fixture f=new Fixture();f.start();f.build();
+            f.eval(true,false,true,AgentStore.Risk.HIGH,SPEC1,"0.1");
+            f.approvals.add("training:approve");
+            Workflow.View original=f.cp.requestSoup(COMMAND,TENANT,WF,
+                "artifact://rights/valid","train-replay-1");
+            f.approvals.remove("training:approve");
+            check(f.cp.requestSoup(COMMAND,TENANT,WF,
+                "artifact://rights/valid","train-replay-1").state()==Workflow.State.TRAINING);
+            check(f.get().trainingAttempts()==1);
+            check(f.dispatcher.dispatchPending()==1);
+            check(f.soups.get()==1);
+            error("TRAINING_RIGHTS_OR_APPROVAL_MISSING",()->f.cp.requestSoup(
+                COMMAND,TENANT,WF,"artifact://rights/valid","different-key"));
+        });
         test("AF-REQ-015 inbox compares map payloads independent of order and mutation",()->{
             Fixture f=new Fixture();f.start();check(f.dispatcher.dispatchPending()==1);
             Header same=f.header("build-immutable-event");
