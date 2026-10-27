@@ -18,7 +18,7 @@ No shared OpenSpec, ADR, other agents' directories or production infrastructure 
 
 ## Actual local evidence (Python 3.13)
 
-- `python -m pytest -q tests/agent-engine -ra`: **75 passed, 4 skipped**.
+- `python -m pytest -q tests/agent-engine -ra`: **76 passed, 4 skipped**.
 - `python -m compileall -q services tests`: completed.
 - `pytest --cov=agent_builder --cov=agent_runtime --cov=litellm_adapter`:
   81% aggregate coverage, mostly optional integrations absent.
@@ -126,9 +126,13 @@ No merges performed by this workstream.
 - The LiteLLM request now includes an explicit, JSON-defined ReAct decision
   contract and the complete pinned allowed tool-ID list. The provider still
   cannot authorize arbitrary tools: Gateway validates the returned action.
-- Independent local test: `75 passed, 4 skipped` (Python 3.13).
+- Independent local test: `76 passed, 4 skipped` (Python 3.13).
   Coverage via `pytest --cov` is **81% overall**, Agent Builder core 94%,
   Runtime core 95%; LangGraph/official A2A/Postgres adapters need real SDK/DB
   integration. Compilation passes.
 - SDK smoke tests and Ruff/Pyright are **NOT accepted** without executing the
   strict integration script successfully on the exact PR commit.
+
+- A2A request authorization also verifies the released AgentSpec's digest against
+  its actual immutable content on every request. A tampered prompt is rejected
+  even when an earlier artifact digest is still allowlisted (regression-tested).
