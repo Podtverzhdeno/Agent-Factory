@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import base64
 import collections
+import hashlib
 import json
 import subprocess
 import sys
@@ -55,6 +57,24 @@ def main() -> int:
         return result.returncode or 2
     for line in summarize_ruff(diagnostics):
         print(line)
+    # Emit Ruff's OWN safe auto-fix diff, without altering the container files.
+    # Chunked base64 avoids Railway's per-line log size/rate limitations.
+    if diagnostics:
+        try:
+            patch = subprocess.run(
+                [sys.executable, "-m", "ruff", "check", "--diff", *TARGETS],
+                capture_output=True, text=True, check=False, timeout=180,
+            )
+            if patch.stdout and patch.returncode in (0, 1):
+                data = base64.b64encode(patch.stdout.encode("utf-8")).decode("ascii")
+                chunks = [data[i:i + 2500] for i in range(0, len(data), 2500)]
+                checksum = hashlib.sha256(patch.stdout.encode("utf-8")).hexdigest()
+                print(f"RUFF_SAFE_DIFF_SHA256 {checksum} {len(chunks)}")
+                for i, chunk in enumerate(chunks):
+                    print(f"RUFF_SAFE_DIFF_CHUNK {i:04d} {chunk}")
+        except (OSError, subprocess.TimeoutExpired):
+            # Fix suggestions are optional; original linter failure is mandatory.
+            print("Ruff safe diff unavailable", file=sys.stderr)
     if result.stderr:
         print(result.stderr[:2000], file=sys.stderr)
     return result.returncode if result.returncode else int(bool(diagnostics))
