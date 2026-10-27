@@ -4,6 +4,9 @@ on:
     branches:
       - integration/runtime-quality-20261027
   workflow_dispatch:
+  pull_request:
+    branches:
+      - docs/sdd-foundation-mvp
 
 permissions:
   contents: read
