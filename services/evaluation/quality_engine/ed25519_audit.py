@@ -5,6 +5,7 @@ keys. Signatures complement authenticated transport and audited tool-effect proo
 """
 from __future__ import annotations
 from dataclasses import dataclass
+from math import isfinite
 from time import time
 from typing import Callable
 from cryptography.exceptions import InvalidSignature
@@ -43,6 +44,9 @@ class Ed25519EvidenceVerifier:
         if entry is None or entry.tenant_id != claim.envelope.tenant_id or entry.revoked:
             raise InvalidEvidence("revoked, unknown or cross-tenant Runtime signer")
         now = self._clock()
+        if (not isfinite(now) or any(value is not None and not isfinite(value)
+                                     for value in (entry.valid_from, entry.valid_until))):
+            raise InvalidEvidence("invalid Runtime signer validity clock")
         if ((entry.valid_from is not None and now < entry.valid_from)
                 or (entry.valid_until is not None and now >= entry.valid_until)):
             raise InvalidEvidence("Runtime signer key outside validity interval")
