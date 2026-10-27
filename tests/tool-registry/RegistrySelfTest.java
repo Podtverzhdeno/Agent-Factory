@@ -79,6 +79,14 @@ public final class RegistrySelfTest {
         check(deniedPayment.decision() == Decision.BLOCKED
                 && deniedPayment.denials().stream().anyMatch(d -> d.code() == DenialCode.EFFECT_NOT_ALLOWED),
             "Explicit payment scope and CRITICAL allowance must not bypass autonomous effect veto");
+        Caller mixedCaller = new Caller("builder", "tenant-a",
+            Set.of("registry:lookup", "payments:charge", "xlsx:read"));
+        Selection mixedPaymentTask = r.select(mixedCaller, new SelectionRequest(
+            Set.of("read_xlsx", "charge_card"), Set.of(Effect.READ, Effect.PAYMENT),
+            Risk.CRITICAL, Map.of(), Map.of()));
+        check(mixedPaymentTask.decision() == Decision.BLOCKED
+                && mixedPaymentTask.selectedTools().isEmpty(),
+            "A valid read operation must not permit a partial selection when payment is prohibited");
         // Destructive business operations require a separately approved human flow.
         Manifest destructive = manifest("ops.destroy", "1.0.0", "delete_vendor",
             PAY_IN, PAY_OUT, PAY_ENDPOINT, Set.of(Effect.DESTRUCTIVE),
