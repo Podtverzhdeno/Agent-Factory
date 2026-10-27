@@ -87,7 +87,7 @@ public final class RegistryCoverPropertyTest {
 
     private static Set<String> distinctScopes(List<Manifest> manifests) {
         Set<String> scopes = new HashSet<>();
-        for (Manifest manifest : manifests) scopes.addAll(manifest.requiredScopes());
+        for (Manifest m : manifests) scopes.addAll(m.requiredScopes());
         return scopes;
     }
 
