@@ -6,11 +6,14 @@ import java.util.function.Function;
 /** Atomic workflow state, event inbox and command outbox for isolated component tests. */
 public final class InMemoryWorkflowLedger implements Ports.WorkflowLedger {
     private final Map<Ports.Key, Workflow> workflows = new HashMap<>();
-    private final Map<String, Ports.Key> idem = new HashMap<>();
-    private static String idemKey(String tenant, String key) { return tenant + "\u001f" + key; }
+    private record IdempotencyKey(String tenantId, String clientKey) { }
+    private final Map<IdempotencyKey, Ports.Key> idem = new HashMap<>();
+    private static IdempotencyKey idemKey(String tenant, String key) {
+        return new IdempotencyKey(tenant, key);
+    }
 
     @Override public synchronized Workflow open(Workflow initial) {
-        String k = idemKey(initial.tenantId, initial.idempotencyKey);
+        IdempotencyKey k = idemKey(initial.tenantId, initial.idempotencyKey);
         Ports.Key id = new Ports.Key(initial.tenantId, initial.workflowId);
         Ports.Key previous = idem.get(k);
         if (previous != null) {
