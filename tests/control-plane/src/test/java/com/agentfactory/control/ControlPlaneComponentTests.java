@@ -427,6 +427,22 @@ public final class ControlPlaneComponentTests {
                 MODEL,null,null,false)));
             check(f.get().state()==Workflow.State.BUILDING);
         });
+        test("AF-REQ-015 event collision uses structural equality, not toString",()->{
+            Fixture f=new Fixture();f.start();f.dispatcher.dispatchPending();
+            Map<String,String> crafted=new LinkedHashMap<>();
+            crafted.put("a", "bad, b=other");
+            Map<String,String> other=new LinkedHashMap<>();
+            other.put("a", "bad");other.put("b", "other");
+            check(crafted.toString().equals(other.toString()));
+            Header h=f.header("same-event-id");
+            BuildFinished one=new BuildFinished(h,true,"agent-01","artifact://agents/a1",
+                SPEC1,crafted,MODEL,null,null,false);
+            BuildFinished two=new BuildFinished(h,true,"agent-01","artifact://agents/a1",
+                SPEC1,other,MODEL,null,null,false);
+            check(one.toString().equals(two.toString()));
+            check(f.cp.onBuild(EVENTS,one).state()==Workflow.State.BLOCKED);
+            error("EVENT_ID_COLLISION",()->f.cp.onBuild(EVENTS,two));
+        });
         System.out.println("COMPONENT TESTS PASSED: "+run.get());
     }
 }
