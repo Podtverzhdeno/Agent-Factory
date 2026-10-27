@@ -42,3 +42,12 @@ def test_integration_gate_checks_db_identity_before_pytest_but_after_lint():
     assert script.index("ruff_report.py") < script.index("verify_test_database.py")
     assert script.index("python -m pyright") < script.index("verify_test_database.py")
     assert script.index("verify_test_database.py") < script.index("python -m pytest")
+
+
+def test_integration_gate_exercises_tests_without_database_before_strict_acceptance():
+    from pathlib import Path
+    sh = (Path(__file__).resolve().parent / "run_integration_gates.sh").read_text()
+    assert "env -u AGENT_ENGINE_TEST_PG_DSN -u DATABASE_URL" in sh
+    assert "AGENT_ENGINE_REQUIRE_INTEGRATIONS=0" in sh
+    assert sh.index("AGENT_ENGINE_REQUIRE_INTEGRATIONS=0") < sh.index("verify_test_database.py")
+    assert sh.index("verify_test_database.py") < sh.index("AGENT_ENGINE_REQUIRE_INTEGRATIONS=1 python -m pytest")

@@ -66,3 +66,13 @@ Attempting to stage a separate PostgreSQL service in this project returned
 `Free plan resource provision limit exceeded`. Nothing was provisioned.
 Until capacity is available, production DB tests remain **BLOCKED**, never
 redirected to the shared service. Do not mark a component as accepted.
+
+## Safe pre-DB test phase
+
+The integration gate now runs the entire Python test suite with all PostgreSQL
+DSN and libpq environment variables explicitly **removed from that pytest
+process**. This permits LangGraph in-memory and official A2A SDK tests to
+execute even when a disposable PostgreSQL service cannot be provisioned.
+Passing this first phase does not count as full integration acceptance; any
+PostgreSQL skips are independently blocked by the strict phase, whose DSN
+identity validator refuses the shared database.
