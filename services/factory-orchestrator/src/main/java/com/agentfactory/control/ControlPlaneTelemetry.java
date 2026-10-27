@@ -58,7 +58,7 @@ public final class ControlPlaneTelemetry {
         String message="event=control_plane.outbox"
             +" outcome="+outcome.name()
             +" action="+action.type.name()
-            +" workflow_ref="+ref(workflow.tenantId+"\u0000"+workflow.workflowId)
+            +" workflow_ref="+ref(workflow.tenantId.length()+":"+workflow.tenantId+":"+workflow.workflowId)
             +" operation_ref="+ref(action.operationId)
             +" correlation_ref="+ref(workflow.correlationId)
             +" attempts="+Math.max(0,Math.min(attempts,5))
