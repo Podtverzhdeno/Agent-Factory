@@ -222,3 +222,33 @@ multi-turn buyer-supplier RFQ negotiation, real signed Quote Artifact
 provenance, cross-party release governance, production MCP/Proxy and the
 independent database recovery suite are still **OPEN**. ADR-0002 remains an
 owner decision, not an automatic release flag.
+
+## 2026-10-27: strict acceptance gate on disposable in-container PostgreSQL
+
+**Executed exact code revision:** `295f3fabd4281cd6d63e38068931305164b7cc7f`.
+**Railway gate deployment:** `c6b50c6f-72d5-41e6-b6d2-fd8a662514b0`;
+the deployment reached **SUCCESS** and its private readiness probe started
+only after all required checks passed:
+
+- `compileall` success; **Ruff 0 violations**.
+- **Pyright 0 errors and 0 warnings**.
+- Safe test phase with all DB variables removed: **146 passed, 2 skipped**
+  (the two real PG tests deliberately skip while no DSN is exposed).
+- An ephemeral PostgreSQL server is initialized as an unprivileged `postgres`
+  OS user inside the test container, binding **127.0.0.1:55432 only** with
+  its own `agent04_test` database and separate `agent04_test` DB user.
+- Strict phase with the loopback-only disposable DB: **148 passed,
+  0 skipped**, including real LangGraph PostgreSQL saver and PostgreSQL
+  effect ledger replay tests.
+- The ephemeral PG process is stopped before health is exposed. The wider
+  Railway project's persistent shared `Postgres` was **never used**.
+  No additional Railway service or volume was provisioned.
+- The gate's `/readyz` is explicitly test-only and reports
+  `production_ready: false`. The strict gate's SUCCESS is **NOT**
+  production deploy approval or end-to-end B2B business acceptance.
+
+**Remaining release blockers (not automatically waived by tests):**
+owner-approved ADR-0002; signed artifact/provenance verification; real
+external MCP and LiteLLM; cross-service orchestration; authenticated
+multi-turn buyer-supplier A2A negotiation and independently accepted
+business outcome; independent security/tenant and disaster-recovery testing.

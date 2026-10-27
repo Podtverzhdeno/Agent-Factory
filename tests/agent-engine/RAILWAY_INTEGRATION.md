@@ -93,3 +93,25 @@ When disposable isolated PostgreSQL capacity becomes available, change the
 test service's `AGENT_ENGINE_TEST_PG_DSN` only to the verified isolated
 `agent04-test-postgres` credentials; then repeat the exact strict gate
 with no skips. No production database credentials should be copied.
+
+## Strict pass using a disposable in-container PostgreSQL (2026-10-27)
+
+The Agent 04 test appliance no longer needs an additional Railway
+PostgreSQL service: its **test-only Dockerfile** installs PostgreSQL
+and its entrypoint starts an ephemeral local cluster as the unprivileged
+`postgres` OS user, listens on `127.0.0.1:55432`, creates
+`agent04_test` owned by `agent04_test`, and overrides all Railway
+shared-DB variables **before** any database access. Tests first run
+without any DB credentials, and then rerun strictly against the
+validated ephemeral DSN. On failure, the cluster is stopped and health
+is unavailable; on success, it stops before the health endpoint starts.
+
+**Proven result:** Railway deployment `c6b50c6f-72d5-41e6-b6d2-fd8a662514b0`
+at commit `295f3fab` reached **SUCCESS**:
+Ruff 0, Pyright 0, **148 passed / 0 skipped** in strict mode.
+No extra Railway database or persistent volume was purchased.
+The existing shared `Postgres` remains untouched.
+
+This is an isolated technical CI appliance, **not** a production
+PostgreSQL topology or a substitute for external A2A/MCP/business E2E
+or owner-approved ADR-0002. The probe sets `production_ready=false`.

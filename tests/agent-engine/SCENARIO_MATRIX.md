@@ -21,7 +21,7 @@ Statuses: **COMPONENT** = a local mock-backed unit/contract test exists (current
 | B07 | Unknown/unapproved catalog MCP tool is suggested | 003–005, 029 | COMPONENT deny coverage | Real Registry signatures, MCP integration and audit |
 | B08 | One party requests another tenant's prompt, artifact or memory | 004, 031, 036, 043 | COMPONENT tenant denial | Shared artifact store permissions and trace redaction E2E |
 | B09 | User attempts live purchase/payment with only read/draft grants | 004, 009, 040 | COMPONENT denies | Human-approved consequential effect workflow in another milestone |
-| B10 | Worker dies after creating a draft; restart must not duplicate effect | 012, 032, 039 | COMPONENT SQLite process-kill + guarded PG CANDIDATE | Real Postgres recovery, external reconciliation and outbox |
+| B10 | Worker dies after creating a draft; restart must not duplicate effect | 012, 032, 039 | COMPONENT SQLite process-kill + real PostgreSQL effect replay PASS | Actual cross-service crash/restart, external reconciliation and outbox remain OPEN |
 | B11 | Partner timeout/disconnect mid-dialogue; preserve A2A task state | 032, 039 | GAP | Official A2A SDK + real PG checkpoint test; fault injection |
 | B12 | One side's Build fails; other side's approved artifact remains intact | 029, 038 | CANDIDATE `test_bilateral_business_scenarios.py` | AgentStore cross-service orchestration |
 | B13 | Supplier file contains prompt injection, macros or malicious attachment | 007, 025–028 | COMPONENT tool deny, no file-ingest proof | Dedicated MIME parser sandbox / provenance oracle |
@@ -124,3 +124,22 @@ The gate refused shared Railway PostgreSQL with
 Dedicated PostgreSQL capacity was denied by the Railway Free-plan limit.
 All production/independent DB recovery, full A2A negotiation and ADR-0002
 release criteria remain open.
+
+## Latest verified gate (2026-10-27): real disposable PostgreSQL
+
+At Agent 04 source revision `295f3fab`, Railway deployment
+`c6b50c6f-72d5-41e6-b6d2-fd8a662514b0` reached **SUCCESS**:
+Ruff **0**, Pyright **0**, safe phase **146 passed / 2 skipped**,
+and **strict phase 148 passed / 0 skipped**. The two PostgreSQL tests
+ran against a freshly initialized ephemeral server inside the Agent 04
+test container (`127.0.0.1:55432`, own `agent04_test` credentials).
+This database is destroyed when the test container is discarded and
+is **not** the shared Railway `Postgres` resource. The gate remains
+test-only (`production_ready=false`).
+
+Proof now covers SDK client/server protocol smoke, two tenant-isolated
+A2A endpoints, LangGraph saver and PostgreSQL effect ledger reconnect,
+and deterministic RFQ business oracles. It still does **not** cover the
+full A2A buyer-supplier negotiation, cross-service durable release,
+real external payment/settlement, verified supplier Quote Artifact
+provenance or production failover. Those scenario rows remain OPEN.
