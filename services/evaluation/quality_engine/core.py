@@ -5,6 +5,7 @@ connection is claimed. External principals must be injected by trusted infrastru
 """
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass
 from hashlib import sha256
 from typing import Any, Literal
@@ -70,7 +71,7 @@ class DatasetVault:
         for split, existing in used.items():
             if (dataset.split == "holdout") != (split == "holdout") and (existing & signatures):
                 raise InvalidEvidence("gold answer contamination across holdout boundary")
-        self._datasets[key] = dataset
+        self._datasets[key] = deepcopy(dataset)
         used.setdefault(dataset.split, set()).update(signatures)
 
     def read(self, principal: Principal, version: str) -> Dataset:
@@ -84,7 +85,7 @@ class DatasetVault:
             raise AccessDenied("independent validation is evaluator-only")
         if principal.role not in ("evaluation", "optimizer"):
             raise AccessDenied("dataset is not exposed to builder/runtime")
-        return ds
+        return deepcopy(ds)
 
 
 @dataclass(frozen=True)
@@ -153,6 +154,7 @@ class EvaluationResult:
     p95_latency_ms: int
     evidence_digest: str
     requires_independent_release_gate: bool = True
+    independent_acceptance: bool = False
 
     def event(self, tenant_id: str, correlation_id: str) -> dict[str, Any]:
         # No gold, prompts, raw traces or confidential case inputs in events.
@@ -162,6 +164,7 @@ class EvaluationResult:
                 "agent_spec_digest": self.agent_spec_digest,
                 "dataset_version_ref": self.dataset_version_ref,
                 "passed": self.passed, "hard_veto": self.hard_veto,
+                "independent_acceptance": self.independent_acceptance,
                 "metrics_ref": f"evaluation://{self.evaluation_run_id}/metrics",
                 "findings_ref": f"evaluation://{self.evaluation_run_id}/findings"}
 
@@ -218,6 +221,8 @@ class EvaluationEngine:
                 flag("SAFETY_VIOLATION", True); bad = True
             if observed.memory_violations:
                 flag("MEMORY_POLICY_VIOLATION", True); bad = True
+            if observed.steps < 0:
+                raise InvalidEvidence("negative graph step count")
             if observed.steps > case.max_steps:
                 flag("GRAPH_STEP_LIMIT"); bad = True
             if policy.require_trace and not observed.graph_events:
@@ -235,7 +240,8 @@ class EvaluationEngine:
         result = EvaluationResult(request.evaluation_run_id, request.agent_spec_digest, dataset.version,
                                   status, status == "PASSED", veto, rate, len(dataset.cases), findings,
                                   round(sum(o.cost_usd for o in observations), 7), p95,
-                                  digest((request.agent_spec_digest, dataset.version, observations, findings)))
+                                  digest((request.agent_spec_digest, dataset.version, observations, findings)),
+                                  independent_acceptance=(dataset.split == "holdout"))
         self._runs[key] = (signature, result)
         return result
 
@@ -335,6 +341,8 @@ class BenchmarkEngine:
             reasons.append("MODEL_CAPABILITY_MISMATCH")
         if any(r.hard_veto for r in candidate):
             reasons.append("SAFETY_HARD_VETO")
+        if any(r.hard_veto for r in baseline):
+            reasons.append("UNSAFE_BASELINE")
         if any(r.total_cost < 0 or r.latency_ms < 0 for r in baseline + candidate):
             raise InvalidEvidence("negative cost or latency")
         b_success = sum(r.success and not r.hard_veto for r in baseline)
@@ -342,6 +350,8 @@ class BenchmarkEngine:
         losses = sum(b.success and not b.hard_veto and (not c.success or c.hard_veto)
                      for b, c in zip(baseline, candidate))
         upper = _loss_upper_bound(losses, len(baseline), policy.alpha)
+        if losses / len(baseline) > policy.max_quality_drop:
+            reasons.append("OBSERVED_QUALITY_REGRESSION")
         if upper > policy.max_quality_drop:
             reasons.append("QUALITY_NONINFERIORITY_NOT_PROVEN")
         bc = sum(r.total_cost for r in baseline) / b_success if b_success else None
@@ -354,7 +364,7 @@ class BenchmarkEngine:
             reasons.append("INSUFFICIENT_CASES")
         if not reasons:
             status: Literal["PASSED", "FAILED", "INCONCLUSIVE"] = "PASSED"
-        elif any(x in reasons for x in ("MODEL_CAPABILITY_MISMATCH", "SAFETY_HARD_VETO", "SAME_MODEL", "NO_PROVEN_COST_SAVINGS")):
+        elif any(x in reasons for x in ("MODEL_CAPABILITY_MISMATCH", "SAFETY_HARD_VETO", "UNSAFE_BASELINE", "OBSERVED_QUALITY_REGRESSION", "SAME_MODEL", "NO_PROVEN_COST_SAVINGS")):
             status = "FAILED"
         else:
             status = "INCONCLUSIVE"
