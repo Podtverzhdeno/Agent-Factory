@@ -5,7 +5,7 @@ import java.util.*;
 /** Deterministic mock-backed adapter; not a durable production repository. */
 public final class InMemoryAgentStore implements AgentStore {
     private final Map<String, List<Version>> catalogue = new HashMap<>();
-    private final Map<String, String> operationFingerprints = new HashMap<>();
+    private final Map<String, Object> operationFingerprints = new HashMap<>();
     private final Map<String, Version> operationVersions = new HashMap<>();
     private final Map<String, Rollback> rollbacks = new HashMap<>();
 
@@ -16,10 +16,12 @@ public final class InMemoryAgentStore implements AgentStore {
     }
 
     @Override public synchronized Version registerCandidate(Metadata m, String key) {
-        String op = op(m.tenantId(), key);
-        String fingerprint = m.agentId() + ":" + m.specDigest() + ":" + m.specRef();
+        Objects.requireNonNull(m, "metadata");
+        Objects.requireNonNull(key, "idempotencyKey");
+        String op = op(m.tenantId(), "candidate:" + key);
+        Metadata fingerprint = m;
         if (operationVersions.containsKey(op)) {
-            require(operationFingerprints.get(op).equals(fingerprint), "IDEMPOTENCY_CONFLICT");
+            require(Objects.equals(operationFingerprints.get(op), fingerprint), "IDEMPOTENCY_CONFLICT");
             return operationVersions.get(op);
         }
         require(m.evidence() != null && m.evidence().complete(), "INCOMPLETE_EVIDENCE");
@@ -36,10 +38,11 @@ public final class InMemoryAgentStore implements AgentStore {
 
     @Override public synchronized Version promote(String tenant, String agent, long version,
                                                    String operation, Set<String> approvals, boolean auto) {
-        String op = op(tenant, operation);
-        String fp = agent + ":" + version + ":" + auto;
+        Objects.requireNonNull(approvals, "approvals");
+        String op = op(tenant, "promote:" + operation);
+        Object fp = List.of(agent, version, auto, Set.copyOf(approvals));
         if (operationVersions.containsKey(op)) {
-            require(operationFingerprints.get(op).equals(fp), "IDEMPOTENCY_CONFLICT");
+            require(Objects.equals(operationFingerprints.get(op), fp), "IDEMPOTENCY_CONFLICT");
             return operationVersions.get(op);
         }
         List<Version> list = catalogue.get(key(tenant, agent));
@@ -64,10 +67,10 @@ public final class InMemoryAgentStore implements AgentStore {
     }
 
     @Override public synchronized Rollback rollback(String tenant, String agent, long version, String operation) {
-        String op = op(tenant, operation);
-        String fp = agent + ":" + version;
+        String op = op(tenant, "rollback:" + operation);
+        Object fp = List.of(agent, version);
         if (rollbacks.containsKey(op)) {
-            require(operationFingerprints.get(op).equals(fp), "IDEMPOTENCY_CONFLICT");
+            require(Objects.equals(operationFingerprints.get(op), fp), "IDEMPOTENCY_CONFLICT");
             return rollbacks.get(op);
         }
         List<Version> list = catalogue.get(key(tenant, agent));
