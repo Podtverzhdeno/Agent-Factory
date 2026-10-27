@@ -32,7 +32,7 @@ public class ControlPlaneRestController {
     }
 
     public record IdempotentAction(String idempotencyKey) { }
-    public record TrainingAction(String rightsRef) { }
+    public record TrainingAction(String rightsRef, String idempotencyKey) { }
 
     @PostMapping("/v1/workflows")
     public ResponseEntity<Workflow.View> start(@AuthenticationPrincipal Jwt jwt,
@@ -63,7 +63,7 @@ public class ControlPlaneRestController {
     @PostMapping("/v1/workflows/{workflowId}/train")
     public Workflow.View train(@AuthenticationPrincipal Jwt jwt, @PathVariable String workflowId,
                                @RequestParam String tenantId, @RequestBody TrainingAction action) {
-        return control.requestSoup(principal(jwt),tenantId,workflowId,action.rightsRef());
+        return control.requestSoup(principal(jwt),tenantId,workflowId,action.rightsRef(),action.idempotencyKey());
     }
     @PostMapping("/internal/events/build")
     public Workflow.View buildEvent(@AuthenticationPrincipal Jwt jwt,
