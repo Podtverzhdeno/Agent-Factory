@@ -12,7 +12,8 @@ from quality_engine.sql_jobs import SqlEvaluationJobStore, metadata
 def store(tmp_path):
     engine = create_engine(f"sqlite+pysqlite:///{tmp_path / 'jobs.db'}")
     metadata.create_all(engine)
-    return SqlEvaluationJobStore(engine)
+    yield SqlEvaluationJobStore(engine)
+    engine.dispose()
 
 
 def req(tenant="a"):
@@ -91,6 +92,7 @@ def test_multiple_threads_only_one_worker_claims(tmp_path):
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as pool:
         claims = list(pool.map(claim, range(5)))
     assert sum(c is not None for c in claims) == 1
+    engine.dispose()
 
 
 def test_crash_does_not_mutate_released_task_without_claim(store):
