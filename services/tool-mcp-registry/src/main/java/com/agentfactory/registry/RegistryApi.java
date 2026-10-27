@@ -40,6 +40,12 @@ public final class RegistryApi {
     @GetMapping("/manifests")
     public List<Manifest> list(@AuthenticationPrincipal Jwt jwt) { return registry.listApproved(caller(jwt)); }
 
+    /** Read-only Builder v0 compatibility view; no tool execution or new grants. */
+    @GetMapping("/builder/manifests")
+    public List<BuilderManifestProjection.Item> builderManifests(@AuthenticationPrincipal Jwt jwt) {
+        return BuilderManifestProjection.eligible(registry, caller(jwt));
+    }
+
     @PostMapping("/select")
     public Selection select(@AuthenticationPrincipal Jwt jwt, @RequestBody SelectionRequest request) {
         return registry.select(caller(jwt),request);
