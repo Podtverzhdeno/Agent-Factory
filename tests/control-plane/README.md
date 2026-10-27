@@ -7,7 +7,9 @@ cd <repository root>
 bash tests/control-plane/run-core-tests.sh
 ```
 
-Earlier baseline run (before this revision): OpenJDK 21, `javac -Xlint:all -Werror`, **26/26 PASS** as previously recorded. **The current 36-scenario GitHub revision has not been executed end-to-end in this environment.** A local subset with the new malformed-event case completed **31/31 PASS** under OpenJDK 21; these are not evidence for all 36 current scenarios. Do not treat earlier evidence as proof of the changed code. All fixtures are synthetic; no production data or secrets.
+A **locally mounted worktree subset** of the domain was compiled and run with OpenJDK 21 and `javac -Xlint:all -Werror`: **35/35 PASS**, including structural event-collision detection, risk-gate bypass prevention, and lifecycle notification replay.
+
+**Do not misinterpret this as a run of the whole current GitHub revision:** that revision has additional tests and Spring sources not copied into the mounted directory. The exact PR head must still be checked out and `bash tests/control-plane/run-core-tests.sh` executed on it. GitHub's existing SDD workflow does not compile Java. Synthetic fixtures only, no secrets or production credentials.
 
 ## Requirement → task → executable checks
 
@@ -25,7 +27,7 @@ Earlier baseline run (before this revision): OpenJDK 21, `javac -Xlint:all -Werr
 
 ## Replay and failure semantics
 
-The inbox uses event_id + event-content fingerprint; duplicate delivery is idempotent, but a conflicting payload fails. Old operation events do not clear a newer outbox action. The dispatcher has a bounded retry count and requires receiver idempotency by stable operationId/idempotencyKey. This is at-least-once and **not** a claim of exactly-once effects.
+The in-memory inbox uses event_id + structurally compared typed event content; duplicate delivery is idempotent, but a conflicting payload fails. Old operation events do not clear a newer outbox action. The dispatcher has a bounded retry count and requires receiver idempotency by stable operationId/idempotencyKey. This is at-least-once and **not** a claim of exactly-once effects.
 
 ## Reproduction limits
 
@@ -46,5 +48,13 @@ Tests are deliberately dependency-free. `mvn test`/Spring Boot startup/PostgreSQ
 - Explicit Soup command idempotency and independent completion route are exercised.
 - Builder completion after the time limit must BLOCK rather than start Evaluation.
 - Workflow transaction response revision and blocking audit reason are checked.
-- Current exact GitHub revision run status: **NOT RUN**; local 31-test subset: **PASS**. Run `bash tests/control-plane/run-core-tests.sh` on this exact Git SHA.
+- Current exact GitHub revision Java run status: **NOT RUN**; local 35-test subset: **PASS**. Run `bash tests/control-plane/run-core-tests.sh` on this exact Git SHA.
 - The repository's `.github/workflows/sdd.yml` presently runs OpenSpec and Python SDD checks **only**. A passing SDD check does not establish Java compilation or API/security integration.
+
+## Lifecycle notification outbox (mock-backed)
+
+- `LifecycleEvent` includes schema version, tenant, workflow, correlation, event ID, occurrence time, old/new state and stable per-workflow sequence.
+- `LifecycleEventDispatcher` reads transitions committed to the workflow audit ledger and updates its publish cursor only after the `OutboxPublisher` port returns successfully.
+- Two local tests exercise deterministic replay-safe IDs, publisher failure recovery, and the fact that notification publishing does not command Builder.
+- This is **at-least-once**. On network timeout after broker acknowledgment the same ID can be delivered twice, requiring consumer deduplication. No Kafka broker or PostgreSQL transaction was tested.
+- Regression tests also reject different payloads whose `toString()` collides and HIGH-risk autopromotion even when a manual approval marker is passed.
