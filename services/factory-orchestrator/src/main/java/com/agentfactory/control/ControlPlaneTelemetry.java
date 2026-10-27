@@ -27,6 +27,29 @@ public final class ControlPlaneTelemetry {
         ACKNOWLEDGED, SUPERSEDED, RETRY_SCHEDULED, BLOCKED
     }
 
+    public enum NotificationOutcome { PUBLISHED, PUBLISH_FAILED, SUPERSEDED }
+
+    /** Lifecycle notifications are logged after durable ack or failed delivery. */
+    static void lifecycle(NotificationOutcome outcome, LifecycleEvent event) {
+        Objects.requireNonNull(outcome);Objects.requireNonNull(event);
+        Level level=switch(outcome) {
+            case PUBLISHED -> Level.INFO;
+            case PUBLISH_FAILED -> Level.WARNING;
+            case SUPERSEDED -> Level.FINE;
+        };
+        if(!LOGGER.isLoggable(level)) return;
+        String message="event=control_plane.lifecycle"
+            +" outcome="+outcome.name()
+            +" from="+event.previousState().name()
+            +" to="+event.currentState().name()
+            +" event_ref="+ref(event.eventId())
+            +" workflow_ref="+ref(event.tenantId().length()+":"+event.tenantId()
+                +":"+event.workflowId())
+            +" correlation_ref="+ref(event.correlationId())
+            +" sequence="+Math.max(0,event.sequence());
+        LOGGER.log(level,message);
+    }
+
     private ControlPlaneTelemetry() { }
 
     /** Opaque, process-local reference; never write original identifiers. */
@@ -53,8 +76,16 @@ public final class ControlPlaneTelemetry {
             case SUPERSEDED -> Level.FINE;
         };
         if (!LOGGER.isLoggable(level)) return;
-        String safeCode=failureCode!=null && failureCode.matches("[A-Z0-9_]{2,80}")
-            ? failureCode : "NONE";
+        // An uppercase-looking "error code" may still encode a secret;
+        // only known internal diagnostic classifications may appear in logs.
+        String safeCode=failureCode==null ? "NONE" : switch(failureCode) {
+            case "REMOTE_UNAUTHORIZED", "REMOTE_COMMAND_REJECTED",
+                 "REMOTE_RECEIPT_INVALID", "REMOTE_RECEIPT_MISMATCH",
+                 "REMOTE_UNAVAILABLE", "OUTBOX_DELIVERY_EXHAUSTED",
+                 "SERVICE_AUTH_NOT_CONFIGURED", "REMOTE_DISPATCH_EXCEPTION"
+                 -> failureCode;
+            default -> "OTHER_FAILURE";
+        };
         String message="event=control_plane.outbox"
             +" outcome="+outcome.name()
             +" action="+action.type.name()
