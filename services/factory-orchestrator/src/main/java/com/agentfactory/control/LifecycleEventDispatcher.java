@@ -19,7 +19,8 @@ public final class LifecycleEventDispatcher {
             for (long seq=snapshot.publishedAuditCount; seq<snapshot.audit.size(); seq++) {
                 Workflow.Audit audit=snapshot.audit.get(Math.toIntExact(seq));
                 LifecycleEvent event=new LifecycleEvent("0.1",
-                    snapshot.tenantId+":"+snapshot.workflowId+":lifecycle:"+(seq+1),
+                    "cp:"+snapshot.tenantId.length()+":"+snapshot.tenantId+":"+
+                    snapshot.workflowId.length()+":"+snapshot.workflowId+":lifecycle:"+(seq+1),
                     audit.occurredAt(),snapshot.tenantId,snapshot.workflowId,
                     audit.correlationId(),audit.from(),audit.to(),audit.reason(),seq+1);
                 publisher.publish(event);
