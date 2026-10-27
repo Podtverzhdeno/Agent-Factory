@@ -33,3 +33,11 @@ def test_ruff_diagnostic_summary_is_bounded_but_preserves_count():
     assert any("F401: 1001" in x for x in lines)
     assert any("976 other violations" in x for x in lines)
     assert len(lines) < 55
+
+
+def test_integration_gate_checks_db_identity_before_pytest_but_after_lint():
+    from pathlib import Path
+    script = (Path(__file__).resolve().parent / "run_integration_gates.sh").read_text()
+    assert script.index("ruff_report.py") < script.index("verify_test_database.py")
+    assert script.index("python -m pyright") < script.index("verify_test_database.py")
+    assert script.index("verify_test_database.py") < script.index("python -m pytest")

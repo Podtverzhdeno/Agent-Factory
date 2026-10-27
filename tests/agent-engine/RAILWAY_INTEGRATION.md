@@ -51,3 +51,18 @@ compileall → Ruff → Pyright → pytest
 Rollback: remove test-only service and its **disposable test DB** after verifying
 they contain no production data; leave the existing Agent-Factory service
 unchanged. Database cleanup requires explicit data owner confirmation.
+
+## Shared PostgreSQL protection / Free plan resource cap (2026-10-27)
+
+The existing project's `Postgres.DATABASE_URL` belongs to the shared,
+working database. **Do not use it for Agent 04 integration tests**.
+The integration gate now validates host/user/database identity before any
+DB-touching pytest: only a dedicated
+`agent04-test-postgres.railway.internal` / `agent04_test` / `agent04_test`
+DSN is accepted; no credentials are printed. Ruff and Pyright may run
+without a DB first; both retain failure exit status.
+
+Attempting to stage a separate PostgreSQL service in this project returned
+`Free plan resource provision limit exceeded`. Nothing was provisioned.
+Until capacity is available, production DB tests remain **BLOCKED**, never
+redirected to the shared service. Do not mark a component as accepted.
