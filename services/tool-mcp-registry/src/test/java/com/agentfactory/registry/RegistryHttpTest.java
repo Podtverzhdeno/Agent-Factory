@@ -23,6 +23,42 @@ class RegistryHttpTest {
         assertThat(listStatus).isIn(401,403);
     }
 
+
+    @Test void correlationIdIsMintedByServerAndLogsNeverExposeHeadersOrPaths() throws Exception {
+        var logger = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory
+            .getLogger(RegistryRequestLoggingFilter.class);
+        var sink = new ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>();
+        sink.start();
+        logger.addAppender(sink);
+        try {
+            var response = mvc.perform(get("/v0/registry/manifests")
+                .header("X-Request-Id", "malicious-value")
+                .header("Authorization", "Bearer SECRET_JWT_SHOULD_NOT_BE_LOGGED")
+                .header("X-Private-Tenant", "secret-tenant-name"))
+                .andReturn().getResponse();
+
+            assertThat(response.getStatus()).isIn(401, 403);
+            var generated = response.getHeader("X-Request-Id");
+            assertThat(generated).isNotEqualTo("malicious-value").isNotBlank();
+            assertThat(java.util.UUID.fromString(generated).toString()).isEqualTo(generated);
+
+            var records = sink.list.stream().map(ch.qos.logback.classic.spi.ILoggingEvent::getFormattedMessage)
+                .filter(s -> s.contains("request_id=" + generated)).toList();
+            assertThat(records).hasSize(1);
+            String record = records.getFirst();
+            assertThat(record).contains("event=registry_http_request")
+                .contains("route=manifests.list").contains("status=" + response.getStatus())
+                .contains("status_class=4xx").contains("elapsed_ms=");
+            assertThat(record).doesNotContain("SECRET_JWT_SHOULD_NOT_BE_LOGGED")
+                .doesNotContain("secret-tenant-name")
+                .doesNotContain("malicious-value")
+                .doesNotContain("Authorization").doesNotContain("Bearer");
+        } finally {
+            logger.detachAppender(sink);
+            sink.stop();
+        }
+    }
+
     @Autowired ToolRegistry registry;
 
     @Test void emptyTrustRootsRejectSyntheticRegistration() {
