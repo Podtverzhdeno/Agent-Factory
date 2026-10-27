@@ -7,7 +7,7 @@ cd <repository root>
 bash tests/control-plane/run-core-tests.sh
 ```
 
-OpenJDK 21: `javac -Xlint:all -Werror` completed; **26/26 PASS**. Framework-independent, synthetic fixtures only. No external services, secrets or real customer data.
+Earlier baseline run (before this revision): OpenJDK 21, `javac -Xlint:all -Werror`, **26/26 PASS** as previously recorded. **The current 33-scenario revision has not been executed in this environment.** Do not treat earlier evidence as proof of the changed code. All fixtures are synthetic; no production data or secrets.
 
 ## Requirement → task → executable checks
 
@@ -38,3 +38,13 @@ Tests are deliberately dependency-free. `mvn test`/Spring Boot startup/PostgreSQ
 - Separate `SoupFinished` completion returns a pinned model-route and immutable spec revision into independent `RE_TESTING`; GEPARD event cannot stand in for Soup completion.
 - Outbox dispatcher ignores historical actions and actions outside their permitted workflow stage, even if their receipts remain pending.
 - Four additional synthetic tests cover these controls; no real Evaluation provenance service or training backend is claimed.
+
+## Additional pending-regression suite changes
+
+- Event producer scopes are separated: `factory:events:build`, `factory:events:evaluation`, `factory:events:optimization`, `factory:events:soup`.
+- Idempotency compares complete immutable AgentStore metadata and typed tenant-scoped keys, not delimiter-joined strings.
+- Explicit Soup command idempotency and independent completion route are exercised.
+- Builder completion after the time limit must BLOCK rather than start Evaluation.
+- Workflow transaction response revision and blocking audit reason are checked.
+- Current run status: **NOT RUN**. Run `bash tests/control-plane/run-core-tests.sh` on this exact Git SHA.
+- The repository's `.github/workflows/sdd.yml` presently runs OpenSpec and Python SDD checks **only**. A passing SDD check does not establish Java compilation or API/security integration.
