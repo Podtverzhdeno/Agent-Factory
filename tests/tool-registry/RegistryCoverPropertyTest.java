@@ -78,12 +78,17 @@ public final class RegistryCoverPropertyTest {
         result = Integer.compare(first.stream().mapToInt(x -> x.riskLevel().ordinal()).sum(),
             second.stream().mapToInt(x -> x.riskLevel().ordinal()).sum());
         if (result != 0) return result;
-        result = Integer.compare(first.stream().mapToInt(x -> x.requiredScopes().size()).sum(),
-            second.stream().mapToInt(x -> x.requiredScopes().size()).sum());
+        result = Integer.compare(distinctScopes(first).size(), distinctScopes(second).size());
         if (result != 0) return result;
         result = Integer.compare(first.stream().mapToInt(x -> x.sideEffects().size()).sum(),
             second.stream().mapToInt(x -> x.sideEffects().size()).sum());
         return result != 0 ? result : signature(first).compareTo(signature(second));
+    }
+
+    private static Set<String> distinctScopes(List<Manifest> manifests) {
+        Set<String> scopes = new HashSet<>();
+        for (Manifest manifest : manifests) scopes.addAll(manifest.requiredScopes());
+        return scopes;
     }
 
     private static String signature(List<Manifest> manifests) {
