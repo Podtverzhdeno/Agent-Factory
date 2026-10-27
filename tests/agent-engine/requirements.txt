@@ -1,0 +1,15 @@
+pydantic>=2.8,<3
+pytest>=8,<10
+pytest-asyncio>=0.23,<2
+httpx>=0.27,<1
+# Optional after owner approval and separate integration verification:
+# langgraph>=0.6,<2
+# langgraph-checkpoint-postgres>=2,<4
+# psycopg[binary,pool]>=3,<4
+# a2a-sdk (pin exact tested version prior to transport exposure)
+jsonschema>=4.21,<5
+openpyxl>=3.1,<4
+starlette>=0.41,<1
+
+# Runtime signs independent Evaluation evidence with Ed25519.
+cryptography>=44,<50

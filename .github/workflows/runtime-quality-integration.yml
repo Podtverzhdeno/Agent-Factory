@@ -1,0 +1,32 @@
+name: Runtime ↔ Quality signed integration
+on:
+  push:
+    branches:
+      - integration/runtime-quality-20261027
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - docs/sdd-foundation-mvp
+
+permissions:
+  contents: read
+
+jobs:
+  cross-service:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install test and component dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r tests/agent-engine/requirements.txt "sqlalchemy>=2,<3" "cryptography>=44,<50"
+      - name: Byte-compile source modules
+        run: |
+          python -m compileall -q services/agent-builder services/agent-runtime services/evaluation services/gepard-optimizer tests/integration
+      - name: Run actual cross-service signed evidence tests
+        run: |
+          python -m pytest -q tests/integration/test_signed_runtime_quality.py -ra

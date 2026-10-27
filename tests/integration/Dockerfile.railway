@@ -1,0 +1,17 @@
+# Isolated cross-service validation appliance only; no real business services exposed.
+FROM python:3.12-slim
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_DISABLE_PIP_VERSION_CHECK=1
+ENV PYTHONPATH=/workspace/services/agent-builder:/workspace/services/agent-runtime:/workspace/services/evaluation:/workspace/services/gepard-optimizer
+WORKDIR /workspace
+COPY services/agent-builder/ services/agent-builder/
+COPY services/agent-runtime/ services/agent-runtime/
+COPY services/evaluation/ services/evaluation/
+COPY services/gepard-optimizer/ services/gepard-optimizer/
+COPY tests/agent-engine/ tests/agent-engine/
+COPY tests/integration/ tests/integration/
+RUN python -m pip install --no-cache-dir -r tests/agent-engine/requirements.txt \
+    "sqlalchemy>=2,<3" "cryptography>=44,<50" \
+    && chown -R 65532:65532 /workspace
+USER 65532:65532
+EXPOSE 8080
+CMD ["bash","tests/integration/run_gate.sh"]
