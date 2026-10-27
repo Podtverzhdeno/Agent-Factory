@@ -80,8 +80,11 @@ public final class ControlPlane {
     private boolean expected(Workflow w, Header h, Workflow.State... stages) {
         boolean stateAllowed = false;
         for (Workflow.State s : stages) if (w.state == s) stateAllowed=true;
-        return stateAllowed && Objects.equals(w.pendingOperationId,h.operationId()) &&
-            w.actions.stream().anyMatch(a -> a.operationId.equals(h.operationId()) && a.delivered);
+        if (!stateAllowed || !Objects.equals(w.pendingOperationId,h.operationId())) return false;
+        // Early completion is retried by the transport; never acknowledge an unaccepted command.
+        if (w.actions.stream().noneMatch(a -> a.operationId.equals(h.operationId()) && a.delivered))
+            throw new IllegalStateException("EVENT_AWAITING_COMMAND_RECEIPT");
+        return true;
     }
     private void block(Workflow w, String code, String action) {
         w.state=Workflow.State.BLOCKED; w.errorCode=code; w.requiredAction=action;
