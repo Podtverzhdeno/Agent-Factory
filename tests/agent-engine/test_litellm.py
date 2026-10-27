@@ -1,8 +1,11 @@
 import json
+
 import httpx
 import pytest
+
 from agent_runtime import RuntimeDenied
 from litellm_adapter import LiteLLMGateway
+
 
 def gateway(handler, allowed=frozenset({'mock-model'})):
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))

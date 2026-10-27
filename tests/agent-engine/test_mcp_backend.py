@@ -1,5 +1,7 @@
 import pytest
+
 from agent_runtime import MCPBackend, MCPBinding, RuntimeDenied
+
 
 class FakeResponse:
     def __init__(self, payload=None, error=False):

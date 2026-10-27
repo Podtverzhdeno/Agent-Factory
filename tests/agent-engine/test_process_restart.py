@@ -4,6 +4,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+
 def test_process_crash_does_not_repeat_external_effect(tmp_path):
     repo = Path(__file__).resolve().parents[2]
     paths = [str(repo/'services'/'agent-builder'),str(repo/'services'/'agent-runtime')]

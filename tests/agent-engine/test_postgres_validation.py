@@ -1,7 +1,8 @@
 """Postgres ledger refuses malformed results without touching the database."""
 import pytest
-from agent_runtime import RuntimeDenied
 from agent_runtime.postgres_effects import PostgresEffectLedger
+
+from agent_runtime import RuntimeDenied
 
 
 @pytest.mark.asyncio

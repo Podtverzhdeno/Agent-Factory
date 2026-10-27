@@ -1,10 +1,13 @@
 """Optional REAL PostgreSQL replay test (dedicated sandbox DSN)."""
 import os
 from uuid import uuid4
+
 import pytest
-from agent_builder import digest
 from agent_runtime.postgres_effects import PostgresEffectLedger
+
+from agent_builder import digest
 from agent_runtime import RuntimeDenied
+
 
 @pytest.mark.asyncio
 async def test_real_postgres_effect_reservation_survives_new_connections():

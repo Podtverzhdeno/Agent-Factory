@@ -1,6 +1,8 @@
 """SDK and PostgreSQL integration contracts: SKIP unless real dependencies are present."""
 import os
+
 import pytest
+
 
 @pytest.mark.asyncio
 async def test_real_langgraph_inmemory_graph():
