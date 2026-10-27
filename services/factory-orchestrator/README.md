@@ -42,7 +42,7 @@ Current adapters `InMemoryWorkflowLedger` and `InMemoryAgentStore` are **not dur
 
 From repository root: `bash tests/control-plane/run-core-tests.sh`
 
-The script runs `javac -Xlint:all -Werror` followed by an executable Java component suite without external services or Maven, using synthetic fixtures. 22 assertions/scenarios passed locally under OpenJDK 21 on 2026-10-27. No production E2E is claimed.
+The script runs `javac -Xlint:all -Werror` followed by an executable Java component suite without external services or Maven, using synthetic fixtures. 26 assertions/scenarios passed locally under OpenJDK 21 on 2026-10-27. No production E2E is claimed.
 
 ## Release gates
 
@@ -59,3 +59,11 @@ A candidate must include cryptographically formatted spec/tool/model digests, au
 7. **No automatic runtime traffic switch** — publishing `AgentStore.Channel.RELEASED` does not deploy or reload a live Python agent until a separately authorized runtime adapter exists.
 
 For contract changes propose them in this module or PR; do not edit frozen shared specifications. See `tests/control-plane/README.md` for requirement-to-test evidence.
+
+## Safety hardening, workstream 01 (2026-10-27)
+
+- Evaluation events carry a run ID and digest but **cannot authorize release merely by asserting** `independent=true`. `EvidenceVerifier` is a typed upstream-attestation port. Production Spring wiring **denies all** until an explicitly verified upstream adapter is supplied.
+- Terminal Evaluation errors for absent approved connectors, unavailable sealed holdout or unauthorised side effects stop repair and require review.
+- Separate `SoupFinished` completion returns a pinned model-route and immutable spec revision into independent `RE_TESTING`; GEPARD event cannot stand in for Soup completion.
+- Outbox dispatcher ignores historical actions and actions outside their permitted workflow stage, even if their receipts remain pending.
+- Four additional synthetic tests cover these controls; no real Evaluation provenance service or training backend is claimed.
