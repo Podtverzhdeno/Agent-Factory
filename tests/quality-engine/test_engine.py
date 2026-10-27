@@ -41,6 +41,7 @@ def test_two_distinct_business_cases_pass(ev):
     r = evaluate(ev)
     assert (r.status, r.passed, r.success_rate, r.p95_latency_ms) == ("PASSED", True, 1.0, 160)
     assert r.total_cost_usd == 0.15
+    assert r.independent_acceptance
     assert r.event("tenant-a", "corr")["passed"]
     assert "quotation" not in str(r.event("tenant-a", "corr"))
 
@@ -168,8 +169,8 @@ def test_benchmark_cheap_but_wrong_fails():
     p, c, b, runs = models()
     bad = tuple(ModelRun(r.case_id, i >= 30, False, r.model_cost_usd) for i, r in enumerate(runs))
     r = BenchmarkEngine().compare(p, c, b, bad, BenchmarkPolicy())
-    assert r.status == "INCONCLUSIVE"
-    assert "QUALITY_NONINFERIORITY_NOT_PROVEN" in r.reasons
+    assert r.status == "FAILED"
+    assert "OBSERVED_QUALITY_REGRESSION" in r.reasons
 
 
 def test_benchmark_safety_veto_and_capability():
@@ -237,3 +238,32 @@ def test_gepard_deterministic_patch_digest():
     r = OptimizationRequest("tenant-a", "v1", "v1", "Original", ("system_prompt",),
                             ("tune",), ("validation",))
     assert OptimizerAdapter().propose(r).patch_digest == OptimizerAdapter().propose(r).patch_digest
+
+
+def test_holdout_is_defensively_copied_during_registration_and_read():
+    gold = {"status": ["accepted"]}
+    vault = DatasetVault()
+    owner = Principal("t", "evaluation")
+    vault.register(owner, Dataset("t", "h", "holdout", (Case("c", gold),)))
+    gold["status"].append("fraud")
+    seen = vault.read(owner, "h")
+    assert seen.cases[0].expected_artifact == {"status": ["accepted"]}
+    seen.cases[0].expected_artifact["status"].append("changed")
+    assert vault.read(owner, "h").cases[0].expected_artifact == {"status": ["accepted"]}
+
+
+def test_training_dataset_is_not_independent_release_evidence():
+    vault = DatasetVault()
+    owner = Principal("t", "evaluation")
+    vault.register(owner, Dataset("t", "tune", "tune", (Case("c", {"ok": True}),)))
+    req = EvaluationRequest("t", "a1", "sha:1", "tune", "policy", "key", "eval")
+    obs = (ObservedRun("c", {"ok": True}, graph_events=("final",)),)
+    result = EvaluationEngine(vault).evaluate(owner, req, obs, EvaluationPolicy())
+    assert result.passed and not result.independent_acceptance
+
+
+def test_negative_steps_are_invalid(ev):
+    _, _, obs, _ = ev
+    bad = ObservedRun("rfq-1", obs[0].artifact, obs[0].tool_calls, steps=-1, graph_events=("x",))
+    with pytest.raises(InvalidEvidence):
+        evaluate(ev, (bad, obs[1]))
