@@ -28,3 +28,14 @@ Agent 04 currently returns RunResult(status, run_id, trace_id, answer, tool_effe
 
 Agent 04 owns producer/Runtime audit; Agent 05 owns consumer/independent scoring; Agent 01 owns release.
 This request is not a change to frozen shared CONTRACTS_V0 and not architecture ratification. See PR #2 and PR #3.
+
+
+## Mandatory 2026-10-27 signed-audit schema extension
+
+**Each signed Runtime audit envelope MUST contain `evaluation_run_id`** as part of the canonical Ed25519-signed JSON in addition to tenant, AgentSpec digest, dataset version, case, trace and actual observed tool effects. Quality rejects replay of signed evidence from a previous evaluation run even when all other identifiers match.
+
+Consumer endpoint proposed: authenticated `GET /internal/agent-runs/{evaluation_run_id}:{case_id}/evaluation-evidence?case_id=...&tenant_id=...&agent_spec_digest=...&dataset_version_ref=...`. The colon is URL-encoded and input files are **not sent as GET query parameters**. Creation of sandbox runs is a separate Orchestrator/Runtime responsibility; Quality only reads authoritative completed audits.
+
+Producer must emit JSON `{envelope: {tenant_id,agent_spec_digest,dataset_version_ref,case_id,trace_ref,observation,evaluation_run_id},key_id,signature_hex}` with the Ed25519 signature over canonical JSON (`sort_keys=True`, compact separators, no NaN) of `envelope`. Exact `ObservedRun` typed fields follow `quality_engine.evaluation.ObservedRun`. Runtime private signing keys never enter Evaluation; the verifier reads trusted tenant-scoped public keys with revocation/validity checks via secure resolver.
+
+Current consumer code: `quality_engine/runtime_http.py`, `execution_evidence.py`, `ed25519_audit.py`. It passes real loopback TCP integration to an **in-process signed test server**, not yet to Agent 04's actual Runtime. Producer implementation and transport IAM remain OPEN on PR #3.
