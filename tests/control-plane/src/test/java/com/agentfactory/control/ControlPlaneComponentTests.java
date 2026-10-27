@@ -88,7 +88,7 @@ public final class ControlPlaneComponentTests {
     private static final int EXPECTED_SCENARIOS = 48;
 
     public static void main(String[] ignored) {
-        int before = run.get();
+        int initialRunCount = run.get();
         test("AF-REQ-001 explicit authorized builder start",()->{
             Fixture f=new Fixture();check(f.start().state()==Workflow.State.BUILDING);
             check(f.builds.get()==0);check(f.dispatcher.dispatchPending()==1);check(f.builds.get()==1);
@@ -582,7 +582,7 @@ public final class ControlPlaneComponentTests {
             check(new LifecycleEventDispatcher(ledger,events::add).publishPending()==2);
             check(!events.get(0).eventId().equals(events.get(1).eventId()));
         });
-        int executed = run.get() - before;
+        int executed = run.get() - initialRunCount;
         check(executed == EXPECTED_SCENARIOS);
         System.out.println("COMPONENT TESTS PASSED: "+executed);
     }
