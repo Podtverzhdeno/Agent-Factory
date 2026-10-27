@@ -183,6 +183,33 @@ class RegistryAuthorizedHttpTest {
         }
     }
 
+    @Test void testRejectedApprovalLogsCategoryWithoutDisclosingToolCoordinates() throws Exception {
+        var logger = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(RegistryApi.class);
+        var sink = new ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>();
+        sink.start();
+        logger.addAppender(sink);
+        try {
+            var response = mvc.perform(post("/v0/registry/manifests/sensitive.private.tool/1.0.0/execute/approve")
+                    .with(caller("reviewer", "tenant-a", "registry:approve")))
+                .andExpect(status().isNotFound()).andReturn().getResponse();
+            String correlation = response.getHeader("X-Request-Id");
+            org.assertj.core.api.Assertions.assertThat(correlation).isNotBlank();
+            var events = sink.list.stream()
+                .map(ch.qos.logback.classic.spi.ILoggingEvent::getFormattedMessage)
+                .filter(s -> s.contains("event=registry_rejection")).toList();
+            org.assertj.core.api.Assertions.assertThat(events).hasSize(1);
+            org.assertj.core.api.Assertions.assertThat(events.getFirst())
+                .contains("request_id=" + correlation)
+                .contains("category=ABSENT")
+                .doesNotContain("sensitive.private.tool")
+                .doesNotContain("tenant-a")
+                .doesNotContain("reviewer");
+        } finally {
+            logger.detachAppender(sink);
+            sink.stop();
+        }
+    }
+
     @Test void testRegistrationCannotCrossTenantOrAcceptUnknownFields() throws Exception {
         Manifest other = new Manifest("0.1", "http.multi.tenant", "1.0.0", "execute", Transport.MCP,
             Set.of("read_xlsx"), "artifact://schemas/file-input", "artifact://schemas/rows",
