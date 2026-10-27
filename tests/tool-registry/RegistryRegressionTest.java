@@ -128,6 +128,23 @@ public final class RegistryRegressionTest {
             "Find exact single-tool minimum among 30 choices");
         check(chosen.selectedTools().getFirst().toolId().equals("alt.0"), "Deterministic tie break");
 
+        // True least privilege minimizes the union of effective scopes, not a sum of duplicates.
+        ToolRegistry minimumGrants = fixture();
+        Manifest aRead = manifest("a.reader", "1.0.0", "read_xlsx", FILE_IN, ROWS,
+            XLSX_ENDPOINT, Set.of(Effect.READ), Set.of("xlsx:read"), Risk.LOW);
+        Manifest aCatalog = manifest("a.catalog", "1.0.0", "catalog_lookup", LOOKUP_IN, LOOKUP_OUT,
+            CATALOG_ENDPOINT, Set.of(Effect.READ), Set.of("catalog:read"), Risk.LOW);
+        Manifest zRead = manifest("z.reader", "1.0.0", "read_xlsx", FILE_IN, ROWS,
+            XLSX_ENDPOINT, Set.of(Effect.READ), Set.of("xlsx:read"), Risk.LOW);
+        Manifest zCatalog = manifest("z.catalog", "1.0.0", "catalog_lookup", LOOKUP_IN, LOOKUP_OUT,
+            CATALOG_ENDPOINT, Set.of(Effect.READ), Set.of("xlsx:read"), Risk.LOW);
+        for (Manifest m : List.of(aRead, aCatalog, zRead, zCatalog)) register(minimumGrants, m);
+        Selection granted = minimumGrants.select(user, task("read_xlsx", "catalog_lookup"));
+        Set<String> effective = new HashSet<>();
+        granted.selectedTools().forEach(binding -> effective.addAll(binding.grantedScopes()));
+        check(granted.decision() == Decision.SELECTED && effective.equals(Set.of("xlsx:read")),
+            "Effective grants must contain only the minimal unique scope set");
+
         // A change in another tenant's register/approve cycle does not change our revision.
         ToolRegistry isolated = fixture();
         register(isolated, read);
