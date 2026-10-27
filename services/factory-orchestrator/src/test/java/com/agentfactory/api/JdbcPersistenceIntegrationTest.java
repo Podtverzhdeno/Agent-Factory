@@ -451,4 +451,137 @@ final class JdbcPersistenceIntegrationTest {
         assertEquals("IDEMPOTENCY_CONFLICT",conflict.getMessage());
         assertEquals(1,new JdbcAgentStore(tx(),codec()).versions(TENANT,"agent-01").size());
     }
+    /**
+     * Real loopback HTTP and PostgreSQL share one durable outbox: a new process
+     * must NOT resubmit accepted remote commands merely because adapters restart.
+     */
+    @Test void realHttpReceiptsAreDurableAcrossFreshPostgresqlAdapters() throws Exception {
+        var json=new com.fasterxml.jackson.databind.ObjectMapper();
+        var builderCalls=new java.util.concurrent.atomic.AtomicInteger();
+        var evalCalls=new java.util.concurrent.atomic.AtomicInteger();
+        var server=com.sun.net.httpserver.HttpServer.create(
+            new java.net.InetSocketAddress("127.0.0.1",0),0);
+        server.createContext("/internal/builds",exchange->{
+            try {
+                builderCalls.incrementAndGet();
+                exchange.getRequestBody().readAllBytes();
+                byte[] accepted=json.writeValueAsBytes(Map.of("build_id","build-01","status","QUEUED"));
+                exchange.getResponseHeaders().set("Content-Type","application/json");
+                exchange.sendResponseHeaders(202,accepted.length);
+                exchange.getResponseBody().write(accepted);
+            } finally { exchange.close(); }
+        });
+        server.createContext("/internal/evaluations",exchange->{
+            try {
+                evalCalls.incrementAndGet();
+                var sent=json.readTree(exchange.getRequestBody());
+                byte[] accepted=json.writeValueAsBytes(Map.of(
+                    "evaluation_run_id",sent.path("evaluation_run_id").asText(),
+                    "tenant_id",sent.path("tenant_id").asText(),"status","QUEUED"));
+                exchange.getResponseHeaders().set("Content-Type","application/json");
+                exchange.sendResponseHeaders(202,accepted.length);
+                exchange.getResponseBody().write(accepted);
+            } finally { exchange.close(); }
+        });
+        server.start();
+        try {
+            var endpoint=java.net.URI.create("http://127.0.0.1:"+server.getAddress().getPort());
+            var transportBuilder=new RemoteHttpClients.Transport("builder",endpoint,
+                Set.of("127.0.0.1"),true,(service,tenant)->"synthetic-token",json);
+            var transportEvaluation=new RemoteHttpClients.Transport("evaluation",endpoint,
+                Set.of("127.0.0.1"),true,(service,tenant)->"synthetic-token",json);
+            var originScope=tx();
+            var originLedger=new JdbcWorkflowLedger(originScope,codec());
+            var original=orchestrator(originLedger,new JdbcAgentStore(originScope,codec()));
+            original.start(principal(),start());
+            var firstRelay=new OutboxDispatcher(originLedger,
+                RemoteHttpClients.builder(transportBuilder),
+                RemoteHttpClients.evaluator(transportEvaluation),
+                c -> {throw new AssertionError("Unexpected optimizer command");},
+                c -> {throw new AssertionError("Unexpected Soup command");});
+            assertEquals(1,firstRelay.dispatchPending());
+            assertEquals(1,builderCalls.get());
+
+            // A new set of adapters represents process restart, not in-memory reuse.
+            var restartedScope=tx();
+            var restartedLedger=new JdbcWorkflowLedger(restartedScope,codec());
+            var recovered=orchestrator(restartedLedger,
+                new JdbcAgentStore(restartedScope,codec()));
+            var replayRelay=new OutboxDispatcher(restartedLedger,
+                RemoteHttpClients.builder(transportBuilder),
+                RemoteHttpClients.evaluator(transportEvaluation),
+                c -> {throw new AssertionError("Unexpected optimizer command");},
+                c -> {throw new AssertionError("Unexpected Soup command");});
+            assertEquals(0,replayRelay.dispatchPending());
+            assertEquals(1,builderCalls.get());
+
+            var header=new Protocol.Header("0.1","accepted-builder-event",TENANT,"wf-01",
+                restartedLedger.get(TENANT,"wf-01").view().pendingOperationId(),"trace-01",NOW);
+            assertEquals(Workflow.State.TESTING,recovered.onBuild(new Protocol.Principal(
+                "builder",TENANT,Set.of("factory:events:build")),
+                new Protocol.BuildFinished(header,true,"agent-01",
+                    "artifact://agent-spec/v1",DIGEST,Map.of("lookup",TOOL),MODEL,
+                    "artifact://a2a/card-v1",null,false)).state());
+            assertEquals(1,replayRelay.dispatchPending());
+            assertEquals(1,evalCalls.get());
+
+            var finalScope=tx();
+            var finalLedger=new JdbcWorkflowLedger(finalScope,codec());
+            var finalRelay=new OutboxDispatcher(finalLedger,
+                RemoteHttpClients.builder(transportBuilder),
+                RemoteHttpClients.evaluator(transportEvaluation),
+                c -> {throw new AssertionError("Unexpected optimizer command");},
+                c -> {throw new AssertionError("Unexpected Soup command");});
+            assertEquals(0,finalRelay.dispatchPending());
+            assertEquals(1,builderCalls.get());
+            assertEquals(1,evalCalls.get());
+            var result=orchestrator(finalLedger,new JdbcAgentStore(finalScope,codec()))
+                .onEvaluation(new Protocol.Principal("evaluator",TENANT,
+                    Set.of("factory:events:evaluation")),new Protocol.EvaluationFinished(
+                        new Protocol.Header("0.1","evaluation-complete",TENANT,"wf-01",
+                            finalLedger.get(TENANT,"wf-01").view().pendingOperationId(),
+                            "trace-01",NOW),
+                        "eval-01",DIGEST,evidence(),new BigDecimal("0.1"),null,false));
+            assertEquals(Workflow.State.VERIFIED,result.state());
+            assertEquals(1,new JdbcAgentStore(tx(),codec()).versions(TENANT,"agent-01").size());
+        } finally { server.stop(0); }
+    }
+
+    @Test void remoteHttp403PermanentlyBlocksDurableOutboxAcrossRestart() throws Exception {
+        var server=com.sun.net.httpserver.HttpServer.create(
+            new java.net.InetSocketAddress("127.0.0.1",0),0);
+        var attempts=new java.util.concurrent.atomic.AtomicInteger();
+        server.createContext("/internal/builds",exchange->{
+            try {
+                attempts.incrementAndGet();
+                exchange.getRequestBody().readAllBytes();
+                exchange.sendResponseHeaders(403,-1);
+            } finally { exchange.close(); }
+        });
+        server.start();
+        try {
+            var uri=java.net.URI.create("http://127.0.0.1:"+server.getAddress().getPort());
+            var transport=new RemoteHttpClients.Transport("builder",uri,Set.of("127.0.0.1"),
+                true,(service,tenant)->"synthetic-token",new com.fasterxml.jackson.databind.ObjectMapper());
+            var shared=tx();
+            var ledger=new JdbcWorkflowLedger(shared,codec());
+            orchestrator(ledger,new JdbcAgentStore(shared,codec())).start(principal(),start());
+            var relay=new OutboxDispatcher(ledger,RemoteHttpClients.builder(transport),
+                c -> {throw new AssertionError("Evaluation not authorized");},
+                c -> {throw new AssertionError("Optimizer not authorized");},
+                c -> {throw new AssertionError("Soup not authorized");});
+            assertEquals(0,relay.dispatchPending());
+            assertEquals(1,attempts.get());
+            var recovered=new JdbcWorkflowLedger(tx(),codec());
+            assertEquals(Workflow.State.BLOCKED,recovered.get(TENANT,"wf-01").view().state());
+            assertEquals("REMOTE_UNAUTHORIZED",
+                recovered.get(TENANT,"wf-01").view().errorCode());
+            var afterRestart=new OutboxDispatcher(recovered,RemoteHttpClients.builder(transport),
+                c -> {throw new AssertionError("Evaluation not authorized");},
+                c -> {throw new AssertionError("Optimizer not authorized");},
+                c -> {throw new AssertionError("Soup not authorized");});
+            assertEquals(0,afterRestart.dispatchPending());
+            assertEquals(1,attempts.get());
+        } finally { server.stop(0); }
+    }
 }
