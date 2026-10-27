@@ -128,6 +128,23 @@ final class JdbcPersistenceIntegrationTest {
         assertTrue(after.versions("tenant-b","agent-01").isEmpty());
     }
 
+    @Test void idempotentCandidateIgnoresMapInsertionOrderAcrossRestart() {
+        var firstTools=new java.util.LinkedHashMap<String,String>();
+        firstTools.put("lookup.v1",TOOL);
+        firstTools.put("read.v1",DIGEST);
+        var secondTools=new java.util.LinkedHashMap<String,String>();
+        secondTools.put("read.v1",DIGEST);
+        secondTools.put("lookup.v1",TOOL);
+        AgentStore.Metadata a=new AgentStore.Metadata(TENANT,"agent-01",
+            "artifact://agent-spec/v1",DIGEST,firstTools,MODEL,null,evidence());
+        AgentStore.Metadata b=new AgentStore.Metadata(TENANT,"agent-01",
+            "artifact://agent-spec/v1",DIGEST,secondTools,MODEL,null,evidence());
+        var created=new JdbcAgentStore(tx(),codec()).registerCandidate(a,"stable-idem");
+        var replay=new JdbcAgentStore(tx(),codec()).registerCandidate(b,"stable-idem");
+        assertEquals(created.version(),replay.version());
+        assertEquals(1,new JdbcAgentStore(tx(),codec()).versions(TENANT,"agent-01").size());
+    }
+
     @Test void mismatchedIdempotencyCannotOverwriteEvidence() {
         var store=new JdbcAgentStore(tx(),codec());
         store.registerCandidate(metadata(),"candidate-01");
