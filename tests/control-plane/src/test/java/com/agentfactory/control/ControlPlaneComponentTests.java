@@ -241,7 +241,8 @@ public final class ControlPlaneComponentTests {
             Fixture f=new Fixture();f.start();
             BuildFinished early=new BuildFinished(f.header("early"),true,"agent-01",
                 "artifact://agents/a1",SPEC1,Map.of("t",TOOL),MODEL,null,null,false);
-            check(f.cp.onBuild(EVENTS,early).state()==Workflow.State.BUILDING);
+            error("EVENT_AWAITING_COMMAND_RECEIPT",()->f.cp.onBuild(EVENTS,early));
+            check(f.get().state()==Workflow.State.BUILDING);
             check(f.dispatcher.dispatchPending()==1);
             check(f.cp.onBuild(EVENTS,early).state()==Workflow.State.TESTING);
         });
@@ -357,6 +358,16 @@ public final class ControlPlaneComponentTests {
                 null,null,false));
             check(out.revision()==f.get().revision());
             check(f.cp.audit(COMMAND,TENANT,WF).getLast().reason().equals("INVALID_AGENT_SPEC"));
+        });
+        test("AF-REQ-015 premature evaluation completion is retryable",()->{
+            Fixture f=new Fixture();f.start();f.dispatcher.dispatchPending();f.build();
+            AgentStore.Evidence e=f.evidence(true,false,true,AgentStore.Risk.HIGH,SPEC1);
+            EvaluationFinished early=new EvaluationFinished(f.header("eval-early"),
+                "evaluation-1",SPEC1,e,new BigDecimal("0.1"),null,false);
+            error("EVENT_AWAITING_COMMAND_RECEIPT",()->f.cp.onEvaluation(EVENTS,early));
+            check(f.get().state()==Workflow.State.TESTING);
+            check(f.dispatcher.dispatchPending()==1);
+            check(f.cp.onEvaluation(EVENTS,early).state()==Workflow.State.VERIFIED);
         });
         System.out.println("COMPONENT TESTS PASSED: "+run.get());
     }
