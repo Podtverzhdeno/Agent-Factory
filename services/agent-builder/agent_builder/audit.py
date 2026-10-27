@@ -42,10 +42,16 @@ _CODE = re.compile(r"^[A-Z][A-Z0-9_]{0,63}$")
 
 def _tag(kind: str, value: str | None, key: str) -> str | None:
     """Domain-separated, keyed pseudonyms; absent for weak/unconfigured keys."""
-    if not value or not key or len(key.encode("utf-8")) < 32:
+    if not value or not key:
         return None
-    msg = (kind + "\x00" + value).encode("utf-8")
-    return hmac.new(key.encode("utf-8"), msg, hashlib.sha256).hexdigest()[:24]
+    try:
+        secret = key.encode("utf-8")
+        msg = (kind + "\x00" + value).encode("utf-8")
+    except (UnicodeError, AttributeError, TypeError):
+        return None
+    if len(secret) < 32:
+        return None
+    return hmac.new(secret, msg, hashlib.sha256).hexdigest()[:24]
 
 
 def audit_event(
@@ -80,7 +86,7 @@ def audit_event(
         "outcome": outcome,
     }
     if code is not None:
-        data["code"] = code if _CODE.fullmatch(code) else "REDACTED"
+        data["code"] = code if isinstance(code, str) and _CODE.fullmatch(code) else "REDACTED"
     for name, value in (
         ("duration_ms", duration_ms),
         ("steps", steps),

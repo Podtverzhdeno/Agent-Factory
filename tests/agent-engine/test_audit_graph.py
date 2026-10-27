@@ -62,8 +62,8 @@ def test_jsonl_stdout_without_hmac_key_exposes_no_user_identity():
 async def test_durable_graph_audits_completion_cache_and_conflict(caplog, tmp_path):
     spec, runtime = setup_runtime(tmp_path)
     graph = FakeCompiledGraph()
-    kwargs = dict(tenant_id="buyer", thread_id="t", run_id="r",
-                  request="private-document-value", trace_id="private-trace")
+    kwargs = {"tenant_id": "buyer", "thread_id": "t", "run_id": "r",
+              "request": "private-document-value", "trace_id": "private-trace"}
     with caplog.at_level(logging.INFO, logger="agent_factory.audit"):
         result = await invoke_graph(graph, runtime, spec, **kwargs)
         same = await invoke_graph(graph, runtime, spec, **kwargs)
@@ -86,10 +86,11 @@ async def test_durable_graph_audits_completion_cache_and_conflict(caplog, tmp_pa
 async def test_invalid_graph_request_audits_only_error_code(caplog, tmp_path):
     spec, runtime = setup_runtime(tmp_path)
     graph = FakeCompiledGraph()
-    with caplog.at_level(logging.INFO, logger="agent_factory.audit"):
-        with pytest.raises(RuntimeDenied, match="INVALID_RUN_INPUT"):
-            await invoke_graph(graph, runtime, spec, tenant_id="buyer", run_id="",
-                               thread_id="t", request="private-input", trace_id="trace")
+    with caplog.at_level(logging.INFO, logger="agent_factory.audit"), pytest.raises(
+        RuntimeDenied, match="INVALID_RUN_INPUT"
+    ):
+        await invoke_graph(graph, runtime, spec, tenant_id="buyer", run_id="",
+                           thread_id="t", request="private-input", trace_id="trace")
     assert graph.calls == 0
     events = [json.loads(r.message) for r in caplog.records
               if r.name == "agent_factory.audit"]
