@@ -43,8 +43,14 @@ class DatasetVault:
         key = (dataset.tenant_id, dataset.version)
         if key in self._datasets:
             raise InvalidEvidence("dataset version immutable")
-        signatures = {digest({"artifact": c.expected_artifact, "tool": c.required_tool_calls,
-                             "effects": c.required_effect_proofs}) for c in dataset.cases}
+        signatures = {
+            "input:" + c.input_ref if c.input_ref else "gold:" + digest({
+                "artifact": c.expected_artifact, "tool": c.required_tool_calls,
+                "effects": c.required_effect_proofs})
+            for c in dataset.cases
+        }
+        if len(signatures) != len(dataset.cases):
+            raise InvalidEvidence("duplicate source material within dataset")
         used = self._fingerprints.setdefault(dataset.tenant_id, {})
         for split, existing in used.items():
             if (dataset.split == "holdout") != (split == "holdout") and (existing & signatures):
