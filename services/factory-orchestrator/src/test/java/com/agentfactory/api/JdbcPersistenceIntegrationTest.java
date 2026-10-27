@@ -159,6 +159,19 @@ final class JdbcPersistenceIntegrationTest {
             command -> {throw new AssertionError("Stale Soup replay");}).dispatchPending());
     }
 
+    @Test void schemaProbeReportsReadyAfterBothRealPostgresMigrations() {
+        // prepareSchema() applied V1+V2 in the disposable test DB. Prove
+        // that the same controller which refuses unconfigured installations
+        // acknowledges the complete migrated schema with no table writes.
+        var factory=new org.springframework.beans.factory.support.StaticListableBeanFactory();
+        factory.addBean("migratedTestDatabase",dataSource);
+        var result=new SchemaReadinessController(
+            factory.getBeanProvider(javax.sql.DataSource.class)).schema();
+        assertEquals(org.springframework.http.HttpStatus.OK,result.getStatusCode());
+        assertEquals("ready",result.getBody().get("schema"));
+        assertEquals(1,result.getBody().size());
+    }
+
     @Test void schemaProbeRejectsMissingV2WithinRollbackOnlyDisposableSchema() throws Exception {
         // Run the V1-only negative test in a rolled-back transaction on the
         // already disposable localhost test DB. No live Railway DB is touched.
