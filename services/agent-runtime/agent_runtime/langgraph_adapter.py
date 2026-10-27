@@ -5,10 +5,12 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import time
 from dataclasses import asdict
 from typing import Any, TypedDict
 
 from agent_builder import digest
+from agent_builder.audit import audit_event
 
 from .core import RunResult, RuntimeDenied, authorize_spec_for_runtime
 
@@ -141,6 +143,37 @@ def postgres_checkpointer(uri: str):
 
 async def invoke_graph(graph, runtime, spec, *, tenant_id: str, thread_id: str,
                        run_id: str, request: str, trace_id: str) -> dict:
+    """Trace LangGraph runs without materializing or logging graph messages."""
+    started = time.monotonic()
+    audit_event("runtime", "run.started", "STARTED", tenant_id=tenant_id,
+                operation_id=run_id, trace_id=trace_id)
+    try:
+        result = await _invoke_graph_impl(
+            graph, runtime, spec, tenant_id=tenant_id, thread_id=thread_id,
+            run_id=run_id, request=request, trace_id=trace_id)
+    except RuntimeDenied as exc:
+        audit_event("runtime", "run.denied", "DENIED", tenant_id=tenant_id,
+                    operation_id=run_id, trace_id=trace_id, code=exc.code,
+                    duration_ms=max(0, int((time.monotonic() - started) * 1000)))
+        raise
+    except Exception:
+        audit_event("runtime", "run.denied", "FAILED", tenant_id=tenant_id,
+                    operation_id=run_id, trace_id=trace_id,
+                    code="UNEXPECTED_GRAPH_EXCEPTION")
+        raise
+    status = result.get("status")
+    outcome = status if status in ("COMPLETED", "BLOCKED") else "FAILED"
+    code = result.get("error_code")
+    audit_event("runtime", "run.finished", outcome, tenant_id=tenant_id,
+                operation_id=run_id, trace_id=trace_id,
+                code=code if isinstance(code, str) else None,
+                steps=result.get("steps"),
+                duration_ms=max(0, int((time.monotonic() - started) * 1000)))
+    return result
+
+
+async def _invoke_graph_impl(graph, runtime, spec, *, tenant_id: str, thread_id: str,
+                             run_id: str, request: str, trace_id: str) -> dict:
     """Bind checkpoint identity to tenant, agent and version, never raw user thread.
 
     This does not provide exactly-once effects; an independent durable effect
@@ -169,6 +202,9 @@ async def invoke_graph(graph, runtime, spec, *, tenant_id: str, thread_id: str,
                 old_hash, old_result = previous
                 if old_hash != request_hash:
                     raise RuntimeDenied('RUN_IDEMPOTENCY_CONFLICT')
+                audit_event("runtime", "run.replayed", "REPLAYED",
+                            tenant_id=tenant_id, operation_id=run_id,
+                            trace_id=trace_id, steps=old_result.steps)
                 return asdict(old_result)
         checkpoint_id = digest({'tenant': tenant_id, 'agent': spec.agent_id,
                                 'version': spec.agent_spec_version, 'thread': thread_id})

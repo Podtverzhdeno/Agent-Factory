@@ -11,9 +11,25 @@ import json
 import logging
 import os
 import re
+import sys
+import threading
 from typing import Literal
 
 LOGGER = logging.getLogger("agent_factory.audit")
+_CONFIG_LOCK = threading.Lock()
+
+
+def enable_json_audit_stdout() -> None:
+    """Opt-in JSONL stdout handler, idempotent even with concurrent runs."""
+    with _CONFIG_LOCK:
+        if any(handler.name == "agent_factory.audit.jsonl.v1" for handler in LOGGER.handlers):
+            return
+        handler = logging.StreamHandler(sys.stdout)
+        handler.set_name("agent_factory.audit.jsonl.v1")
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        LOGGER.addHandler(handler)
+        LOGGER.setLevel(logging.INFO)
+        LOGGER.propagate = False
 
 _COMPONENTS = frozenset({"builder", "runtime", "tool", "a2a"})
 _EVENTS = frozenset({
@@ -51,6 +67,8 @@ def audit_event(
     Nothing from exceptions or tool payloads is interpolated into the record.
     Trace tags are pseudonymous, not anonymous, and should be retained briefly.
     """
+    if os.environ.get("AGENT_AUDIT_JSON_STDOUT") == "1":
+        enable_json_audit_stdout()
     if not LOGGER.isEnabledFor(logging.INFO):
         return
     if component not in _COMPONENTS or event not in _EVENTS or outcome not in _OUTCOMES:
