@@ -195,6 +195,35 @@ final class JdbcPersistenceIntegrationTest {
         assertEquals(1,new JdbcAgentStore(tx(),codec()).versions(TENANT,"agent-01").size());
     }
 
+    @Test void tenantWideEventIdCannotCrossWorkflowBoundaries() {
+        var scope=tx();var ledger=new JdbcWorkflowLedger(scope,codec());
+        var store=new JdbcAgentStore(scope,codec());
+        var plane=orchestrator(ledger,store);
+        plane.start(principal(),start());
+        plane.start(principal(),new Protocol.Start(TENANT,"wf-02","snapshot-01","start-key-02",
+            start().limits(),"trace-02"));
+        var dispatcher=new OutboxDispatcher(ledger,
+            command -> new Protocol.CommandReceipt(command.operationId(),true),
+            command -> new Protocol.CommandReceipt(command.operationId(),true),
+            command -> new Protocol.CommandReceipt(command.operationId(),true),
+            command -> new Protocol.CommandReceipt(command.operationId(),true));
+        assertEquals(2,dispatcher.dispatchPending());
+        var first=new Protocol.BuildFinished(new Protocol.Header("0.1","same-event",
+            TENANT,"wf-01",plane.get(principal(),TENANT,"wf-01").pendingOperationId(),
+            "trace-01",NOW),true,"agent-01","artifact://agents/a1",DIGEST,
+            Map.of("lookup",TOOL),MODEL,"artifact://a2a/card",null,false);
+        var second=new Protocol.BuildFinished(new Protocol.Header("0.1","same-event",
+            TENANT,"wf-02",plane.get(principal(),TENANT,"wf-02").pendingOperationId(),
+            "trace-02",NOW),true,"agent-02","artifact://agents/a2",DIGEST,
+            Map.of("lookup",TOOL),MODEL,"artifact://a2a/card",null,false);
+        assertEquals(Workflow.State.TESTING,plane.onBuild(new Protocol.Principal("builder",
+            TENANT,Set.of("factory:events:build")),first).state());
+        var denied=assertThrows(IllegalStateException.class,()->plane.onBuild(
+            new Protocol.Principal("builder",TENANT,Set.of("factory:events:build")),second));
+        assertEquals("EVENT_ID_COLLISION",denied.getMessage());
+        assertEquals(Workflow.State.BUILDING,ledger.get(TENANT,"wf-02").view().state());
+    }
+
     @Test void mismatchedIdempotencyCannotOverwriteEvidence() {
         var store=new JdbcAgentStore(tx(),codec());
         store.registerCandidate(metadata(),"candidate-01");
