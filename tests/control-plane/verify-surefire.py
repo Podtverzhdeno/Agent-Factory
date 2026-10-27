@@ -26,6 +26,7 @@ REQUIRED = {
     "PersistenceProbeControllerTest": 3,
     "SchemaReadinessControllerTest": 3,
     "RuntimeReadinessControllerTest": 10,
+    "SmokeReadinessSelfProbeTest": 3,
 }
 
 
