@@ -111,8 +111,8 @@ operations delivered if an HTTP acceptance arrived after the workflow changed st
   `WorkflowLedger.transact` before either acknowledging a receipt or incrementing
   failures. No-op late callbacks do not count as newly delivered work.
 - `OutboxRaceTests` covers an obsolete fifth failure, an obsolete successful receipt,
-  and unchanged normal idempotent delivery. **Executed in the mounted Java 21 subset:
-  3/3 PASS** with `javac -Xlint:all -Werror`.
+  a Builder failure after moving to Evaluation, and unchanged normal idempotent delivery. **Executed in the mounted Java 21 subset:
+  4/4 PASS** with `javac -Xlint:all -Werror`.
 - `JdbcPersistenceIntegrationTest` has new cases for replay after a fresh JDBC instance
   (including fingerprint verification and colliding payload rejection), plus the
   fifth-failure/deadline race under PostgreSQL.
