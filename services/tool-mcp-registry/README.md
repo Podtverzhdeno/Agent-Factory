@@ -116,3 +116,9 @@ The actual Agent Builder port in `agent/04-agent-engine` requires `approved=true
 This workstream now exposes `GET /v0/registry/builder/manifests` as a read-only adapter for approved, authorized, tenant-scoped `execute` operations below critical risk. It does not grant any scope; any other operation is excluded and a catalogue above 18 eligible operations fails closed with `BUILDER_PORT_CAPACITY`. Java projection tests and OpenAPI describe the temporary bridge. Spring HTTP/JWT tests are **written but not run** pending Maven dependencies and approved architecture.
 
 The remaining `operation` pinning and runtime revalidation gap is documented in `CONTRACT_CHANGE_REQUEST.md`. No claim of a live Builder integration or production MCP attestation is made.
+
+## Spring Boot 4.1.2 migration status
+
+The POM now targets a supported stable Spring Boot version. The migration updates MVC starters, the resource-server starter, security/MVC test starters, Jackson 3 naming and strict unknown-property handling, and relocated MVC test imports. The dependency change has been independently checked against official Spring documentation.
+
+**NOT VERIFIED:** Maven dependency resolution, compiler against the Spring Boot classpath, MockMvc/JWT/JSON behavior, dependency SBOM, or signed OIDC integration. These require an online Maven/CI runner; `SDD validation` is NOT a Java CI job. No deployment or promotion permitted until those tests pass on the exact commit. See `DEPENDENCY_REVIEW.md`.
