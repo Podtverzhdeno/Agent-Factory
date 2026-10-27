@@ -77,7 +77,8 @@ public final class RemoteHttpClients {
                         // Never log remote bodies, tokens, or redirect locations.
                         if(status==401 || status==403)
                             throw new Protocol.RemoteCommandFailure("REMOTE_UNAUTHORIZED",false);
-                        if((status>=200 && status<400) || status==400 || status==409 || status==422)
+                        if((status>=200 && status<400) || (status>=400 && status<500 &&
+                           status!=408 && status!=425 && status!=429))
                             throw new Protocol.RemoteCommandFailure("REMOTE_COMMAND_REJECTED",false);
                         throw new Protocol.RemoteCommandFailure("REMOTE_UNAVAILABLE",true);
                     }
