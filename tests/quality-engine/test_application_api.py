@@ -21,7 +21,9 @@ class FakeEvidenceCollector:
         if self.fail:
             raise RuntimeError("sensitive-credential-from-upstream")
         self.calls.append((request.agent_spec_ref, case.case_id))
-        observation = ObservedRun(case.case_id, case.expected_artifact,
+        # Collector sees only public input reference, never hidden correct output.
+        assert not hasattr(case, "expected_artifact")
+        observation = ObservedRun(case.case_id, {"ok": 1},
                                   (ToolCall("lookup", effect_proof="proof:read"),),
                                   graph_events=("tool.call", "tool.result"))
         return EvidenceEnvelope(request.tenant_id, request.agent_spec_digest,
@@ -136,3 +138,10 @@ def test_missing_audit_provenance_is_blocked(workflow):
     wf._collector = NoTrace()
     wf.submit(owner, req())
     assert wf.process(owner, "run:1").status == "BLOCKED"
+
+
+def test_collector_never_receives_hidden_gold(workflow):
+    wf, owner, collector = workflow
+    wf.submit(owner, req())
+    assert wf.process(owner, "run:1").status == "PASSED"
+    assert collector.calls == [("spec:a", "c")]
