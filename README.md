@@ -22,6 +22,10 @@ Business task + measurable acceptance criteria → trusted capability selection 
 - Microservices (**style selected by owner; topology not yet approved**): [architectural questions](docs/architecture/OWNER_QUESTIONNAIRE.md), [owner ADR](docs/architecture/adr/0002-microservices.md), [logical architecture](docs/architecture/architecture.md).
 - Current proposed change: [bootstrap-factory-mvp](openspec/changes/bootstrap-factory-mvp/).
 
+## Run five independent coding agents
+
+The development scope is split into [five isolated agent work packets](docs/parallel/README.md), one remote Git branch per agent, with [frozen draft contracts](docs/parallel/CONTRACTS_V0.md) and an [integration acceptance gate](docs/parallel/INTEGRATION_GATE.md). Each agent edits only its owned service directories and submits an independent PR. This is a task split, not approval of the proposed service topology; ADR-0002 still needs owner ratification.
+
 ## Developer setup for specifications
 
 1. Install [OpenSpec CLI](https://github.com/Fission-AI/OpenSpec) and run: openspec validate bootstrap-factory-mvp --strict
