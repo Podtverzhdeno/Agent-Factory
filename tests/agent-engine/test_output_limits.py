@@ -50,3 +50,25 @@ async def test_recursive_tool_output_is_denied():
     gateway=VerifiedToolGateway(OversizedOutputPort(recursive), EffectLedger(),policies={'render':p})
     with pytest.raises(RuntimeDenied, match='INVALID_TOOL_OUTPUT'):
         await gateway.execute(spec,b,args={},run_id='r',step=1)
+
+
+@pytest.mark.asyncio
+async def test_valid_tool_output_passes_json_validation_and_returns_result():
+    spec = build(task('render', ['render'], ['read'], ['read']),
+                 Registry([manifest('render', ['render'], ['read'], ['read'])]))
+    binding = spec.selected_tools[0]
+    policy = ToolPolicy(
+        tenant_id=spec.tenant_id, tool_id=binding.tool_id,
+        version=binding.version, manifest_digest=binding.digest,
+        scopes=frozenset(binding.granted_scopes), effect_mode='read',
+        input_schema={'type': 'object'},
+        output_schema={'type': 'object', 'required': ['text'],
+                       'properties': {'text': {'type': 'string'}}},
+    )
+    port = OversizedOutputPort('verified')
+    gateway = VerifiedToolGateway(port, EffectLedger(), policies={'render': policy})
+    result, effect_ref = await gateway.execute(spec, binding, args={},
+                                               run_id='normal-result', step=1)
+    assert result == {'text': 'verified'}
+    assert effect_ref.startswith('sha256:')
+    assert port.calls == 1
