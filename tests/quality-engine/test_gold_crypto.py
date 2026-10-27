@@ -40,5 +40,5 @@ def test_aead_binds_record_tenant_and_case_id():
 def test_production_encryption_configuration_mandatory():
     engine = create_engine("sqlite+pysqlite:///:memory:")
     with pytest.raises(ValueError):
-        SqlDatasetVault(engine, require_encryption=True)
+        SqlDatasetVault(engine)
     engine.dispose()
