@@ -43,6 +43,18 @@ public final class Protocol {
                                String candidateSpecRef, String candidateSpecDigest,
                                String modelRouteDigest, BigDecimal spendUsd,
                                String failureCode, boolean retryable) { }
+    /** Explicit retry policy: upstream auth/contract rejection is terminal, transport outage is retryable. */
+    public static final class RemoteCommandFailure extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+        private final boolean retryable;
+        public RemoteCommandFailure(String code, boolean retryable) {
+            super(code);
+            if (code == null || !code.matches("[A-Z0-9_]{2,80}"))
+                throw new IllegalArgumentException("INVALID_REMOTE_ERROR_CODE");
+            this.retryable=retryable;
+        }
+        public boolean retryable() { return retryable; }
+    }
     public record CommandReceipt(String operationId, boolean accepted) { }
     public record BuildCommand(String tenantId, String workflowId, String taskSnapshotId,
                                String snapshotDigest, String operationId, String idempotencyKey,
