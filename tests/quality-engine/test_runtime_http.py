@@ -20,7 +20,7 @@ def _request():
 def _signed(private, *, tenant="a", invalid_counter=False):
     env = EvidenceEnvelope(
         tenant, "digest", "holdout-v1", "case1", "trace://run",
-        ObservedRun("case1", {"done": True}, graph_events=("final",)))
+        ObservedRun("case1", {"done": True}, graph_events=("final",)), "eval")
     result = {"envelope": asdict(env), "key_id": "runtime-v1",
               "signature_hex": private.sign(canonical_evidence(env)).hex()}
     if invalid_counter:
