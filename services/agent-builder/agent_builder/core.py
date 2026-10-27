@@ -133,14 +133,23 @@ class Builder:
             raise BuildError('REGISTRY_TOO_LARGE', 'minimality cannot be proven; refine registry query')
         valid.sort(key=lambda m: (m.tool_id, m.version, m.manifest_digest))
         selected = None
+        # Minimum tool count, then minimum risk, grants, effects and extras.
+        # Ordering is deterministic even if Registry returns a different order.
+        risk_weights = {'low': 0, 'medium': 10, 'high': 100}
         for size in range(1, len(valid) + 1):
+            candidates = []
             for combo in itertools.combinations(valid, size):
                 if len({m.tool_id for m in combo}) != len(combo):
                     continue
                 if requested <= set().union(*(m.capabilities for m in combo)):
-                    selected = combo
-                    break
-            if selected is not None:
+                    candidates.append(combo)
+            if candidates:
+                selected = min(candidates, key=lambda combo: (
+                    sum(risk_weights[m.risk_level] for m in combo),
+                    len(set().union(*(m.required_scopes for m in combo))),
+                    len(set().union(*(m.side_effects for m in combo))),
+                    len(set().union(*(m.capabilities for m in combo)) - requested),
+                    tuple((m.tool_id, m.version, m.manifest_digest) for m in combo)))
                 break
         assert selected is not None
         bindings = tuple(ToolBinding(tool_id=m.tool_id, version=m.version,

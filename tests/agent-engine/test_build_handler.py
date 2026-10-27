@@ -43,3 +43,12 @@ async def test_missing_authority_or_tools_is_blocked():
     assert wrong.error_code == 'SNAPSHOT_NOT_READY_OR_DENIED'
     missing = await handler.build(command(snapshot,idem='key-new'))
     assert missing.status == 'BLOCKED' and missing.error_code == 'CAPABILITY_DENIED'
+
+def test_equal_tool_count_prefers_lower_risk():
+    snapshot = task('read',['read'],['read'],['r'])
+    risky = manifest('a-risky',['read'],['read'],['r']).model_copy(update={'risk_level':'high'})
+    safe = manifest('z-safe',['read'],['read'],['r'])
+    spec = Builder(Registry([risky,safe]),frozenset({'mock-model'})).assemble(
+        snapshot, command(snapshot))
+    assert [b.tool_id for b in spec.selected_tools] == ['z-safe']
+    assert spec.verify_digest()
