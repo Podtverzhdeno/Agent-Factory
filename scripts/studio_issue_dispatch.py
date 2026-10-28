@@ -154,10 +154,10 @@ def verify_takeover_no_new_work(gh: GH, task: dict[str, Any]) -> None:
     if branch_sha != last_sha:
         raise LeaseRejected("UNREPORTED_BRANCH_PROGRESS")
     for pr in gh.pull_requests_for_branch(branch):
-        if pr.get("merged_at") or pr.get("state") == "open":
-            # An active PR may contain unreviewed valuable work; takeover
-            # must be resolved by a separate issue/manual handoff process.
-            raise LeaseRejected("ACTIVE_OR_MERGED_PR_REVIEW_REQUIRED")
+        if pr.get("merged_at"):
+            raise LeaseRejected("WORK_ALREADY_MERGED")
+        # Even an open Draft PR may be stalled: require no new PR activity,
+        # exact branch SHA/CI reconciliation and explicit human approval.
         if pr.get("updated_at") and utc(pr["updated_at"]) > utc(task["takeover_requested_at"]):
             raise LeaseRejected("NEW_PR_ACTIVITY")
     checks = gh.call("GET", "/commits/" + branch_sha + "/check-runs?per_page=100")
