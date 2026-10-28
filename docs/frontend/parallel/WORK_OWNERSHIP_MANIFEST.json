@@ -1,0 +1,154 @@
+{
+  "schema_version": "studio.parallel.ownership.v1",
+  "status": "PROPOSED_NOT_LAUNCHED",
+  "default_owner": "I00",
+  "common_base_sha_required": true,
+  "contract_freeze_required": true,
+  "owner_adr_0002_pending": true,
+  "explicit_forbidden": [
+    "AGENTS.md",
+    "docs/parallel/**",
+    "docs/architecture/adr/**",
+    "openspec/**",
+    "services/**",
+    ".github/**",
+    "apps/studio/package.json",
+    "apps/studio/pnpm-lock.yaml",
+    "apps/studio/next.config.ts",
+    "apps/studio/tsconfig.json",
+    "apps/studio/app/layout.tsx",
+    "tests/studio-e2e/**"
+  ],
+  "agents": [
+    {
+      "id": "A01",
+      "packet": "docs/frontend/parallel/A01_platform-bff.md",
+      "write_allowlist": [
+        "apps/studio/src/server/**",
+        "apps/studio/src/shared/api/**",
+        "apps/studio/src/shared/auth/**",
+        "apps/studio/src/shared/capabilities/**",
+        "apps/studio/src/app-shell/**",
+        "apps/studio/app/api/studio/**",
+        "apps/studio/app/(auth)/**",
+        "apps/studio/src/features/platform/**"
+      ],
+      "may_modify_shared_contracts": false,
+      "may_merge_main": false
+    },
+    {
+      "id": "A02",
+      "packet": "docs/frontend/parallel/A02_design-charts.md",
+      "write_allowlist": [
+        "apps/studio/src/shared/ui/**",
+        "apps/studio/src/shared/styles/**",
+        "apps/studio/src/shared/charts/**",
+        "apps/studio/src/features/chart-showcase/**"
+      ],
+      "may_modify_shared_contracts": false,
+      "may_merge_main": false
+    },
+    {
+      "id": "A03",
+      "packet": "docs/frontend/parallel/A03_task-intake.md",
+      "write_allowlist": [
+        "apps/studio/src/features/task-intake/**",
+        "apps/studio/app/[locale]/w/[workspaceId]/agents/new/**",
+        "apps/studio/app/[locale]/w/[workspaceId]/tasks/**"
+      ],
+      "may_modify_shared_contracts": false,
+      "may_merge_main": false
+    },
+    {
+      "id": "A04",
+      "packet": "docs/frontend/parallel/A04_agents-workflows.md",
+      "write_allowlist": [
+        "apps/studio/src/features/agents/**",
+        "apps/studio/src/features/workflows/**",
+        "apps/studio/app/[locale]/w/[workspaceId]/agents/page.tsx",
+        "apps/studio/app/[locale]/w/[workspaceId]/agents/[agentId]/overview/**",
+        "apps/studio/app/[locale]/w/[workspaceId]/workflows/**"
+      ],
+      "may_modify_shared_contracts": false,
+      "may_merge_main": false
+    },
+    {
+      "id": "A05",
+      "packet": "docs/frontend/parallel/A05_runtime-runs.md",
+      "write_allowlist": [
+        "apps/studio/src/features/runs/**",
+        "apps/studio/src/features/playground/**",
+        "apps/studio/app/[locale]/w/[workspaceId]/runs/**",
+        "apps/studio/app/[locale]/w/[workspaceId]/agents/[agentId]/playground/**"
+      ],
+      "may_modify_shared_contracts": false,
+      "may_merge_main": false
+    },
+    {
+      "id": "A06",
+      "packet": "docs/frontend/parallel/A06_quality-versions.md",
+      "write_allowlist": [
+        "apps/studio/src/features/quality/**",
+        "apps/studio/src/features/gepard/**",
+        "apps/studio/src/features/versions/**",
+        "apps/studio/app/[locale]/w/[workspaceId]/agents/[agentId]/quality/**",
+        "apps/studio/app/[locale]/w/[workspaceId]/agents/[agentId]/versions/**",
+        "apps/studio/app/[locale]/w/[workspaceId]/releases/**"
+      ],
+      "may_modify_shared_contracts": false,
+      "may_merge_main": false
+    },
+    {
+      "id": "A07",
+      "packet": "docs/frontend/parallel/A07_ops-core.md",
+      "write_allowlist": [
+        "apps/studio/src/features/ops/core/**",
+        "apps/studio/app/[locale]/ops/fleet/**",
+        "apps/studio/app/[locale]/ops/workflows/**",
+        "apps/studio/app/[locale]/ops/builder/**",
+        "apps/studio/app/[locale]/ops/runtime/**",
+        "apps/studio/app/[locale]/ops/registry/**"
+      ],
+      "may_modify_shared_contracts": false,
+      "may_merge_main": false
+    },
+    {
+      "id": "A08",
+      "packet": "docs/frontend/parallel/A08_ops-pipelines.md",
+      "write_allowlist": [
+        "apps/studio/src/features/ops/pipelines/**",
+        "apps/studio/app/[locale]/ops/connectors/**",
+        "apps/studio/app/[locale]/ops/artifacts/**",
+        "apps/studio/app/[locale]/ops/evaluation/**",
+        "apps/studio/app/[locale]/ops/gepard/**",
+        "apps/studio/app/[locale]/ops/models/**"
+      ],
+      "may_modify_shared_contracts": false,
+      "may_merge_main": false
+    },
+    {
+      "id": "A09",
+      "packet": "docs/frontend/parallel/A09_ops-trust.md",
+      "write_allowlist": [
+        "apps/studio/src/features/ops/trust/**",
+        "apps/studio/app/[locale]/ops/a2a/**",
+        "apps/studio/app/[locale]/ops/releases/**",
+        "apps/studio/app/[locale]/ops/observability/**",
+        "apps/studio/app/[locale]/ops/security/**",
+        "apps/studio/app/[locale]/ops/incidents/**"
+      ],
+      "may_modify_shared_contracts": false,
+      "may_merge_main": false
+    },
+    {
+      "id": "A10",
+      "packet": "docs/frontend/parallel/A10_bilateral.md",
+      "write_allowlist": [
+        "apps/studio/src/features/bilateral/**",
+        "apps/studio/app/[locale]/w/[workspaceId]/scenarios/**"
+      ],
+      "may_modify_shared_contracts": false,
+      "may_merge_main": false
+    }
+  ]
+}
