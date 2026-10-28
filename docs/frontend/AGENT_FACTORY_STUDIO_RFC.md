@@ -1,6 +1,7 @@
 # RFC — Agent Factory Studio: клиентский портал и операционная консоль
 
 **Дата:** 2026-10-28  
+**MVP implementation cutline:** [`STUDIO_MVP_SCOPE_DECISION.md`](STUDIO_MVP_SCOPE_DECISION.md) supersedes the feature priorities in this aspirational RFC. Build the real business vertical slice before introducing additional screens and infrastructure.  
 **Статус:** PROPOSED / UX + contract-first, без авторизации архитектуры или заявлений о готовом UI.  
 **Базовая спецификация:** `docs/product/MVP.md`, `docs/architecture/BUSINESS_TASK_PACKAGE_RFC.md`, `docs/parallel/CONTRACTS_V0.md`.  
 **Зависимости:** ADR-0002 (владельцу необходимо утвердить сервисные границы), реальные Task Intake и artifact APIs, интеграционные и операционные контракты.
