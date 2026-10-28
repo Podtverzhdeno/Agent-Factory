@@ -3,7 +3,6 @@ import json
 import logging
 
 import pytest
-
 from agent_builder.audit import LOGGER, audit_event
 from agent_runtime import Decision
 from test_engine import Registry, build, invoke, manifest, task
@@ -54,8 +53,8 @@ def test_audit_tags_are_stable_but_do_not_expose_private_identifiers(audit_recor
         assert value not in audit_records[0]
     assert all(len(event[key]) == 24 for key in
                ("tenant_tag", "operation_tag", "trace_tag", "tool_tag"))
-    assert len(set(event[key] for key in
-                   ("tenant_tag", "operation_tag", "trace_tag", "tool_tag"))) == 4
+    assert len({event[key] for key in
+                ("tenant_tag", "operation_tag", "trace_tag", "tool_tag")}) == 4
 
 
 def test_audit_weak_or_missing_key_omits_identifiers(audit_records, monkeypatch):
