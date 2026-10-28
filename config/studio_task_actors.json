@@ -1,0 +1,9 @@
+{
+  "schema_version": "studio.taskactors.v1",
+  "maintainers": [
+    "Podtverzhdeno"
+  ],
+  "agent_roles": {},
+  "security_note": "No agent account identities approved. To enable claims, maintainer must add individually authenticated GH actor -> allowed role mappings in protected reviewed config. A shared GitHub identity cannot distinguish simultaneous sessions.",
+  "dispatcher_status": "REVIEW_PENDING_DEFAULT_BRANCH_INSTALL"
+}

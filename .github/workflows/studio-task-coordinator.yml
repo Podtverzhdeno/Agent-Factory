@@ -1,0 +1,29 @@
+name: Studio trusted task coordinator
+on:
+  issue_comment:
+    types: [created]
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+  actions: read
+concurrency:
+  group: studio-task-lease-serial
+  cancel-in-progress: false
+  queue: max
+jobs:
+  dispatch:
+    if: github.event.issue.pull_request == null && startsWith(github.event.comment.body, '/studio-task ')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Trusted command validation and generation-fenced state transition
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python -m scripts.studio_issue_dispatch

@@ -1,0 +1,3 @@
+export const OPERATOR_SECTIONS = [
+["fleet","Platform Fleet"],["workflows","Workflows & Queues"],["builder","Builder & AgentSpecs"],["runtime","Runtimes & Checkpoints"],["registry","Tool/MCP Registry"],["connectors","Connectors & Secrets"],["artifacts","Task Intake & Artifacts"],["evaluation","Evaluation & Holdouts"],["gepard","GEPARD Experiments"],["models","Models & LiteLLM"],["a2a","A2A & Bilateral Lab"],["releases","Releases & AgentStore"],["observability","Traces, Logs & Metrics"],["security","Security, Tenants & Audit"],["incidents","Incidents, Alerts & SLO"]
+].map(([id, title]) => ({ id: "ops." + id, title, path: "/ops/" + id }));

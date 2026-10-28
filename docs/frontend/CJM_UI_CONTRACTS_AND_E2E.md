@@ -161,19 +161,29 @@ All routes are **proposed; not all are implemented upstream**. The operator comm
 ## 6. ChartKit contract (mandatory; independent of graphics engine)
 
 ~~~ts
+// I00 contract resolution after A02 Draft PR #19 review. Exactly 15 logical
+// templates; variant subtypes do not increase the template count.
+// Source types: apps/studio/src/contracts/charts.ts (current C0-prep).
+export type ChartKind =
+  | "trend" | "stacked_bar" | "horizontal_bar" | "scatter" | "heatmap"
+  | "funnel" | "timeline" | "waterfall" | "sankey" | "treemap"
+  | "distribution" | "gauge" | "dependency" | "donut" | "a2a_sequence";
 export interface ChartSpec {
   chartId: string;
-  chartType: "line" | "area" | "stacked_bar" | "scatter" | "heatmap"
-    | "funnel" | "timeline" | "sankey" | "treemap" | "boxplot"
-    | "gauge" | "dependency" | "donut" | "histogram" | "a2a_sequence";
+  chartKind: ChartKind; // payload must match; line/area etc are variants
+  schemaVersion: string;
   titleKey: string;
   sourceRefs: readonly string[];
   window: {from: string; to: string; timezone: string; granularity: string};
   unit: string;
+  currency?: string | null;
   sampleCount: number | null;
+  denominator?: number | null;
   completeness: SourceState;
+  sourceAsOf: string | null;
   lastObservedAt: string | null;
-  series: unknown; // must validate per chartType in actual discriminated union
+  revision: string | null;
+  redactionLevel: "PUBLIC" | "TENANT" | "OPERATOR_REDACTED";
   tableDataAvailable: boolean;
 }
 ~~~

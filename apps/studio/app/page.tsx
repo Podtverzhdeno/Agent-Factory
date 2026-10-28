@@ -1,0 +1,2 @@
+import { OPERATOR_SECTIONS } from "../src/navigation";
+export default function Landing() { return <main><p>AGENT FACTORY · C0 PREPARATION</p><h1>Каркас Studio</h1><p role="status">Сервисы и пользовательские данные не подключены. Это не рабочая версия платформы.</p><h2>Operator Console — 15 запланированных разделов</h2><ul>{OPERATOR_SECTIONS.map(({ id,title }) => <li key={id}>{title} — не подключено</li>)}</ul></main>; }

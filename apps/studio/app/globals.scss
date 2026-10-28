@@ -1,0 +1,5 @@
+:root { color-scheme: light; --bg: #f8fafc; --fg: #152338; --muted: #526277; --link: #1666b7; }
+@media (prefers-color-scheme: dark) { :root { color-scheme: dark; --bg: #0b1420; --fg: #f1f6fa; --muted: #aebdce; --link: #8fc8ff; } }
+* { box-sizing: border-box; } html { background: var(--bg); color: var(--fg); font-family: system-ui,sans-serif; }
+body { margin: 0; } main { margin: 0 auto; padding: 2rem 1.25rem; max-width: 900px; } a { color: var(--link); }
+a:focus-visible, button:focus-visible { outline: 3px solid var(--link); outline-offset: 2px; }
