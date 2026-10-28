@@ -1,6 +1,7 @@
 # RFC — Agent Factory Studio: клиентский портал и операционная консоль
 
 **Дата:** 2026-10-28  
+**Owner scope update:** [`STUDIO_BOXED_PRODUCT_FEATURES.md`](STUDIO_BOXED_PRODUCT_FEATURES.md) explicitly commits the 15-section Operator Console, rich chart library and two-company collaborative builder to the target boxed product, while keeping LangGraph visual editor and microfrontends as ideas without implementation. The first single-agent pilot remains the initial delivery slice.
 **MVP implementation cutline:** [`STUDIO_MVP_SCOPE_DECISION.md`](STUDIO_MVP_SCOPE_DECISION.md) supersedes the feature priorities in this aspirational RFC. Build the real business vertical slice before introducing additional screens and infrastructure.  
 **Статус:** PROPOSED / UX + contract-first, без авторизации архитектуры или заявлений о готовом UI.  
 **Базовая спецификация:** `docs/product/MVP.md`, `docs/architecture/BUSINESS_TASK_PACKAGE_RFC.md`, `docs/parallel/CONTRACTS_V0.md`.  
