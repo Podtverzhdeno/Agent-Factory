@@ -161,3 +161,50 @@ No feature SHALL be marked integrated without pinned-revision contract, role/ten
 #### Scenario: Only design/lint passes
 - **WHEN** a PR has successful docs validation but no real cross-service test
 - **THEN** feature stays DESIGN/COMPONENT level and cannot be labelled production ready.
+
+
+### Requirement: AF-REQ-126 — Visible exclusive task claims
+Each independently assignable frontend task SHALL have one live coordination record with actor identity, task ID, UTC claimed_at, status, lease generation, current branch, base revision and PR references; claims SHALL be granted through a single-writer arbitration mechanism, not inferred from comments alone.
+#### Scenario: Two agents claim the same task
+- **GIVEN** two authorized agents observe one AVAILABLE task
+- **WHEN** both submit a claim concurrently
+- **THEN** at most one claim is granted and both agents can read the current owner, issue and lease generation.
+
+### Requirement: AF-REQ-127 — Durable progress and liveness audit
+Agents SHALL publish source-attributed append-only events for claim, heartbeat, meaningful progress with code/test evidence, blocked state, review, release and handoff. Activity, last meaningful progress and logical status timestamps SHALL be tracked separately.
+#### Scenario: Fake progress heartbeat
+- **GIVEN** an agent remains IN_PROGRESS for two hours with no code/spec/test evidence
+- **WHEN** it submits only heartbeats or generic “working” messages
+- **THEN** last_heartbeat_at may advance, but last_progress_at does not, and task becomes STALE_CANDIDATE.
+
+### Requirement: AF-REQ-128 — Stale detection and free-task preference
+The scheduler SHALL treat >120 minutes without verified meaningful progress while IN_PROGRESS as a stale REVIEW signal, not abandonment. Before takeover, it SHALL prefer compatible AVAILABLE tasks with prerequisites and file ownership satisfied.
+#### Scenario: Stale and free work coexist
+- **GIVEN** one stale task and one compatible AVAILABLE task
+- **WHEN** an unoccupied agent selects next work
+- **THEN** the free task is claimed first and the stale task is not taken over automatically.
+
+### Requirement: AF-REQ-129 — Evidence-based safe takeover
+When no compatible free task exists, the coordinator SHALL inspect task Issue, branch, all matching PR states, latest commits, CI results, owner notification/grace, dependencies and partial work before granting a task-scoped reassignment. Critical releases/security tasks require human approval.
+#### Scenario: Stale but active PR
+- **GIVEN** last progress comment older than two hours, but a new test run/commit or merged PR demonstrates advancement
+- **WHEN** another agent requests takeover
+- **THEN** the coordinator reconciles actual progress and refuses takeover as abandoned work.
+#### Scenario: Genuine stalled task
+- **GIVEN** no compatible free task, no new work evidence, expired grace and independent coordinator approval
+- **WHEN** a takeover is granted
+- **THEN** prior generation is revoked, new owner receives generation+1, old PR/commits remain linked, and the reason, timestamps and remaining tasks are auditable.
+
+### Requirement: AF-REQ-130 — Fencing and path-safe handoff
+Ownership transfer SHALL NOT give broad permission to edit code outside the task's exclusive file scope or allow an old owner to continue acting on a revoked generation.
+#### Scenario: Previous agent attempts to submit completion
+- **GIVEN** STU-T05 was transferred from A03 to A04 with lease generation incremented
+- **WHEN** A03's old generation submits progress or marks DONE
+- **THEN** coordinator/CI refuses it, and A04 may change only the explicitly delegated paths for this task.
+
+### Requirement: AF-REQ-131 — Reassignment reflected in canonical spec
+A successful takeover SHALL record the previous agent and PR evidence, exact UTC last progress and takeover times, what remains unfinished, reason, new owner and generation in Issue event history and an integrator-controlled OpenSpec handoff note. No unverified completion is marked as done.
+#### Scenario: No remaining free tasks
+- **GIVEN** available tasks are exhausted and coordinator confirms stalled work after reviewing repo/PR
+- **WHEN** another agent accepts reassigned work
+- **THEN** recorded handoff states “previous work paused; remaining work resumed by new owner” with timestamp and supporting links; it MUST NOT claim nothing was done when unmerged useful work exists.
