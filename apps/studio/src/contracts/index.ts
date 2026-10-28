@@ -6,3 +6,7 @@ export interface Page<T> { items: readonly T[]; nextCursor: string|null; stamp: 
 export interface SafeError { code: string; messageKey: string; retryable: boolean; requiredAction?: string; requestRef?: string; source?: string; }
 export interface FeatureAvailability { featureId: string; availability: EffectiveFeature; allowedActions: readonly string[]; stamp: SourceStamp; }
 export const UNAVAILABLE_STAMP: SourceStamp = { source: "C0_PREP_NOT_CONNECTED", sourceAsOf: null, completeness: "UNAVAILABLE", revision: null };
+
+export type {ChartKind, ChartMeta, ChartPayload, ChartResult, ChartTable} from './charts';
+export {CHART_KINDS} from './charts';
+export type {ActionDescriptor, TaskView, AgentSummary, WorkflowView, RunView, EvaluationView} from './view-models';
