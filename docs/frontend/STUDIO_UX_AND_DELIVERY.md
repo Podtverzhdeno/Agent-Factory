@@ -1,6 +1,7 @@
 # Agent Factory Studio — UX blueprint, BFF design, integration backlog and acceptance
 
 **Date:** 2026-10-28  
+**Owner scope update:** [`STUDIO_BOXED_PRODUCT_FEATURES.md`](STUDIO_BOXED_PRODUCT_FEATURES.md) expands the mandatory target product to full Operator Console (15 sections), typed shared chart library and advanced dual-company builder. LangGraph editing and microfrontends are explicitly retained as ideas without implementation.
 **Implementation priority:** [`STUDIO_MVP_SCOPE_DECISION.md`](STUDIO_MVP_SCOPE_DECISION.md) overrides the full target screen and package inventory below for first pilot.  
 **Status:** PROPOSED / design-only. No deployed frontend or automatically ratified ADR.  
 **Input:** `AGENT_FACTORY_STUDIO_RFC.md` and `STUDIO_SERVICE_COVERAGE.md`.
