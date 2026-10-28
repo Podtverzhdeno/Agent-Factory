@@ -36,3 +36,8 @@ Same generic factory creates RFQ and certificate agents from distinct BTPs, corr
 - docs/frontend/STUDIO_BOXED_PRODUCT_FEATURES.md
 - docs/frontend/STUDIO_CAPABILITY_API_CONTRACT.md
 - docs/frontend/parallel/README.md
+
+
+## Additional live parallel work coordination (2026-10-28)
+
+The owner requests a trustworthy visible activity trail per task (who claimed, when, last status/progress and linked PR), a two-hour inactivity rule and safe reassignment when no free tasks exist. Add AF-REQ-126..131 and STU-T19..23; see docs/frontend/parallel/TASK_LEASE_PROTOCOL.md. A stale status is a review signal, not proof the previous agent abandoned work; a serialized lease coordinator and generation fencing prevent duplicate owners.
