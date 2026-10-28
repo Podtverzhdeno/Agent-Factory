@@ -52,3 +52,7 @@ Freeze C0 SHA + source contract version, assign A01–A10 simultaneously to **di
 - **[Task lease and 2-hour takeover protocol](parallel/TASK_LEASE_PROTOCOL.md)** — claims, UTC event log, heartbeat vs progress, source PR inspection, stale detection, safe generation-fenced handoff.
 - **[Live GitHub Issues index](parallel/LIVE_TASK_INDEX.md)** — 10 initialized Issue task records #8–#17. This index is not a live state cache; read each Issue as the latest source.
 - **[OpenSpec coordination requirements](../../openspec/changes/studio-cjm-parallel/specs/studio-cjm/spec.md)** — AF-REQ-126..131. STU-T19..23 remain OPEN pending serialized coordinator and executable CI.
+
+## Nine-agent ready-to-copy dispatch
+
+[Launch pack: A01–A09](parallel/prompts/README.md) — full standalone prompts and linked GitHub Issues. A10 bilateral remains next-wave, I00 integrator prepares the shared C0 and trusted claim coordinator. Prompts can be read and preparation can start now; no code lease or service implementation is claimed.
