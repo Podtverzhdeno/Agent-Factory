@@ -5,8 +5,8 @@ import logging
 import pytest
 
 from agent_builder.audit import LOGGER, audit_event
-from agent_runtime import Decision, Runtime
-from test_engine import Registry, ScriptedModel, build, invoke, manifest, task
+from agent_runtime import Decision
+from test_engine import Registry, build, invoke, manifest, task
 
 
 class Records(logging.Handler):
@@ -93,7 +93,7 @@ async def test_runtime_decision_events_link_to_run_without_logging_prompt(
     spec = build(task("read", ["read"], ["read"], ["read"]),
                  Registry([manifest("read.tool", ["read"], ["read"], ["read"])]))
     runtime, tools = invoke(spec, [
-        Decision(kind="tool", tool_id="read.tool", args={"secret_business_field": "private-QUOTE"}),
+        Decision(kind="tool", tool_id="read.tool", args={"secret": "private-QUOTE"}),
         Decision(kind="final", text="private-ANSWER"),
     ])
     # Credential keys are denied before any external tool invocation.
