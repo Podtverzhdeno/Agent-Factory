@@ -294,7 +294,7 @@ apps/studio-web/
 packages/{ui,contracts,design-tokens,test-fixtures}/
 ```
 
-Proposed stack: TypeScript, React, Next.js, TanStack Query, accessible components, Zod for client DTO checking, codegen from OpenAPI. React Flow only for read-only graph inspector at first. Avoid duplicating state in global store that should be fetched by query cache.
+**Confirmed recommendation for design review:** strict TypeScript, React + Next.js, **SCSS Modules + CSS custom properties** and a tokenized shared UI kit, pnpm workspaces + Turborepo for TypeScript packages, TanStack Query, accessible primitives, Zod runtime checking for selected DTOs and OpenAPI code generation. React Flow is for read-only graph inspector initially. CSS/tokens and performance constraints are in [`STUDIO_SCALABILITY_ENGINEERING.md`](STUDIO_SCALABILITY_ENGINEERING.md). Avoid mirroring server state into one global store.
 
 ## 6. Detailed feature and delivery dependencies
 
