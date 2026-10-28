@@ -2,7 +2,7 @@
 
 **Status:** recommended **scope decision**, NOT a ratified ADR-0002, NOT a production-ready feature.  
 **Date:** 2026-10-28. **Owner approval required.**  
-**Replaces as implementation priority:** the aspirational breadth of STUDIO_UX_AND_DELIVERY.md and STUDIO_SCALABILITY_ENGINEERING.md. Those files remain an optional **target catalog**, not a P0 obligation.
+**Minimum single-agent pilot priority:** this document controls the FIRST VERTICAL SLICE only. **Owner's updated target product commitments** in [`STUDIO_BOXED_PRODUCT_FEATURES.md`](STUDIO_BOXED_PRODUCT_FEATURES.md) override previous dismissals of the full 15-section Operator Console, large chart library and two-company collaborative builder. Visual LangGraph editor and microfrontends are documented ideas with NO implementation now.
 
 ## Executive decision
 
@@ -42,7 +42,7 @@ Pilot must clearly state if sandbox-only. **Do not ship a visible “Publish” 
 4. **Workflow & Run Detail**: one timeline component with business and privileged technical expansion; display actual artifacts, calls, denied effects and error instructions. Distinguish build workflow from runtime run using explicit links/IDs.
 5. **Quality & Versions**: inside agent detail or one associated screen; baseline/candidate, evidence, failed check, bounded optimize/retest, release approval when supported.
 
-**Operator needs initially one protected diagnostics drawer** (service, trace, correlation, rejected tool, last real event, cost); not eight admin navigation pages. Integrations are step/modal linked from wizard; separate catalog only when >3 connectors and lifecycle/owners justify it.
+**First-pilot fallback:** a protected diagnostic drawer can be the earliest connected operator view, **but 15 Operator Console sections are mandatory target scope**: routes, permissions, data sources, UI states and implementation backlog are to be designed now; deploy real panel actions progressively as backend dependencies become available. See [`STUDIO_BOXED_PRODUCT_FEATURES.md`](STUDIO_BOXED_PRODUCT_FEATURES.md). Integrations may start in the wizard and later gain the dedicated governed catalog.
 
 Customer journeys: create draft → validate READY → request build → watch real status → sandbox run → inspect artifact → independently verify → fix or BLOCKED → authorized operator-approved promotion (where implemented). Mandatory first-use tasks should be achievable without opening technical graph view.
 
@@ -73,25 +73,25 @@ Official documentation confirms Next.js supports SCSS Modules and Route Handlers
 | --- | --- | --- |
 | Entire detailed homepage analytics | **CUT for P0** | No production metrics yet; simple agents list/action inbox conveys value |
 | Separate Quality Center, model benchmarking pages | **SIMPLIFY** | One baseline/candidate table inside Agent; separate section at many evaluations/customers |
-| 7+ navigation sections + 8 Ops panels | **CUT for P0** | Duplicates workflow/run view, high surface maintenance |
+| Full 15-section Operator Console | **MANDATORY TARGET / staged integration** | Define all sections and routes now; first pilot may connect only real data sources, later wire every module with operator RBAC and audit |
 | Rich AI Buddy chat with tool-generated actions | **LATER** | Structured task form is reliable; add copilot only after real user friction evidence |
-| Visual LangGraph editor / node designer | **NO for P0** | Competes with “agent from business task” promise, creates safety/validation burden |
-| React Flow diagram | **LATER, read-only** | No reason to ship graph renderer before having a complex actual graph |
+| Visual LangGraph editor / node designer | **IDEA ONLY, NOT IMPLEMENTED** | Keep an explicitly approved future editor concept; graph edits compile new immutable AgentSpec and require independent evaluation |
+| React Flow inspector/editor | **READ-ONLY LATER; EDITOR IDEA ONLY** | Can inspect real graph before allowing edits; don't imply a functioning editor now |
 | SSE + Redis Streams + durable projection store | **LATER** | Early active-page polling is enough; broker fanout solves not-yet-measured problem |
 | Standalone Studio BFF + separate service auth database | **LATER** | Next Route Handlers are a logical BFF; keep service contracts, avoid deploying an extra service |
 | pnpm workspaces + Turborepo + remote cache immediately | **LATER** | One frontend does not need a second task orchestration layer |
 | Multiple design token generator packages | **LATER** | One `tokens.scss` / `tokens.css` set and shared mixins sufficient; no duplicate tokens |
-| Microfrontends / Module Federation | **REJECT without proven need** | Fragmented auth, versioning, UI quality and heavy cross-team coordination |
+| Microfrontends / Module Federation | **ARCHITECTURE IDEA ONLY** | Keep extraction boundaries and document identity/version contracts; no implementation until a measurable independent-release need |
 | Full Storybook library with screenshot approval on every variant | **LATER** | Start with component tests and a few critical screenshot/visual tests |
 | Customer billing / invoices | **LATER** | Monetization/pricing not validated, use provider cost display and human invoicing |
 | Soup GPU training UI | **LATER** | Separate opt-in research/training job, not the first buyer journey |
 | Pi Durable switch UI | **REJECT for MVP** | Chosen Runtime is Python LangGraph/PostgreSQL; Pi is research |
-| Two-company A2A canvas | **LATER** | Optional add-on, not needed for one-company product |
+| Two-company collaborative builder | **COMMITTED ADVANCED PRODUCT MODULE** | UX and contracts now; two private BTP/AgentSpecs + shared consented A2A tests and separate releases when backend E2E ready |
 | Agent marketplace / plugin installation UI | **LATER** | First prove one approved integration; avoid untrusted supply chain |
 | Auto-optimize button with unsupported backend | **REJECT until real** | Need real DSPy/GEPA; if using mock label it clearly in isolated synthetic demo |
 | Auto-production release | **NOT IN FIRST PILOT** | Release evidence/approvals and deployment proof not yet integrated; manual/policy-gated path later |
-| Separate operator console with 15 pages | **LATER** | One protected inspector plus logs/backlinks first |
-| Huge dashboards / live flamegraphs for every run | **LATER** | Debug links to existing observability tools and bounded safe trace previews first |
+| Separate Operator Console with 15 sections | **MANDATORY TARGET** | Full information architecture and capabilities committed; gradual live wiring, no fabricated operation status |
+| Rich analytics and shared charts kit | **MANDATORY TARGET** | 15 proposed chart templates and Apache ECharts candidate; display only real sourced datasets, progressively add charts to customer and operator screens |
 | SSR optimization, CDN, sharding, Kubernetes and fine-grained microfrontend deploy | **NO ADVANCE WORK** | Use when observed bottleneck warrants complexity |
 
 **Do not confuse UI deferral with removal of business-invariant support:** security tests, separate hidden holdout, idempotency, risk policy and immutable evidence are **mandatory** from the first real pilot. Keeping a service hidden in UI while implementing required backend capability is valid.
