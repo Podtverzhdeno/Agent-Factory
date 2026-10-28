@@ -3,6 +3,8 @@ on:
   pull_request:
     branches: [integration/studio-c0-prep-20261028, main]
     types: [opened, synchronize, reopened, edited, ready_for_review]
+    paths:
+      - 'apps/studio/**'
 permissions:
   contents: read
   issues: read
