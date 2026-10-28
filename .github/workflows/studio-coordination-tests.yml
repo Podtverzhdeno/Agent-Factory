@@ -1,0 +1,32 @@
+name: Studio coordinator unit validation
+on:
+  pull_request:
+    paths:
+      - 'scripts/studio_*'
+      - 'tests/studio-coordination/**'
+      - 'config/studio_task_actors.json'
+      - 'docs/frontend/parallel/WORK_OWNERSHIP_MANIFEST.json'
+      - '.github/workflows/studio-task-coordinator.yml'
+      - '.github/workflows/studio-pr-scope.yml'
+  push:
+    branches: [integration/studio-coordinator-main-gate-20261028]
+permissions:
+  contents: read
+jobs:
+  lease-negative-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Coordinator/PR-scope unit tests
+        run: python -m unittest discover -s tests/studio-coordination -v
+      - name: Compile coordinator and check JSON manifest
+        run: |
+          python -m compileall -q scripts/studio_task_logic.py scripts/studio_issue_dispatch.py scripts/studio_pr_scope_gate.py
+          python -m json.tool config/studio_task_actors.json >/dev/null
+          python -m json.tool docs/frontend/parallel/WORK_OWNERSHIP_MANIFEST.json >/dev/null

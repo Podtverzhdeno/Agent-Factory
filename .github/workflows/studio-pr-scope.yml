@@ -1,0 +1,27 @@
+name: Studio PR ownership gate
+on:
+  pull_request:
+    branches: [integration/studio-c0-prep-20261028, main]
+    types: [opened, synchronize, reopened, edited, ready_for_review]
+    paths:
+      - 'apps/studio/**'
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+jobs:
+  owner-scope:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate GitHub Issue generation, task ID and changed-file ownership
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python -m scripts.studio_pr_scope_gate
