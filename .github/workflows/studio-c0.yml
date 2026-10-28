@@ -7,7 +7,7 @@ on:
       - 'apps/studio/**'
       - '.github/workflows/studio-c0.yml'
 permissions:
-  contents: write
+  contents: read
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -15,16 +15,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          persist-credentials: true
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Freeze dependency graph
-        working-directory: apps/studio
-        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
       - name: Reproducible install
         working-directory: apps/studio
         run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Production dependency vulnerability audit
+        working-directory: apps/studio
+        run: npm audit --omit=dev --audit-level=high
+      - name: Lockfile must remain committed and unchanged
+        run: git diff --exit-code -- apps/studio/package-lock.json
       - name: TypeScript
         working-directory: apps/studio
         run: npm run typecheck
@@ -38,15 +40,3 @@ jobs:
         run: npm run build
       - name: Python task-lease state machine and PR-scope tests
         run: python -m unittest discover -s tests/studio-coordination -v
-      - name: Commit reviewed dependency lockfile to C0-prep
-        if: github.event_name == 'push'
-        run: |
-          if git ls-files --error-unmatch apps/studio/package-lock.json >/dev/null 2>&1; then
-            git diff --exit-code -- apps/studio/package-lock.json
-          else
-            git config user.name 'github-actions[bot]'
-            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-            git add apps/studio/package-lock.json
-            git commit -m "chore(studio): lock reproducible C0-prep npm dependencies"
-            git push origin HEAD:refs/heads/integration/studio-c0-prep-20261028
-          fi
