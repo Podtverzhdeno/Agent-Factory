@@ -1,0 +1,50 @@
+name: Studio C0 reproducibility
+on:
+  push:
+    branches: [integration/studio-c0-prep-20261028]
+  pull_request:
+    paths:
+      - 'apps/studio/**'
+      - '.github/workflows/studio-c0.yml'
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Freeze dependency graph
+        working-directory: apps/studio
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Reproducible install
+        working-directory: apps/studio
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: TypeScript
+        working-directory: apps/studio
+        run: npm run typecheck
+      - name: ESLint
+        working-directory: apps/studio
+        run: npm run lint
+      - name: Next.js build (no live upstream)
+        working-directory: apps/studio
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+        run: npm run build
+      - name: Commit reviewed dependency lockfile to C0-prep
+        if: github.event_name == 'push'
+        run: |
+          if git ls-files --error-unmatch apps/studio/package-lock.json >/dev/null 2>&1; then
+            git diff --exit-code -- apps/studio/package-lock.json
+          else
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add apps/studio/package-lock.json
+            git commit -m "chore(studio): lock reproducible C0-prep npm dependencies"
+            git push origin HEAD:refs/heads/integration/studio-c0-prep-20261028
+          fi
