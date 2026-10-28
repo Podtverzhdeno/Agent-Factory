@@ -199,7 +199,14 @@ These statuses are **illustrative**. Do not publish this source-control document
 
 **Every page has these states:** no access / planned / disabled pending dependencies / unavailable (degraded) / pilot / production / loading / empty / error. Planned features may appear in an explicitly labelled roadmap/info panel and in design reviews; customer production navigation should not show clickable inert actions.
 
-## 10. Documents and conflict resolution
+## 10. Developer-facing contracts for frontend implementation
+
+- **Machine-readable target catalog:** [`STUDIO_FEATURE_CATALOG.json`](STUDIO_FEATURE_CATALOG.json) — 33 scoped capabilities including exactly 15 operator modules. The catalog lists product commitment, intended UI route, backend owner and dependency. It intentionally does **not** assert live readiness or authorize actions.
+- **Dynamic effective-capability API:** [`STUDIO_CAPABILITY_API_CONTRACT.md`](STUDIO_CAPABILITY_API_CONTRACT.md) — proposed server-computed availability/entitlement/deployment/evidence/health contract. A client can safely show a roadmap card, a disabled section with reason or an actually enabled action, according to backend truth.
+- Build the `StudioCapabilities` menu projection from these scoped IDs, not per-component invented booleans; render all 15 Ops sections in operator design/navigation while only wiring genuine service data and respecting unavailable/forbidden states.
+- Every release, registry revocation, business-effect retry, optimizer launch, file retrieval and bilateral run is reauthorized and validated at the owner service. Feature flags never bypass safety policies.
+
+## 11. Documents and conflict resolution
 
 - `STUDIO_MVP_SCOPE_DECISION.md` remains the **minimum first working pilot slice** (not a veto on target Operator Console/chart/bilateral features). Its earlier literal “CUT” decisions for large Ops/analytics/twin builder are superseded by this owner update. P0 delivery of those features still needs source APIs.
 - `STUDIO_UX_AND_DELIVERY.md` and `STUDIO_SCALABILITY_ENGINEERING.md` are complete design/scale catalogs; the feature commitment/priority matrix in this document controls revised product roadmap.
