@@ -1,6 +1,7 @@
 # Agent Factory Studio — complete product / service coverage map
 
 **Status: PROPOSED, 2026-10-28. Owner architecture sign-off remains pending under ADR-0002.**  
+**Scope rule:** This is a long-term **coverage inventory**, not a P0 commitment for each microservice to have a page. MVP cutline: [`STUDIO_MVP_SCOPE_DECISION.md`](STUDIO_MVP_SCOPE_DECISION.md).  
 **Baseline:** `docs/product/MVP.md`, `docs/architecture/PROPOSED_SERVICE_MAP.md`, `docs/parallel/CONTRACTS_V0.md`.  
 **Related:** `AGENT_FACTORY_STUDIO_RFC.md`, `STUDIO_UX_AND_DELIVERY.md`.  
 **Scope:** Product/UX contracts and architecture; NOT deployed frontend or integration acceptance.
