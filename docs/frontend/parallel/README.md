@@ -122,3 +122,10 @@ I00: freeze SDD/contract + C0 base & test harness
 Visual LangGraph graph editor and microfrontends are **ideas only**. A02 can provide a read-only graph visualization primitive **only by distinct reviewed request**, not editor drag/drop. A10 may implement a preview design and contract fixtures for bilateral until two-tenant backend/consent/evaluation becomes genuinely available, and must not pretend to perform real cross-tenant operations.
 
 **No feature agent authorizes changes to owner ADR-0002.** If the integration needs unapproved physical topology, it stays BLOCKED and documented.
+## Mandatory live task registry and 2-hour handoff
+
+**Before any coding agent begins, read [TASK_LEASE_PROTOCOL.md](TASK_LEASE_PROTOCOL.md) and its [live GitHub Issue](LIVE_TASK_INDEX.md).** Axx in a work packet is a proposed owner for the module, **not a granted work lease**.
+
+Each worker MUST receive an issue-based task claim through an authorized, serialized coordinator; record server-attributed UTC claim, status, generation, current branch, PR, heartbeat and meaningful progress separately. Heartbeat every <=20min, meaningful progress with linked SHA/PR/test evidence. After >120min without meaningful progress, evaluate compatible AVAILABLE tasks first; only when none exist inspect exact PR state, branch SHA and CI before requesting takeover. Transfer requires coordinator approval and new generation; new owner writes a handoff note and the integrator records it in OpenSpec. No feature agent may edit tasks.md on behalf of other agents.
+
+**Until coordinator and CI are deployed and tested, this rule is required process but NOT technically enforced.** Never claim that a GitHub Issue comment, assignee or label alone is an atomic lock.
