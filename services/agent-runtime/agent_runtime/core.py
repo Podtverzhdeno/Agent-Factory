@@ -296,7 +296,13 @@ class Runtime:
                             tool_ids=tuple(tool_bindings), trace_id=trace_id),
                             timeout=self.model_timeout_seconds)
                     except TimeoutError as exc:
+                        audit_event("runtime", "model.denied", "FAILED",
+                                    tenant_id=tenant_id, operation_id=run_id,
+                                    trace_id=trace_id, steps=step, code="MODEL_TIMEOUT")
                         raise RuntimeDenied('MODEL_TIMEOUT') from exc
+                    audit_event("runtime", "model.decided", "COMPLETED",
+                                tenant_id=tenant_id, operation_id=run_id,
+                                trace_id=trace_id, steps=step)
                     spent += decision.estimated_usd
                     if spent > spec.limits.max_usd_per_run:
                         raise RuntimeDenied('BUDGET_EXCEEDED')

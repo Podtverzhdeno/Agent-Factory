@@ -36,6 +36,7 @@ _EVENTS = frozenset({
     "build.started", "build.finished", "build.replayed", "build.denied",
     "run.started", "run.finished", "run.replayed", "run.denied",
     "tool.started", "tool.finished", "tool.denied", "a2a.denied",
+    "model.decided", "model.denied",
 })
 _OUTCOMES = frozenset({"STARTED", "COMPLETED", "BLOCKED", "REPLAYED", "DENIED", "FAILED"})
 _CODE = re.compile(r"^[A-Z][A-Z0-9_]{0,63}$")
