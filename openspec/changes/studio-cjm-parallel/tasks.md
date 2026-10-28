@@ -35,3 +35,14 @@
 AF-REQ-100→CJM-E2E-006/018; 101→007; 102→001/007; 103→005; 104→001; 105→008/021; 106→004/016; 107→003/004/009; 108→003/024; 109→010/011; 110→021/022; 111→001/002; 112→012; 113→012/020; 114→013/019; 115→006/016; 116→014/015; 117→015; 118→014; 119/120→017; 121→009/017; 122→009; 123→023; 124→path-allowlist integration check; 125→all CJM-E2E suite.
 
 Evidence record per task: requirement ID, agent PR, SHA, API schema version, fixture/dataset revision, test command and **actual** output, security finding, reviewer, remaining blockers. Do not check off or claim E2E while tests are not executed.
+
+
+## Concurrent agent claim, activity and 2-hour takeover — OPEN
+
+- [ ] STU-T19 — Implement one live GitHub Issue/lease record per frontend task with claim owner, claim UTC, work packet, exact status, generation, branch/PR, separate progress/heartbeat timestamps (AF-REQ-126/127); tests LEASE-001,015,016.
+- [ ] STU-T20 — Implement authorized serialized claim coordinator (Actions concurrency + double-check or transactional CAS), owner-to-GitHub identity binding, fencing and source-of-truth Issue audit events (AF-REQ-126/130); tests LEASE-001,006,008,009,010.
+- [ ] STU-T21 — Implement >120-minute meaningful-progress stale detection, compatibility-aware free-task preference and independent PR/branch/CI reconciliation before any takeover (AF-REQ-128/129); tests LEASE-002..005,007,011.
+- [ ] STU-T22 — Implement takeover request/notice/grace/human critical review, grant new generation once, safe branch/PR handoff and OpenSpec note (AF-REQ-129/130/131); tests LEASE-005,006,012..014.
+- [ ] STU-T23 — Integrator runs negative tests on task tracker, claim races, false-progress and real GitHub PR checks; enforces per-task owner/generation and path scope in CI. Record deployed SHA, actual logs and failure cases (AF-REQ-126..131); tests LEASE-001..016.
+
+**Coordination protocol:** docs/frontend/parallel/TASK_LEASE_PROTOCOL.md. Until dispatcher/CI is deployed, these checkboxes remain OPEN and task claims/takeovers are advisory only. Status in a PR or chat is not a lock.
