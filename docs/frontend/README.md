@@ -47,3 +47,8 @@ Freeze C0 SHA + source contract version, assign A01–A10 simultaneously to **di
 - Local feature tests ≠ service integration E2E ≠ pilot or production acceptance.
 - No false green statuses, silent tenant access, leaked holdout/secrets, irreversible effect claims without external receipt or unauthorized promotion.
 - **All implementation tasks remain OPEN in this documentation PR.**
+## Live parallel task ownership / activity
+
+- **[Task lease and 2-hour takeover protocol](parallel/TASK_LEASE_PROTOCOL.md)** — claims, UTC event log, heartbeat vs progress, source PR inspection, stale detection, safe generation-fenced handoff.
+- **[Live GitHub Issues index](parallel/LIVE_TASK_INDEX.md)** — 10 initialized Issue task records #8–#17. This index is not a live state cache; read each Issue as the latest source.
+- **[OpenSpec coordination requirements](../../openspec/changes/studio-cjm-parallel/specs/studio-cjm/spec.md)** — AF-REQ-126..131. STU-T19..23 remain OPEN pending serialized coordinator and executable CI.
