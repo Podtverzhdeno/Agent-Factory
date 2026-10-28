@@ -129,3 +129,7 @@ Visual LangGraph graph editor and microfrontends are **ideas only**. A02 can pro
 Each worker MUST receive an issue-based task claim through an authorized, serialized coordinator; record server-attributed UTC claim, status, generation, current branch, PR, heartbeat and meaningful progress separately. Heartbeat every <=20min, meaningful progress with linked SHA/PR/test evidence. After >120min without meaningful progress, evaluate compatible AVAILABLE tasks first; only when none exist inspect exact PR state, branch SHA and CI before requesting takeover. Transfer requires coordinator approval and new generation; new owner writes a handoff note and the integrator records it in OpenSpec. No feature agent may edit tasks.md on behalf of other agents.
 
 **Until coordinator and CI are deployed and tested, this rule is required process but NOT technically enforced.** Never claim that a GitHub Issue comment, assignee or label alone is an atomic lock.
+
+## Nine-agent dispatch pack (A01–A09)
+
+**[Copy-paste prompts and current assignments](prompts/README.md)** contains nine standalone Russian instructions, each with exact task Issue, allowed file paths, immediate audit/design activities, conditional coding after I00 C0 and an authorized lease, required tests and evidence report. A10 remains a future advanced bilateral packet, not silently reassigned. I00 handles shared root, integration and task coordinator, not one of the nine.
