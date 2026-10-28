@@ -2,6 +2,7 @@
 
 **Status:** PROPOSED / requires architectural review, not a deployed frontend.  
 **Date:** 2026-10-28  
+**Strict sequencing correction (2026-10-28):** [`STUDIO_MVP_SCOPE_DECISION.md`](STUDIO_MVP_SCOPE_DECISION.md) is the canonical implementation priority. pnpm workspaces/Turborepo, Redis/SSE fanout, separate BFF deployment, large ops console and multiple packages are **NOT** P0 requirements unless a measurable trigger occurs. TypeScript strict, SCSS Modules, real RBAC, safe DTOs and tests remain P0.  
 **Product context:** Agent Factory Studio (customer Business Workspace + privileged Operator Console) integrating Factory Orchestrator, Registry, Builder, Runtime, Evaluation, GEPARD, LiteLLM, AgentStore, A2A and observability.  
 **Supersedes no owner decision:** ADR-0002 still PENDING. This document commits no production topology without owner approval.
 
