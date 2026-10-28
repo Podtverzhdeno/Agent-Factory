@@ -1,6 +1,7 @@
 # Agent Factory Studio — UX blueprint, BFF design, integration backlog and acceptance
 
 **Date:** 2026-10-28  
+**Implementation priority:** [`STUDIO_MVP_SCOPE_DECISION.md`](STUDIO_MVP_SCOPE_DECISION.md) overrides the full target screen and package inventory below for first pilot.  
 **Status:** PROPOSED / design-only. No deployed frontend or automatically ratified ADR.  
 **Input:** `AGENT_FACTORY_STUDIO_RFC.md` and `STUDIO_SERVICE_COVERAGE.md`.
 
