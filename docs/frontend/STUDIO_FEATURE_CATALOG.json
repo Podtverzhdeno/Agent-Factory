@@ -1,0 +1,388 @@
+{
+  "$comment": "DESIGN CATALOG ONLY: not an actual deployment, entitlements or readiness feed. Public BFF availability MUST be computed from authenticated actor, tenant, environment, real services, source evidence and verified release state.",
+  "schema_version": "studio.box.catalog.v0",
+  "status": "PROPOSED_NOT_EXECUTABLE",
+  "owner_update_date": "2026-10-28",
+  "implementation_truth_is_separate": true,
+  "availability_authority": "studio_bff_server_computed",
+  "feature_count": 33,
+  "mandatory_operator_sections": 15,
+  "features": [
+    {
+      "id": "studio.agents",
+      "title": "Agents & Mission Control",
+      "box": "CORE_REQUIRED",
+      "delivery": "FIRST_PILOT",
+      "owner": "AgentStore/Control Plane",
+      "route": "/w/:workspace/agents",
+      "requires": [
+        "iam.workspace"
+      ]
+    },
+    {
+      "id": "studio.intake",
+      "title": "Business Task Creation",
+      "box": "CORE_REQUIRED",
+      "delivery": "FIRST_PILOT",
+      "owner": "Task Intake/Artifacts",
+      "route": "/w/:workspace/agents/new",
+      "requires": [
+        "iam.workspace"
+      ]
+    },
+    {
+      "id": "studio.registry",
+      "title": "Approved Tool Selection",
+      "box": "CORE_REQUIRED",
+      "delivery": "FIRST_PILOT",
+      "owner": "Registry/Builder",
+      "route": "/w/:workspace/integrations",
+      "requires": [
+        "studio.intake"
+      ]
+    },
+    {
+      "id": "studio.workflow",
+      "title": "Build & Repair Workflow",
+      "box": "CORE_REQUIRED",
+      "delivery": "FIRST_PILOT",
+      "owner": "Control Plane/Builder",
+      "route": "/w/:workspace/workflows/:id",
+      "requires": [
+        "studio.intake"
+      ]
+    },
+    {
+      "id": "studio.runtime",
+      "title": "Sandbox Runs & Artifacts",
+      "box": "CORE_REQUIRED",
+      "delivery": "FIRST_PILOT",
+      "owner": "Runtime/Artifact Storage",
+      "route": "/w/:workspace/runs/:id",
+      "requires": [
+        "studio.workflow"
+      ]
+    },
+    {
+      "id": "studio.quality",
+      "title": "Independent Quality & Evidence",
+      "box": "CORE_REQUIRED",
+      "delivery": "FIRST_PILOT",
+      "owner": "Evaluation/Signed Audit",
+      "route": "/w/:workspace/agents/:id/quality",
+      "requires": [
+        "studio.runtime"
+      ]
+    },
+    {
+      "id": "studio.versions",
+      "title": "Agent Versions & Release Gate",
+      "box": "CORE_REQUIRED",
+      "delivery": "AFTER_RELEASE_E2E",
+      "owner": "AgentStore/Control Plane",
+      "route": "/w/:workspace/agents/:id/versions",
+      "requires": [
+        "studio.quality"
+      ]
+    },
+    {
+      "id": "studio.gepard",
+      "title": "GEPARD Candidate & Retest",
+      "box": "CORE_REQUIRED",
+      "delivery": "AFTER_REAL_GEPA_E2E",
+      "owner": "GEPARD/Evaluation",
+      "route": "/w/:workspace/agents/:id/quality",
+      "requires": [
+        "studio.quality"
+      ]
+    },
+    {
+      "id": "studio.litellm",
+      "title": "Model Routing & Reconciled Usage",
+      "box": "CORE_REQUIRED",
+      "delivery": "AFTER_GATEWAY_E2E",
+      "owner": "LiteLLM",
+      "route": "/w/:workspace/analytics",
+      "requires": [
+        "iam.workspace"
+      ]
+    },
+    {
+      "id": "studio.a2a",
+      "title": "A2A Client Access",
+      "box": "CORE_REQUIRED",
+      "delivery": "AFTER_A2A_IAM_E2E",
+      "owner": "A2A Runtime Gateway",
+      "route": "/w/:workspace/agents/:id/access",
+      "requires": [
+        "studio.versions"
+      ]
+    },
+    {
+      "id": "studio.charts",
+      "title": "Typed Shared Chart Kit",
+      "box": "CORE_REQUIRED",
+      "delivery": "NOW_DESIGN_INCREMENTAL_REAL_DATA",
+      "owner": "Verified source read models",
+      "route": "/w/:workspace/analytics",
+      "requires": [
+        "bff.safe_read_model"
+      ]
+    },
+    {
+      "id": "studio.bilateral",
+      "title": "Two-Company Collaborative Agent Builder",
+      "box": "ADVANCED_COMMITTED",
+      "delivery": "AFTER_BILATERAL_E2E",
+      "owner": "Two Task Intakes/Builders/Runtimes/A2A/Evaluation",
+      "route": "/w/:workspace/scenarios/new",
+      "requires": [
+        "studio.a2a",
+        "studio.quality",
+        "iam.partner_consent"
+      ]
+    },
+    {
+      "id": "studio.langgraph_visual_editor",
+      "title": "Visual LangGraph Graph Editor",
+      "box": "IDEA_ONLY",
+      "delivery": "NO_IMPLEMENTATION",
+      "owner": "Future typed graph compiler",
+      "route": "/roadmap/graph-editor",
+      "requires": [
+        "studio.runtime"
+      ]
+    },
+    {
+      "id": "studio.microfrontends",
+      "title": "Microfrontend Architecture",
+      "box": "IDEA_ONLY",
+      "delivery": "NO_IMPLEMENTATION",
+      "owner": "Future UI platform ownership",
+      "route": "/roadmap/microfrontends",
+      "requires": []
+    },
+    {
+      "id": "iam.workspace",
+      "title": "Workspace Roles & Tenant Isolation",
+      "box": "CORE_REQUIRED",
+      "delivery": "FIRST_PILOT",
+      "owner": "OIDC/Policy",
+      "route": "/w/:workspace/settings/members",
+      "requires": []
+    },
+    {
+      "id": "iam.operator",
+      "title": "Privileged Operator Identity",
+      "box": "OPERATOR_REQUIRED",
+      "delivery": "FIRST_PILOT",
+      "owner": "OIDC/Policy",
+      "route": "/ops",
+      "requires": [
+        "iam.workspace"
+      ]
+    },
+    {
+      "id": "iam.partner_consent",
+      "title": "Two-party Consent & Disclosure",
+      "box": "ADVANCED_COMMITTED",
+      "delivery": "AFTER_BILATERAL_E2E",
+      "owner": "IAM/Consent",
+      "route": "/w/:workspace/scenarios",
+      "requires": [
+        "iam.workspace"
+      ]
+    },
+    {
+      "id": "bff.safe_read_model",
+      "title": "Studio BFF Safe Typed Projection",
+      "box": "CORE_REQUIRED",
+      "delivery": "FIRST_PILOT",
+      "owner": "Studio BFF APIs",
+      "route": "/api/studio/features",
+      "requires": [
+        "iam.workspace"
+      ]
+    },
+    {
+      "id": "ops.fleet",
+      "title": "Platform Fleet",
+      "box": "OPERATOR_REQUIRED",
+      "delivery": "STAGED_BACKEND_WIRING",
+      "owner": "Deployment/Runtime",
+      "route": "/ops/fleet",
+      "requires": [
+        "iam.operator",
+        "bff.safe_read_model"
+      ]
+    },
+    {
+      "id": "ops.workflows",
+      "title": "Workflows & Queues",
+      "box": "OPERATOR_REQUIRED",
+      "delivery": "STAGED_BACKEND_WIRING",
+      "owner": "Control Plane/Kafka Outbox",
+      "route": "/ops/workflows",
+      "requires": [
+        "iam.operator",
+        "bff.safe_read_model"
+      ]
+    },
+    {
+      "id": "ops.builder",
+      "title": "Builder & AgentSpecs",
+      "box": "OPERATOR_REQUIRED",
+      "delivery": "STAGED_BACKEND_WIRING",
+      "owner": "Agent Builder/AgentSpec store",
+      "route": "/ops/builder",
+      "requires": [
+        "iam.operator",
+        "bff.safe_read_model"
+      ]
+    },
+    {
+      "id": "ops.runtime",
+      "title": "Runtime & Checkpoints",
+      "box": "OPERATOR_REQUIRED",
+      "delivery": "STAGED_BACKEND_WIRING",
+      "owner": "Agent Runtime/Postgres",
+      "route": "/ops/runtime",
+      "requires": [
+        "iam.operator",
+        "bff.safe_read_model"
+      ]
+    },
+    {
+      "id": "ops.registry",
+      "title": "Tool/MCP Registry",
+      "box": "OPERATOR_REQUIRED",
+      "delivery": "STAGED_BACKEND_WIRING",
+      "owner": "Tool/MCP Registry",
+      "route": "/ops/registry",
+      "requires": [
+        "iam.operator",
+        "bff.safe_read_model"
+      ]
+    },
+    {
+      "id": "ops.connectors",
+      "title": "Connectors & Secrets",
+      "box": "OPERATOR_REQUIRED",
+      "delivery": "STAGED_BACKEND_WIRING",
+      "owner": "Vault/Registry",
+      "route": "/ops/connectors",
+      "requires": [
+        "iam.operator",
+        "bff.safe_read_model"
+      ]
+    },
+    {
+      "id": "ops.artifacts",
+      "title": "Task Intake & Artifacts",
+      "box": "OPERATOR_REQUIRED",
+      "delivery": "STAGED_BACKEND_WIRING",
+      "owner": "Task Intake/Ingestion",
+      "route": "/ops/artifacts",
+      "requires": [
+        "iam.operator",
+        "bff.safe_read_model"
+      ]
+    },
+    {
+      "id": "ops.evaluation",
+      "title": "Evaluation & Holdouts",
+      "box": "OPERATOR_REQUIRED",
+      "delivery": "STAGED_BACKEND_WIRING",
+      "owner": "Evaluation",
+      "route": "/ops/evaluation",
+      "requires": [
+        "iam.operator",
+        "bff.safe_read_model"
+      ]
+    },
+    {
+      "id": "ops.gepard",
+      "title": "GEPARD Experiments",
+      "box": "OPERATOR_REQUIRED",
+      "delivery": "STAGED_BACKEND_WIRING",
+      "owner": "GEPARD/Evaluation",
+      "route": "/ops/gepard",
+      "requires": [
+        "iam.operator",
+        "bff.safe_read_model"
+      ]
+    },
+    {
+      "id": "ops.models",
+      "title": "Models & LiteLLM",
+      "box": "OPERATOR_REQUIRED",
+      "delivery": "STAGED_BACKEND_WIRING",
+      "owner": "LiteLLM",
+      "route": "/ops/models",
+      "requires": [
+        "iam.operator",
+        "bff.safe_read_model"
+      ]
+    },
+    {
+      "id": "ops.a2a",
+      "title": "A2A & Bilateral Lab",
+      "box": "OPERATOR_REQUIRED",
+      "delivery": "STAGED_BACKEND_WIRING",
+      "owner": "A2A/Runtime/Evaluation",
+      "route": "/ops/a2a",
+      "requires": [
+        "iam.operator",
+        "bff.safe_read_model"
+      ]
+    },
+    {
+      "id": "ops.releases",
+      "title": "Releases & AgentStore",
+      "box": "OPERATOR_REQUIRED",
+      "delivery": "STAGED_BACKEND_WIRING",
+      "owner": "Control Plane/AgentStore",
+      "route": "/ops/releases",
+      "requires": [
+        "iam.operator",
+        "bff.safe_read_model"
+      ]
+    },
+    {
+      "id": "ops.observability",
+      "title": "Traces, Logs & Metrics",
+      "box": "OPERATOR_REQUIRED",
+      "delivery": "STAGED_BACKEND_WIRING",
+      "owner": "OTel/Langfuse",
+      "route": "/ops/observability",
+      "requires": [
+        "iam.operator",
+        "bff.safe_read_model"
+      ]
+    },
+    {
+      "id": "ops.security",
+      "title": "Security, Tenants & Audit",
+      "box": "OPERATOR_REQUIRED",
+      "delivery": "STAGED_BACKEND_WIRING",
+      "owner": "IAM/Policy/Audit",
+      "route": "/ops/security",
+      "requires": [
+        "iam.operator",
+        "bff.safe_read_model"
+      ]
+    },
+    {
+      "id": "ops.incidents",
+      "title": "Incidents, Alerts & SLO",
+      "box": "OPERATOR_REQUIRED",
+      "delivery": "STAGED_BACKEND_WIRING",
+      "owner": "Metrics/Alerting",
+      "route": "/ops/incidents",
+      "requires": [
+        "iam.operator",
+        "bff.safe_read_model"
+      ]
+    }
+  ]
+}
