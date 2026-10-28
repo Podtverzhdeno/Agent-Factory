@@ -2,6 +2,9 @@
 
 **Readiness:** READY TO COPY THE PROMPTS, **NOT READY TO CLAIM CODE TASKS**. Branch `design/frontend-studio-rfc-20261028` contains a Draft specification PR. I00 common app/contract baseline C0, the atomic GitHub Issue task coordinator and ADR-0002 owner ratification are not verified as delivered. Do not confuse prompt preparation with launched agents or completed app code.
 
+
+**[Один файл со всеми девятью промптами для раздачи агентам](ALL_9_PROMPTS.md)**. Каждый раздел Axx должен быть отправлен отдельному агенту; не давайте весь файл как одно задание.
+
 ## Nine copy-paste prompts
 
 | Prompt | Task / live Issue | Ownership | What this agent will do |
