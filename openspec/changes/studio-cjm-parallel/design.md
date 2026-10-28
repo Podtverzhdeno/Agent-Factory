@@ -42,3 +42,8 @@ Design-only → isolated feature tests with synthetic fixtures → single integr
 ## Risks and owner decisions
 
 ADR-0002 still pending owner authorizing service topology, Task Intake ownership, deployed BFF boundary, IAM source and production hosting. No new mandatory backend deployable is approved by this doc. Customer-installable on-prem "box" is NOT decided merely by using the term boxed product. Full Operator Console design and charts are mandatory target scope; avoid assuming their upstream APIs are ready.
+
+
+## Live task ownership & handoff (proposed)
+
+One GitHub Issue per assignable task carries the **current** state, and server-attributed GitHub comments form its append-only claim/progress/handoff trail. The OpenSpec file is the requirement ledger, NOT a multi-writer heartbeat store. Coordinator serializes state transitions, checks actor GitHub authority, issues task-scope ownership generation, and validates latest branch/PR/test evidence before a takeover. Heartbeats and meaningful progress have independent clocks; after 120 minutes without substantive progress, first prefer an available compatible task, then request stale takeover only with integration-owner verification and a bounded grace window. Old generations are fenced from marking completion or modifying another agent's paths. See docs/frontend/parallel/TASK_LEASE_PROTOCOL.md. No GitHub Actions deployment or live lock is claimed by this design.
