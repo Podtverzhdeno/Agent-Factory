@@ -86,6 +86,23 @@ class GH:
     def branch(self, branch: str) -> dict[str, Any]:
         return self.call("GET", "/branches/" + urllib.parse.quote(branch, safe=""))
 
+    def compare(self, base: str, head: str) -> dict[str, Any]:
+        return self.call("GET", "/compare/" + urllib.parse.quote(base, safe="")
+                         + "..." + urllib.parse.quote(head, safe=""))
+
+    def pull_requests_for_branch(self, branch: str) -> list[dict[str, Any]]:
+        owner = self.repo.split("/")[0]
+        suffix = "/pulls?state=all&per_page=100&head=" + urllib.parse.quote(owner + ":" + branch)
+        result = self.call("GET", suffix)
+        if not isinstance(result, list):
+            raise LeaseRejected("INVALID_PR_LIST")
+        # Fail closed: if pagination is required, a reviewer must explicitly
+        # inspect the complete PR history before any takeover.
+        if len(result) >= 100:
+            raise LeaseRejected("PR_LIST_PAGINATION_REVIEW_REQUIRED")
+        return result
+
+
     def checks_ok(self, sha: str) -> bool:
         data = self.call("GET", "/commits/" + sha + "/check-runs?per_page=100")
         return any("Studio C0 reproducibility" in c.get("name", "") and
@@ -109,6 +126,43 @@ def verify_commit_paths(gh: GH, sha: str, workstream: str, role_owners: dict[str
     changed = [f["filename"] for f in data.get("files", [])]
     if not changed or any(not path_allowed(p, owner["write_allowlist"]) for p in changed):
         raise LeaseRejected("EVIDENCE_OUTSIDE_TASK_PATHS")
+
+
+def verify_branch_contains(gh: GH, base: str, branch: str, evidence_sha: str | None = None) -> None:
+    if not HEX_SHA.fullmatch(base):
+        raise LeaseRejected("INVALID_BASE_SHA")
+    result = gh.compare(base, branch)
+    if result.get("status") not in ("ahead", "identical"):
+        raise LeaseRejected("BRANCH_NOT_DERIVED_FROM_C0")
+    if evidence_sha:
+        later = gh.compare(evidence_sha, branch)
+        if later.get("status") not in ("ahead", "identical"):
+            raise LeaseRejected("EVIDENCE_NOT_IN_BRANCH")
+
+
+def verify_takeover_no_new_work(gh: GH, task: dict[str, Any]) -> None:
+    if not task.get("takeover_requested_at"):
+        raise LeaseRejected("MISSING_TAKEOVER_TIME")
+    branch = task.get("current_branch")
+    if not branch:
+        raise LeaseRejected("MISSING_PREVIOUS_BRANCH")
+    data = gh.branch(branch)
+    branch_sha = data.get("commit", {}).get("sha")
+    if not HEX_SHA.fullmatch(branch_sha or ""):
+        raise LeaseRejected("INVALID_PREVIOUS_BRANCH_HEAD")
+    last_sha = task.get("last_evidence_sha") or task.get("base_sha")
+    if branch_sha != last_sha:
+        raise LeaseRejected("UNREPORTED_BRANCH_PROGRESS")
+    for pr in gh.pull_requests_for_branch(branch):
+        if pr.get("merged_at") or pr.get("state") == "open":
+            # An active PR may contain unreviewed valuable work; takeover
+            # must be resolved by a separate issue/manual handoff process.
+            raise LeaseRejected("ACTIVE_OR_MERGED_PR_REVIEW_REQUIRED")
+        if pr.get("updated_at") and utc(pr["updated_at"]) > utc(task["takeover_requested_at"]):
+            raise LeaseRejected("NEW_PR_ACTIVITY")
+    checks = gh.call("GET", "/commits/" + branch_sha + "/check-runs?per_page=100")
+    if any(x.get("status") != "completed" for x in checks.get("check_runs", [])):
+        raise LeaseRejected("CI_STILL_RUNNING")
 
 
 def compatible_free_tasks(gh: GH, role_owners: dict[str, Any], allowed_roles: list[str]) -> int:
@@ -165,6 +219,7 @@ def execute(gh: GH, event: dict[str, Any], identities: dict[str, Any], owners: d
         if not branch.startswith("frontend/") or len(branch) > 120:
             raise LeaseRejected("INVALID_BRANCH")
         gh.branch(branch)
+        verify_branch_contains(gh, current.get("base_sha") or "", branch)
         next_state = grant_claim(current, agent=args[0], actor=actor,
                                 expected=int(args[1]), when=when,
                                 base_sha=current.get("base_sha") or "", branch=branch)
@@ -186,6 +241,7 @@ def execute(gh: GH, event: dict[str, Any], identities: dict[str, Any], owners: d
         # /studio-task progress A03 1 <40-hex-commit>
         if len(args) != 3 or not args[1].isdigit() or not HEX_SHA.fullmatch(args[2]):
             raise LeaseRejected("INVALID_PROGRESS")
+        verify_branch_contains(gh, current.get("base_sha") or "", current.get("current_branch") or "", args[2])
         verify_commit_paths(gh, args[2], current["assigned_workstream"], owners)
         next_state = progress(current, agent=args[0], actor=actor,
                               generation=int(args[1]), when=when, evidence_sha=args[2])
@@ -211,14 +267,16 @@ def execute(gh: GH, event: dict[str, Any], identities: dict[str, Any], owners: d
         if not authorizes_maintainer or len(args) != 3 or not args[1].isdigit():
             raise LeaseRejected("ONLY_MAINTAINER_GRANTS_TAKEOVER")
         gh.branch(args[2])
+        verify_branch_contains(gh, current.get("base_sha") or "", args[2])
+        verify_takeover_no_new_work(gh, current)
         grant_actor = current.get("takeover_requested_actor")
         grant_role = current.get("takeover_requested_by")
         if args[0] != grant_role or not grant_actor:
             raise LeaseRejected("TAKEOVER_REQUEST_MISMATCH")
         free = compatible_free_tasks(gh, owners, identities.get("agent_roles", {}).get(grant_actor, []))
-        # Current source/CI review is performed by I00 and linked in
-        # takeover_inspection_ref; this endpoint is human-maintainer gated.
-        # Additional automated PR reconciliation before unlock remains required.
+        # Maintainer approval PLUS live GitHub branch, PR and CI checks.
+        # A separate integration path-ownership CI gate remains required
+        # before any reassigned agent code may be merged.
         next_state = grant_takeover(current, agent=args[0], actor=grant_actor,
                                     expected=int(args[1]), when=when, free_count=free,
                                     inspected_no_new_progress=True,
