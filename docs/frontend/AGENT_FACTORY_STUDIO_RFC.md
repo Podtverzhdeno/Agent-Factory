@@ -85,8 +85,8 @@ P2: полноценный node editor, marketplace MCP/skills, сценарии
 
 - `apps/studio-web`: TypeScript, React, Next.js App Router, адаптивный UI.
 - `apps/studio-bff` или Next.js server route handlers: единственный public-facing BFF для UI, серверные OIDC-сессии, tenant-auth, aggregation, DTO/redaction, idempotency, rate limits; выбор отдельного BFF vs framework routes после ADR-0002.
-- `packages/ui`: design tokens, базовые компоненты, accessibility, таблицы, статусы, сплит-панели.
-- `packages/contracts`: OpenAPI-generated types, Zod schemas/runtime validation, typed API client, version negotiation.
+- `packages/ui`: design tokens, базовые компоненты, accessibility, таблицы, статусы, сплит-панели; **SCSS Modules + CSS Custom Properties** как единый стиль для масштабируемого frontend.
+- `packages/contracts`: OpenAPI-generated types, Zod schemas/runtime validation, typed API client, version negotiation; TypeScript strict, noUncheckedIndexedAccess, package boundaries и pinned schema revisions.
 - `features/task-intake`, `agent-build`, `execution`, `quality`, `registry`, `releases`, `observability`: модульная организация без циклических импортов.
 - Для real-time: **BFF SSE** с повторным подключением и `Last-Event-ID`; сервер должен возвращать tenant-validated event projections, а не сырые Kafka, DB или audit signer envelopes. Polling fallback 5–10s. Состояние после реконнекта перечитывается через GET (источник истины — сервер).
 - React Flow допустим **только для inspector/операторской схемы**, не как базовый интерфейс создания агента.
@@ -155,5 +155,7 @@ Never infer progress percentages by elapsed time. Never emit VERIFIED/RELEASED f
 - No exposing technical trace secrets to unprivileged customer role.
 - No placeholder data masquerading as real customer KPIs.
 - No shared customer/operator actions that bypass the server's role and policy checks.
+
+**Масштабирование frontend:** обязательный сопровождающий документ: [`STUDIO_SCALABILITY_ENGINEERING.md`](STUDIO_SCALABILITY_ENGINEERING.md). Он фиксирует TypeScript strict, SCSS Modules, CSS-токены, pnpm/Turborepo, независимые feature modules, схемы BFF/SSE, тесты безопасности и критерии декомпозиции.
 
 **Вопрос для owner ADR:** является ли Studio BFF отдельным сервисом или управляемым frontend gateway? Кто владеет Task Intake and artifact storage? До ответа проектирование логических API не утверждает физическую сервисную карту.
