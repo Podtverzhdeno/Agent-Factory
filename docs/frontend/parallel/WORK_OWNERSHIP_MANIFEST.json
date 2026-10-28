@@ -34,7 +34,10 @@
         "apps/studio/src/features/platform/**"
       ],
       "may_modify_shared_contracts": false,
-      "may_merge_main": false
+      "may_merge_main": false,
+      "task_id": "STU-T03",
+      "issue_number": 8,
+      "issue_url": "https://github.com/Podtverzhdeno/Agent-Factory/issues/8"
     },
     {
       "id": "A02",
@@ -46,7 +49,10 @@
         "apps/studio/src/features/chart-showcase/**"
       ],
       "may_modify_shared_contracts": false,
-      "may_merge_main": false
+      "may_merge_main": false,
+      "task_id": "STU-T04",
+      "issue_number": 9,
+      "issue_url": "https://github.com/Podtverzhdeno/Agent-Factory/issues/9"
     },
     {
       "id": "A03",
@@ -57,7 +63,10 @@
         "apps/studio/app/[locale]/w/[workspaceId]/tasks/**"
       ],
       "may_modify_shared_contracts": false,
-      "may_merge_main": false
+      "may_merge_main": false,
+      "task_id": "STU-T05",
+      "issue_number": 10,
+      "issue_url": "https://github.com/Podtverzhdeno/Agent-Factory/issues/10"
     },
     {
       "id": "A04",
@@ -70,7 +79,10 @@
         "apps/studio/app/[locale]/w/[workspaceId]/workflows/**"
       ],
       "may_modify_shared_contracts": false,
-      "may_merge_main": false
+      "may_merge_main": false,
+      "task_id": "STU-T06",
+      "issue_number": 11,
+      "issue_url": "https://github.com/Podtverzhdeno/Agent-Factory/issues/11"
     },
     {
       "id": "A05",
@@ -82,7 +94,10 @@
         "apps/studio/app/[locale]/w/[workspaceId]/agents/[agentId]/playground/**"
       ],
       "may_modify_shared_contracts": false,
-      "may_merge_main": false
+      "may_merge_main": false,
+      "task_id": "STU-T07",
+      "issue_number": 12,
+      "issue_url": "https://github.com/Podtverzhdeno/Agent-Factory/issues/12"
     },
     {
       "id": "A06",
@@ -96,7 +111,10 @@
         "apps/studio/app/[locale]/w/[workspaceId]/releases/**"
       ],
       "may_modify_shared_contracts": false,
-      "may_merge_main": false
+      "may_merge_main": false,
+      "task_id": "STU-T08",
+      "issue_number": 13,
+      "issue_url": "https://github.com/Podtverzhdeno/Agent-Factory/issues/13"
     },
     {
       "id": "A07",
@@ -110,7 +128,10 @@
         "apps/studio/app/[locale]/ops/registry/**"
       ],
       "may_modify_shared_contracts": false,
-      "may_merge_main": false
+      "may_merge_main": false,
+      "task_id": "STU-T09",
+      "issue_number": 14,
+      "issue_url": "https://github.com/Podtverzhdeno/Agent-Factory/issues/14"
     },
     {
       "id": "A08",
@@ -124,7 +145,10 @@
         "apps/studio/app/[locale]/ops/models/**"
       ],
       "may_modify_shared_contracts": false,
-      "may_merge_main": false
+      "may_merge_main": false,
+      "task_id": "STU-T10",
+      "issue_number": 15,
+      "issue_url": "https://github.com/Podtverzhdeno/Agent-Factory/issues/15"
     },
     {
       "id": "A09",
@@ -138,7 +162,10 @@
         "apps/studio/app/[locale]/ops/incidents/**"
       ],
       "may_modify_shared_contracts": false,
-      "may_merge_main": false
+      "may_merge_main": false,
+      "task_id": "STU-T11",
+      "issue_number": 16,
+      "issue_url": "https://github.com/Podtverzhdeno/Agent-Factory/issues/16"
     },
     {
       "id": "A10",
@@ -148,7 +175,24 @@
         "apps/studio/app/[locale]/w/[workspaceId]/scenarios/**"
       ],
       "may_modify_shared_contracts": false,
-      "may_merge_main": false
+      "may_merge_main": false,
+      "task_id": "STU-T12",
+      "issue_number": 17,
+      "issue_url": "https://github.com/Podtverzhdeno/Agent-Factory/issues/17"
     }
-  ]
+  ],
+  "task_coordination": {
+    "protocol": "docs/frontend/parallel/TASK_LEASE_PROTOCOL.md",
+    "live_issues_are_authoritative": true,
+    "stale_after_meaningful_progress_seconds": 7200,
+    "heartbeat_interval_seconds": 1200,
+    "lease_expiration_seconds": 1800,
+    "takeover_grace_seconds": 600,
+    "dispatcher_status": "NOT_DEPLOYED",
+    "require_serialized_coordinator": true,
+    "require_generation_fencing": true,
+    "take_available_compatible_task_before_stale": true,
+    "verify_pr_branch_ci_before_takeover": true,
+    "do_not_interpret_static_catalog_as_current_status": true
+  }
 }
