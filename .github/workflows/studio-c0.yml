@@ -36,7 +36,7 @@ jobs:
         env:
           NEXT_TELEMETRY_DISABLED: '1'
         run: npm run build
-      - name: Python task-lease state machine tests
+      - name: Python task-lease state machine and PR-scope tests
         run: python -m unittest discover -s tests/studio-coordination -v
       - name: Commit reviewed dependency lockfile to C0-prep
         if: github.event_name == 'push'
