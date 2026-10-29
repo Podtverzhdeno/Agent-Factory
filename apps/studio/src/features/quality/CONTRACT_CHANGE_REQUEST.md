@@ -31,3 +31,37 @@ Separate immutable Version, release eligibility, Approval, ReleaseRecord, comman
 ## What closes this request
 
 I00/A01 provide versioned schemas and fixtures for success/empty/partial/stale/unknown/unavailable, concrete error semantics, idempotent command reconciliation, source and signer authority, holdout redaction proof, and a pinned C0 BASE_SHA. Until then, screens remain research/read-only; no live optimization/release/rollback is claimed.
+
+## Cross-surface evidence projection — A06/A08 proposal, not approved
+
+A08's proposal to return a server-verified projection instead of exposing the internal cryptographic envelope or a caller-set boolean is accepted. Customer Quality and Ops Evaluation should consume the **same versioned domain semantics** through separate role-scoped views; do not build competing evidence models.
+
+Suggested public projection (illustrative field names, not a frozen DTO):
+
+- `schemaVersion`.
+- `verificationState`: `VERIFIED | UNVERIFIED | INVALID | EXPIRED | REVOKED | UNAVAILABLE | UNSUPPORTED`, set by the independent Evaluation verifier/service.
+- `subject`: opaque evaluation-run reference, runtime-run reference where permitted, exact candidate/spec digest, dataset revision/digest where disclosure policy permits, and evaluation-policy revision. The verifier must also bind the trusted tenant internally; never accept a tenant binding supplied by the browser and do not return cross-tenant existence details.
+- `verifier`: verifier/source revision and checked-at/source-as-of timestamps.
+- `safeReasonCode`: a bounded, documented value such as `MISSING_EVIDENCE`, `VERIFIER_UNAVAILABLE`, `EVIDENCE_REJECTED`, `EVIDENCE_EXPIRED`, `EVIDENCE_REVOKED`, `SUBJECT_MISMATCH`, or `UNSUPPORTED_EVIDENCE_VERSION`. Do not return key material, private payloads or detailed security diagnostics to ordinary operator roles.
+- `evidenceRef`: optional and included only when safe for the caller's scope.
+
+Keep **verification outcome** separate from **disclosure outcome**. The BFF/policy layer may return an independently versioned decision such as `AGGREGATE_ONLY | REDACTED_NON_HOLDOUT_REFERENCES | HIDDEN`, plus policy revision and a safe reason. It must not rewrite `verificationState`, calculate thresholds in the browser or send hidden rows and raw suppression thresholds to the UI. Default operator visibility is aggregate-only; redacted non-holdout references require an explicit source-authorized projection.
+
+### Responsibility boundary
+
+- Runtime signing/key authority: signer identity, signature provenance and key lifecycle.
+- Independent Evaluation verifier/service: cryptographic validation, replay/expiry/revocation checks, exact run/spec/dataset/policy binding and authoritative Evaluation/evidence-verification outcome.
+- Evaluation/data-vault or data-governance owner: case/holdout disclosure policy and cohort-suppression decision.
+- A01/BFF: trusted session/tenant checks, server-side authorization and delivery of the permitted projection.
+- A06: domain semantics and customer Quality presentation; A08: operator presentation. Neither UI computes, overrides or repairs source outcomes.
+- I00: versioned shared DTO/export and integration-test freeze.
+
+### Required contract tests
+
+1. Valid signed evidence with exact subject binding yields source-authored VERIFIED.
+2. Wrong tenant, run, spec digest, dataset revision or policy revision; replayed evidence; invalid signature; expired/revoked signer; unsupported schema; and verifier outage never become VERIFIED/PASSED.
+3. Ordinary operator role cannot obtain raw holdout rows, gold answers, private prompts, raw traces, hidden IDs or detailed security causes via JSON, deep links, filters, charts, exports, logs or stale cache.
+4. Cohort suppression is applied consistently by the owning service/policy, is version-stamped, and cannot be bypassed by repeated filtering or small-cohort drill-down.
+5. Cross-tenant and revoked-grant tests return authorization-safe responses without leaking resource existence; source verification state is not confused with caller visibility.
+
+No verified cohort-suppression endpoint or live signature verifier was established at the reviewed C0-R/source evidence. Owner, endpoint, schema, commit and passing negative-test run remain required evidence; this proposal does not imply they already exist.
