@@ -65,3 +65,70 @@ Keep **verification outcome** separate from **disclosure outcome**. The BFF/poli
 5. Cross-tenant and revoked-grant tests return authorization-safe responses without leaking resource existence; source verification state is not confused with caller visibility.
 
 No verified cohort-suppression endpoint or live signature verifier was established at the reviewed C0-R/source evidence. Owner, endpoint, schema, commit and passing negative-test run remain required evidence; this proposal does not imply they already exist.
+
+
+## Concrete shared DTO proposal for I00/A01 — illustrative only
+
+The following is a **schema proposal**, not a current compiled/live type. I am proposing the semantic contract; I00/A01 must choose the canonical exported names and runtime validation.
+
+```ts
+type EvidenceVerificationState =
+  | "VERIFIED"
+  | "UNVERIFIED"
+  | "INVALID"
+  | "EXPIRED"
+  | "REVOKED"
+  | "UNAVAILABLE"
+  | "UNSUPPORTED";
+
+interface EvidenceSubjectProjection {
+  evaluationRunRef: string;       // opaque and tenant-scoped
+  runtimeRunRef: string | null;   // omit/redact where not permitted
+  agentSpecDigest: string;
+  datasetRevision: string;
+  datasetDigest: string | null;   // only where disclosure policy permits
+  evaluationPolicyRevision: string;
+  // Tenant binding is verified server-side; do not accept or echo a client-selected tenant.
+}
+
+interface EvidenceVerificationProjection {
+  schemaVersion: string;
+  verificationState: EvidenceVerificationState;
+  subject: EvidenceSubjectProjection;
+  verifierSourceRef: string;
+  verifierRevision: string;
+  verifiedAt: string | null;
+  sourceAsOf: string | null;
+  safeReasonCode: string | null;
+  evidenceRef: string | null;     // only when authorized and safe for this role
+}
+
+type EvidenceDisclosureMode =
+  | "AGGREGATE_ONLY"
+  | "REDACTED_NON_HOLDOUT_CASES"
+  | "UNAVAILABLE";
+
+interface EvidenceDisclosureProjection {
+  mode: EvidenceDisclosureMode;
+  policyRevision: string | null;
+  safeSuppressionReasonCode: string | null;
+}
+
+interface HardGateProjection {
+  outcome: "CLEAR" | "VETO" | "UNKNOWN";
+  safeReasonCode: string | null;
+  policyRevision: string;
+}
+```
+
+Normative semantics for review:
+
+- A value of VERIFIED is source-authored and may be emitted only after signature/key lifecycle, expiry/revocation, replay protection, and exact run/spec/dataset/policy binding succeed for the trusted tenant context. The browser's request cannot select or override that context.
+- The subject tuple is the same across Customer Quality and Ops Evaluation. BFF role policy may redact optional references/digest fields, but it must not change the meaning of the verification state.
+- Verification and disclosure are separate. A verified artifact can still be undisclosable to a particular operator. In that case retain the source verification result where safe, return aggregate-only or unavailable case detail, and never infer that the user is forbidden from seeing an agent's existence if that would leak cross-tenant data.
+- A hard veto should be represented as a categorical, source-owned outcome plus a **safe** reason code. Detailed policy/sealed-case diagnostics belong only in a separately authorized audit surface; never return hidden gold or raw protected reasons to normal UI.
+- Case visibility/suppression is decided server-side and version-stamped. No UI threshold, local filter or export path may bypass it.
+
+## Owner still required for cohort suppression
+
+No reviewed source proved an existing cohort-suppression endpoint. I00 must name the actual Evaluation/data-vault/data-governance service owner; that owner defines and tests the versioned policy API. A01 owns BFF transport and authorization mapping; A06 proposes the domain/UI semantics; A08 consumes the operator projection. Until the owner, endpoint/schema, commit and passing small-cohort/holdout leakage tests are linked, treat case disclosure as unavailable and do not assign an arbitrary threshold in Studio.
